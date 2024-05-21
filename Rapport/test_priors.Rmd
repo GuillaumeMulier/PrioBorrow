@@ -1,0 +1,308 @@
+---
+title: "Expérimentation avec les priors"
+author: "Guillaume Mulier, Lucie Biard"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include = FALSE}
+library(tidyverse)
+here::i_am("Rapport/test_priors.Rmd")
+library(here)
+
+theme_set(theme_light())
+
+load(here("Data/res_tests_priors.RData"))
+```
+
+
+# Simulations
+
+J'ai pris 3 scénarios sur l'efficacité commune à tous les traitements :
+
+- Beta(10, 10) ;
+- Beta(10, 30) ;
+- Beta(60, 20).
+
+Ensuite, j'ai généré 1 000 fois 3 essais de tailles (40, 20, 60) avec un probabilité tirée dans la loi beta ci-dessus pour "émuler" un hyperparamètre.
+Puis j'ai fait tourner les modèles STAN pour comparer les résultats.
+J'ai mis 55 000 itérations avec 5 000 de burn in et un thin de 10 sur 1 chaîne. 
+
+# Power prior
+
+En suivant l'article **Ibrahim, J. G., & Chen, M. H. (2000). Power prior distributions for regression models. Statistical Science, 46-60.**, le premier prior étudié est le power prior.
+Dans le cas où $a_0$, l'exposant n'est pas connu, il faut faire une modélisation jointe et donc il y a une constante au dénominateur ($\int L(\theta \mid D)^{a_0}\pi_0(\theta) \,d\theta$, **Neuenschwander, B., Branson, M., & Spiegelhalter, D. J. (2009). A note on the power prior. Statistics in medicine, 28(28), 3562-3566.**).
+Mais dans le cas où $a_0$ est une constante déterminée, j'ai l'impression qu'il n'y a pas besoin de cette constante, et qu'on peut se ramener à la loi beta actualisée ($Beta(a_0(x)+\alpha, a_0(n-x) + \beta)$) :
+
+$$
+\pi(\theta)=\frac{L(\theta\mid D_0)^{a_0}\pi_0(\theta)}{\int L(\theta\mid D_0)^{a_0}\pi_0(\theta)\,d\theta}\\
+\pi_0(\theta)=beta(\alpha,\beta)=\frac{\theta^{\alpha-1}(1-\theta)^{\beta-1}}{B(\alpha,\beta)}\\
+L(\theta\mid D_0)={n\choose x}\theta^x(1-\theta)^{{n-x}}\\
+L(\theta\mid D_0)^{a_0}=({n\choose x}\theta^x(1-\theta)^{n-x})^{a_0}={n\choose x}^{a_0}\theta^{a_0x}(1-\theta)^{a_0(n-x)}\\
+\pi(\theta)=\frac{{n\choose x}^{a_0}\theta^{a_0x}(1-\theta)^{a_0(n-x)}\theta^{\alpha-1}(1-\theta)^{\beta-1}}{B(\alpha,\beta)\int {n\choose x}^{a_0}\theta^{a_0x}(1-\theta)^{a_0(n-x)}\pi_0(\theta)\,d\theta}=k\theta^{a_0x+\alpha-1}(1-\theta)^{a_0(n-x)+\beta-1}=k'\frac{\theta^{a_0x+\alpha-1}(1-\theta)^{a_0(n-x)+\beta-1}}{B(a_0x+\alpha,a_0(n-x)+\beta)}\\
+$$
+
+Voici le modèle STAN que j'ai utilisé :
+
+```{r, echo = FALSE}
+cat("data{
+  int<lower = 1> N;
+  int<lower = 0> x;
+  real<lower = 0> a;
+  real<lower = 0> b;
+  real<lower = 0> gamm;
+}
+parameters{
+  real<lower = 0, upper = 1> theta;
+}
+transformed parameters{
+  real logVrais = x * log(theta) + (N - x) * log1m(theta);
+}
+model{
+  target += beta_lpdf(theta | a, b); // Prior
+  target += gamm * logVrais; // Vraissemblance avec puissance
+}")
+```
+
+Ici, j'ai poolé les 3 essais à chaque fois en un seul.
+Voici les résultats entre la moyenne d'efficacité estimée :
+
+```{r}
+LoisBetas <- c("(10,10)", "(10,30)", "(60,20)")
+TabTot <- do.call("rbind", lapply(seq_along(Resultats), \(x) cbind(loi = LoisBetas[x], Resultats[[x]])))
+TabTotPP1 <- TabTot[TabTot$prior == "PP1", ]
+TabTotPP1 %>% 
+  pivot_longer(cols = moy:icsup) %>% 
+  mutate(value = as.numeric(value)) %>% 
+  ggplot(aes(x = name, y = value)) +
+  geom_boxplot() +
+  facet_grid(loi ~ algo) +
+  labs(x = "statistique", y = "valeur")
+```
+
+On a des résultats très proches, voyons voir la distribution des différences :
+
+```{r}
+TabTotPP1 %>% 
+  pivot_longer(cols = moy:icsup) %>% 
+  pivot_wider(names_from = algo, values_from = value) %>% 
+  mutate(across(MCMC:analytique, ~ as.numeric(.x)), difference = MCMC - analytique) %>% 
+  ggplot(aes(x = name, y = difference)) +
+  geom_boxplot() +
+  facet_wrap(vars(loi)) +
+  labs(x = "statistique", y = "MCMC - analytique")
+```
+
+Il y a concordance entre les 2.
+
+Puis, conformément à la présentation de E. Gerard, j'ai fait comme si le prior pour plusieurs essais était la multiplication des priors pour chaque essai entre eux.
+Du coup, j'ai essayé d'estimer les 3 paramètres.
+Voici le modèle STAN :
+
+```{r, echo = FALSE}
+cat("data{
+  int<lower = 1> Nt;
+  int<lower = 1> N[Nt];
+  int<lower = 0> x[Nt];
+  real<lower = 0> a;
+  real<lower = 0> b;
+  real<lower = 0> gamm;
+}
+parameters{
+  real<lower = 0, upper = 1> theta[Nt];
+}
+transformed parameters{
+}
+model{
+  target += beta_lpdf(theta | a, b); // Prior
+  for (i in 1:Nt) {
+    target += gamm * (x[i] * log(theta[i]) + (N[i] - x[i]) * log1m(theta[i])); // Vraissemblance avec puissance
+  } 
+}")
+```
+
+Ici, du coup on a 3 theta vs un seul (pour le résultat "analytique", j'ai fait comme précédemment en poolant les 3 jeux).
+Si jamais tu penses qu'il faut faire autrement comme une solution par prior, ou si tu vois un moyen dans STAN d'avoir un theta commun, je modifierai le code.
+Voici donc les résultats :
+
+```{r}
+TabTot[seq(9, 540000, 18), "prior"] <- "PP3" # Erreur dans le code de la simulation réparée
+TabTot[seq(10, 540000, 18), "prior"] <- "PP3" # Erreur dans le code de la simulation réparée
+TabTot[seq(11, 540000, 18), "prior"] <- "PP3" # Erreur dans le code de la simulation réparée
+TabTot[seq(12, 540000, 18), "prior"] <- "PP3" # Erreur dans le code de la simulation réparée
+TabTot[seq(13, 540000, 18), "prior"] <- "PP3" # Erreur dans le code de la simulation réparée
+TabTotPP2 <- TabTot[TabTot$prior == "PP2", ]
+TabTotPP2 %>% 
+  pivot_longer(cols = moy:icsup) %>% 
+  mutate(value = as.numeric(value)) %>% 
+  ggplot(aes(x = name, y = value, fill = var)) +
+  geom_boxplot() +
+  facet_grid(loi ~ algo) +
+  labs(x = "statistique", y = "valeur")
+```
+
+```{r}
+TabTotPP2 %>% 
+  pivot_longer(cols = moy:icsup) %>% 
+  pivot_wider(names_from = algo, values_from = value) %>% 
+  mutate(across(MCMC:analytique, ~ as.numeric(.x)), difference = MCMC - analytique) %>% 
+  ggplot(aes(x = name, y = difference, fill = var)) +
+  geom_boxplot() +
+  facet_wrap(vars(loi)) +
+  labs(x = "statistique", y = "MCMC - analytique")
+```
+
+Pareil, les résultats collent entre MCMC et avec la formule.
+Pas de biais, mais plus de variabilité de a différence.
+
+Enfin, j'ai essayé de faire un modèle hiérarchique pour avoir le "$\theta$ commun".
+Voici le code STAN : 
+
+```{r, echo = FALSE}
+cat("data{
+  int<lower = 1> Nt;
+  int<lower = 1> N[Nt];
+  int<lower = 0> x[Nt];
+  real<lower = 0> a;
+  real<lower = 0> b;
+  real<lower = 0> gamm;
+}
+parameters{
+  real<lower = 0, upper = 1> theta[Nt];
+  real<lower = 0, upper = 1> mu;
+  real<lower = 0> sigma;
+}
+transformed parameters{
+  real alpha = - mu * (sigma * sigma + mu * mu - mu) / (sigma * sigma);
+  real beta = (sigma * sigma + mu * mu - mu) * (mu - 1) / (sigma * sigma);
+}
+model{
+  // Hyperpriors
+  mu  ~ normal(0, 1000);
+  sigma ~ normal(0, 1000);
+  for (i in 1:Nt) {
+    target += beta_lpdf(theta[i] | alpha, beta); // Prior
+    target += gamm * (x[i] * log(theta[i]) + (N[i] - x[i]) * log1m(theta[i])); // Vraissemblance avec puissance
+  } 
+}")
+```
+
+
+```{r}
+TabTotPPH <- TabTot[TabTot$prior == "PP3", ]
+TabTotPPH %>% 
+  pivot_longer(cols = moy:icsup) %>% 
+  mutate(value = as.numeric(value)) %>% 
+  ggplot(aes(x = name, y = value, fill = var)) +
+  geom_boxplot() +
+  facet_grid(loi ~ algo) +
+  labs(x = "statistique", y = "valeur")
+```
+
+```{r}
+TabTotPPH %>% 
+  pivot_longer(cols = moy:icsup) %>% 
+  pivot_wider(names_from = algo, values_from = value) %>% 
+  mutate(across(MCMC:analytique, ~ as.numeric(.x)), difference = MCMC - analytique) %>% 
+  ggplot(aes(x = name, y = difference, fill = var)) +
+  geom_boxplot() +
+  facet_wrap(vars(loi)) +
+  labs(x = "statistique", y = "MCMC - analytique")
+```
+
+A l'intérieur des bras, ça coincide bien, un peu moins au global, mais c'est très proche.
+Ici mu pour la formule analytique c'est pareil que de tout pooler, et on voit que le modèle hiérarchique ne renvoie pas exactement la même moyenne.
+
+# Le MAP prior
+
+Dans l'article **Schmidli, H., Gsteiger, S., Roychoudhury, S., O'Hagan, A., Spiegelhalter, D., & Neuenschwander, B. (2014). Robust meta‐analytic‐predictive priors in clinical trials with historical control information. Biometrics, 70(4), 1023-1032.**, il est question d'un prior méta-analytique et d'une version robustisée. 
+Je n'ai pour l'instant fait que la version non robuste, mais pour la version robuste on peut ajouter un loi beta peu informative.
+Voici le code STAN :
+
+```{r, echo = FALSE}
+cat("data {
+  int <lower = 2> Nt; // Nombre d'essais
+  int<lower = 1> n[Nt];
+  int<lower = 0> y[Nt];
+}
+
+parameters{
+  real logit_p[Nt];
+  real mu;
+  real<lower = 0> sigma;
+}
+
+transformed parameters{
+  real p[Nt];
+  p = inv_logit(logit_p);
+}
+
+model{
+
+  // prior distributions
+  sigma ~ normal(0, 10);
+  mu  ~ normal(0, 10);
+
+  for (i in 1:Nt) {
+    // binomial likelihood
+    logit_p[i] ~ normal(mu, sigma);
+    y[i] ~ binomial(n[i], p[i]);
+  }
+  
+}
+
+generated quantities {
+  real pnew;
+  pnew = normal_rng(mu, sigma);
+}")
+```
+
+Contrairement à l'article, je suis directement passé par une loi beta, du coup je me dis qu'il faudrait plutôt faire comme eux avec un modèle logistique, puis retransformer en distribution beta.
+Je ne sais pas ce que tu en penses ? 
+Là j'ai l'impression de faire en MCMC et en fréquentiste la même chose, et ça donne des erreurs dans le code quand j'essaie de le lancer sur le serveur.
+
+```{r}
+TabTotMAP <- TabTot[TabTot$prior == "MAP", ]
+TabTotMAP %>% 
+  pivot_longer(cols = moy:icsup) %>% 
+  mutate(value = as.numeric(value)) %>% 
+  ggplot(aes(x = name, y = value)) +
+  geom_boxplot() +
+  facet_wrap(vars(loi)) +
+  labs(x = "statistique", y = "valeur")
+```
+
+Ici, je n'ai pas trop de manière de comparer, mais avec une seule loi beta fittée, on a la moyenne qui est non biaisée pour le cas où p = 0.5 mais avec énormément de variabilité, et autant de variabilité pour les autres, et une tendance à ramener la moyenne vers 0.5.
+
+# 2^ème^ test pour les modèles hiérarchiques
+
+On a remarqué que pour les modèles hiérarchiques, il y avait une tendance à estimer l'hyperparamètre en le ramenant vers 0.5.
+Donc nous avons cette fois-ci simulé, selon les mêmes lois Beta, 10 bras par essai.
+
+Pour le modèle hiérarchique avec un power prior :
+
+```{r}
+TabTot2 <- do.call("rbind", lapply(seq_along(Resultats2), \(x) cbind(loi = LoisBetas[x], Resultats2[[x]])))
+TabTot2$moy <- as.numeric(TabTot2$moy)
+TabTot2PP3 <- TabTot2[TabTot2$prior == "PP3" & TabTot2$var == "mu" & TabTot2$algo == "MCMC", ]
+ggplot(TabTot2PP3, aes(loi, moy)) +
+  geom_boxplot() +
+  labs(x = "Loi pour l'hyperparamètre", y = "Moyenne estimée")
+```
+
+Et pour le MAP prior :
+
+```{r}
+TabTot2MAP <- TabTot2[TabTot2$prior == "MAP", ]
+ggplot(TabTot2MAP, aes(loi, moy)) +
+  geom_boxplot() +
+  labs(x = "Loi pour l'hyperparamètre", y = "Moyenne estimée")
+```
+
+L'estimation avec 10 bras de traitement est non biaisée, et vraisemblablement, la cause de la surimportance du prior était le fait qu'on n'ai que 3 bras de traitement.
+
+
