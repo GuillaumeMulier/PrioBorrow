@@ -1,7 +1,7 @@
 # -------------------------------------------------------------------- #
 # Script de simulation test pour l'inclusion de borrowing dans le BOP2 #
 # Auteur : G. Mulier                                                   #
-# Créé le 21/05/2024, modifié le 08/07/2024                            #
+# Créé le 21/05/2024, modifié le 05/07/2024                            #
 # -------------------------------------------------------------------- #
 
 # devtools::load_all("~/pkgs/multibrasBOP2/")
@@ -21,25 +21,33 @@ source("~/R/GetOC.R")
 
 Alpha <- .1
 NSimu <- 5000
-AnaEff <- rep(15, 3)
-AnaTox <- rep(15, 3)
-PN <- c(.15, .15, .25, .45)
-PA <- c(.2, .3, .1, .4)
+AnaEff <- rep(20, 4)
+AnaTox <- rep(20, 4)
+PN <- c(.08, .07, .22, .63)
+PA <- c(.15, .2, .05, .6)
 
 Methodes <- list(
   "mBOP" = list(methode = "bop", A0 = NA, SeuilP = NA),
-  "seqBOP" = list(methode = "bop_seq", A0 = NA, SeuilP = NA),
+  "mBOP borrow" = list(methode = "bop_borrow", A0 = NA, SeuilP = NA),
+  "pBOP a=.2" = list(methode = "bop_power", A0 = .2, SeuilP = NA),
+  "pBOP a=.4" = list(methode = "bop_power", A0 = .4, SeuilP = NA),
+  "pBOP a=.6" = list(methode = "bop_power", A0 = .6, SeuilP = NA),
+  "pBOP a=.8" = list(methode = "bop_power", A0 = .8, SeuilP = NA),
+  "pBOP a=1" = list(methode = "bop_power", A0 = 1, SeuilP = NA),
+  "tBOP a=1 s=.05" = list(methode = "bop_power_test", A0 = 1, SeuilP = .05),
+  "tBOP a=1 s=.1" = list(methode = "bop_power_test", A0 = 1, SeuilP = .1),
+  "tBOP a=1 s=.25" = list(methode = "bop_power_test", A0 = 1, SeuilP = .25),
+  "tBOP a=1 s=.5" = list(methode = "bop_power_test", A0 = 1, SeuilP = .5),
   "tBOP a=.5 s=.05" = list(methode = "bop_power_test", A0 = .5, SeuilP = .05),
   "tBOP a=.5 s=.1" = list(methode = "bop_power_test", A0 = .5, SeuilP = .1),
   "tBOP a=.5 s=.25" = list(methode = "bop_power_test", A0 = .5, SeuilP = .25),
   "tBOP a=.5 s=.5" = list(methode = "bop_power_test", A0 = .5, SeuilP = .5),
-  "tBOP a=.25 s=.05" = list(methode = "bop_power_test", A0 = .25, SeuilP = .05),
-  "tBOP a=.25 s=.1" = list(methode = "bop_power_test", A0 = .25, SeuilP = .1),
-  "tBOP a=.25 s=.25" = list(methode = "bop_power_test", A0 = .25, SeuilP = .25),
-  "tBOP a=.25 s=.5" = list(methode = "bop_power_test", A0 = .25, SeuilP = .5),
+  "tBOP borrow" = list(methode = "bop_borrow_test", A0 = 1, SeuilP = NA),
   "hBOP" = list(methode = "hier_tox", A0 = NA, SeuilP = NA),
-  "log4" = list(methode = "bop_log4", A0 = NA, SeuilP = NA),
-  "log5" = list(methode = "bop_log5", A0 = NA, SeuilP = NA)
+  "log1" = list(methode = "bop_log1", A0 = NA, SeuilP = NA),
+  "log2" = list(methode = "bop_log2", A0 = NA, SeuilP = NA),
+  "log3" = list(methode = "bop_log3", A0 = NA, SeuilP = NA),
+  "seqBOP" = list(methode = "bop_seq", A0 = NA, SeuilP = NA)
 )
 NomMethodes <- names(Methodes)
 
@@ -49,13 +57,16 @@ NBras <- 3
 
 # Scénarios
 Scenarios <- list(
-  Sc1 = list(c(0.15, 0.15, 0.25, 0.45), c(0.15, 0.15, 0.25, 0.45), c(0.15, 0.15, 0.25, 0.45)),
-  Sc2 = list(c(0.20, 0.30, 0.10, 0.40), c(0.20, 0.30, 0.10, 0.40), c(0.20, 0.30, 0.10, 0.40)),
-  Sc3 = list(c(0.10, 0.20, 0.15, 0.55), c(0.20, 0.30, 0.10, 0.40), c(0.25, 0.35, 0.10, 0.30)),
-  Sc4 = list(c(0.15, 0.25, 0.10, 0.50), c(0.22, 0.38, 0.08, 0.32), c(0.25, 0.35, 0.10, 0.30)),
-  Sc5 = list(c(0.18, 0.22, 0.17, 0.43), c(0.25, 0.25, 0.15, 0.35), c(0.27, 0.23, 0.18, 0.32)),
-  Sc6 = list(c(0.20, 0.30, 0.15, 0.35), c(0.25, 0.30, 0.15, 0.30), c(0.30, 0.30, 0.15, 0.25)),
-  Sc7 = list(c(0.20, 0.30, 0.12, 0.38), c(0.22, 0.28, 0.13, 0.37), c(0.24, 0.26, 0.12, 0.38))
+  "Sc1" = list(PN, PN, PN),
+  "Sc2" = list(PA, PA, PA),
+  "Sc3" = list(c(.1, .15, .05, .7), c(.15, .2, .05, .6), c(.18, .27, .07, .48)),
+  "Sc4" = list(c(.1, .15, .05, .7), c(.15, .2, .1, .55), c(.18, .27, .07, .48)),
+  "Sc5" = list(c(.1, .1, .05, .75), c(.15, .2, .1, .55), c(.15, .2, .1, .55)),
+  "Sc6" = list(c(.15, .1, .1, .65), c(.2, .15, .1, .55), c(.25, .2, .1, .45)),
+  "Sc7" = list(c(.15, .1, .1, .65), c(.22, .18, .08, .52), c(.22, .18, .08, .52)),
+  "Sc8" = list(c(.15, .2, .1, .55), c(.25, .2, .1, .45), c(.25, .3, .1, .35)),
+  "Sc9" = list(c(.07, .03, .08, .82), c(.08, .07, .12, .73), c(.12, .08, .13, .67)),
+  "Sc10" = list(c(.07, .03, .03, .87), c(.1, .05, .05, .8), c(.13, .07, .07, .73))
 )
 if (FALSE) {
   library(tidyr)
@@ -96,18 +107,18 @@ GrilleSimu <- expand.grid(
 if (FALSE) {
   SeuilBOP <- deter_cutoff(alpha = Alpha, 
                            n_bras = NBras,
-                           nsim_oc = 10000,
+                           nsim_oc = NSimu,
                            ana_inter = AnaEff, ana_inter_tox = AnaTox, 
                            p_n = PN, p_a = PA,
                            power_seq = seq(.25, 1.5, .005), 
-                           seed = 121221, affich_mat = "No", methode = 4L)
+                           seed = 121221, affich_mat = "No", methode = 4L)[[1]]
 } else {
-  SeuilBOP <- list(c("C_" = .78, "gamma" = 1.455, "alpha_calc" = .0695, "puissance_calc" = .7093))
+  SeuilBOP <- list(c("C_" = .71, "gamma" = 1.5, "alpha_calc" = .0963, "puissance_calc" = .9258))
 }
 
 
 # Simulations
-cl <- makeCluster(21)
+cl <- makeCluster(20)
 registerDoParallel(cl)
 
 cat("----\nSimulations à 3 bras\n----\n\n", file = "~/simu_priors/log.txt", append = TRUE)
@@ -118,7 +129,7 @@ Res1 <- foreach(i = seq_len(nrow(GrilleSimu)),
                             "real_essai_bop", "real_essai_bop_borrow", 
                             "real_essai_bop_borrow_test", "real_essai_bop_power", "real_essai_bop_power_test",
                             "real_essai_bayeslog", "real_essai_bop_seq", "real_essai_modhier",
-                            "CompilHier", "CompilLog1", "CompilLog2", "CompilLog3", "CompilLog4", "CompilLog5",
+                            "CompilHier", "CompilLog1", "CompilLog2", "CompilLog3",
                             "Scenarios", "SeuilBOP", "summarise_decision", 
                             "summarise_detect", "summarise_ttt", "gen_patients_multinom")) %dopar% {
                               
@@ -147,7 +158,7 @@ stopCluster(cl)
 
 # Sauvegarder les résultats ----
 
-save(Res1, file = "~/simu_priors/res_test_priors_v3.RData")
+save(Res1, file = "~/simu_priors/res_test_priors_v2.RData")
 
 cat("\nFini !\n", file = "~/simu_priors/log.txt", append = TRUE)
 

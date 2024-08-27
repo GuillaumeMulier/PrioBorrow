@@ -1,317 +1,63 @@
 ---
 title: "Tentative de borrow avec le BOP2"
-author: "Guillaume Mulier, Lucie Biard"
+author: "Guillaume Mulier, Lucie Biard, Vincent Levy"
 date: "`r Sys.Date()`"
-output: html_document
+output: 
+  html_document: 
+    toc: yes
+    theme: sandstone
+    number_sections: yes
+    code_folding: hide
 ---
 
 ```{r setup, include = FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r, include = FALSE}
+```{r pkg-import, include = FALSE}
 library(tidyverse)
 here::i_am("Rapport/test_priors_BOP.Rmd")
 library(here)
+library(knitr)
 
 theme_set(theme_light())
 
-load(here("Data/res_test_priors.RData"))
+load(here("Data/res_test_priors_v3.RData"))
 ```
 
-```{r mise-en-forme-tableaux}
-Res1 <- map_dfr(seq_along(Res1), ~ do.call("cbind", Res1[[.x]]), .id = "id")
-Res2 <- map_dfr(seq_along(Res2), ~ do.call("cbind", Res2[[.x]]), .id = "id")
-```
+# Les différents modèles
 
-# Avec 2 bras
+## BOP2 : "mBOP"
 
-Paramètres d'optimisation du seuil (comme pour mBOP de notre article) :
+La 1^ère^ façon d'analyser est le BOP2 classique qu'on applique à un essai multi-bras : 
 
-- FWER = 0.1
-- 10 000 essais simulés pour évaluer le seuil, puis 10 000 essais par scénario
-- Analyses d'efficacité et de toxicité à 20/40/60/80 patients
-- 3 bras de traitement
-- $H_0:\pi_{eff}=0.15 ; \pi_{tox}=0.30$ soit $(0.08;0.07;0.22;0.63)$ ($R=0.21$)
-- $H_1:\pi_{eff}=0.35;\pi_{tox}=0.20$ soit $(0.1;0.25;0.1;0.55)$ ($R=0.16$)
+- stop pour futilité si $Pr(\pi_\text{eff}\leq\phi_\text{eff}|D_n)>C_n$
+- stop pour toxicité si $Pr(\pi_\text{tox}>\phi_\text{tox}|D_n)>C_n$
 
-J'ai pris 10 scénarios en respectant l'hypothèse que l'efficacité et la toxicité sont croissantes avec la dose, avec possiblement des plateaux :
+avec $\phi_\text{eff}$ et $\phi_\text{tox}$ qui sont déterminés par les hypothèses prises par les cliniciens.
 
-- 1 : Tout à $H_0$ -> $(0.08;0.07;0.22;0.63)$ ; $(0.08;0.07;0.22;0.63)$ ; $(0.08;0.07;0.22;0.63)$
-- 2 : Tout à $H_1$ -> $(0.1;0.25;0.1;0.55)$ ; $(0.1;0.25;0.1;0.55)$ ; $(0.1;0.25;0.1;0.55)$
-- 3 : Efficacité croissante à partir d'une efficacité moyenne ; toxicité croissante à partir de $<H_1$ -> $(0.05;0.2;0.1;0.65)$ ; $(0.1;0.25;0.1;0.55)$ ; $(0.15;0.3;0.1;0.45)$
-- 4 : Efficacité croissante à partir d'une efficacité moyenne ; toxicité plateau -> $(0.05;0.2;0.1;0.65)$ ; $(0.1;0.25;0.15;0.5)$ ; $(0.15;0.3;0.1;0.45)$
-- 5 : Efficacité avec plateau à $H_1$ ; toxicité avec plateau vers $H_1$ -> $(0.05;0.15;0.1;0.7)$ ; $(0.1;0.25;0.1;0.55)$ ; $(0.1;0.25;0.1;0.55)$
-- 6 : Efficacité croissante à partir d'une efficacité moyenne ; toxicité croissante à partir d'une toxicité moyenne -> $(0.08;0.17;0.17;0.58)$ ; $(0.13;0.22;0.17;0.48)$ ; $(0.18;0.27;0.17;0.38)$
-- 7 : Efficacité avec plateau $>H_1$ ; toxicité avec plateau à $H_0$ -> $(0.08;0.17;0.17;0.58)$ ; $(0.15;0.25;0.15;0.45)$ ; $(0.15;0.25;0.15;0.45)$
-- 8 : Efficacité fortement croissante ; toxicité avec plateau $>H_1$ -> $(0.1;0.25;0.15;0.5)$ ; $(0.2;0.25;0.15;0.4)$ ; $(0.2;0.35;0.15;0.3)$
-- 9 : Efficacité et toxicité croissantes, mais à des valeurs plus basses que $H_1/H_0$ -> $(0.03;0.07;0.12;0.78)$ ; $(0.05;0.1;0.15;0.7)$ ; $(0.07;0.13;0.18;0.62)$
-- 10 : Efficacité et toxicité croissantes, à des valeurs encore moindres -> $(0.02;0.08;0.08;0.82)$ ; $(0.04;0.11;0.11;0.74)$ ; $(0.05;0.15;0.15;0.65)$
+Les probabilités a posteriori sont calculées avec des lois beta conjuguées :
 
-J'ai essayé d'avoir les scénarios 1 et 2 qui sont des contrôles, les scénarios 3 à 5 très efficaces et peu toxiques, les scénarios 6 à 8 très efficaces et très toxiques, et les scénarios 9 et 10 peu efficaces et peu toxiques.
+$$
+Pr(\pi|D_n)=Beta(a_0+x,b_0+n-x)
+$$
 
-Les différents schémas évalués (code à la fin pour check) :
+avec $a_0$ et $b_0$ les paramètres du prior, $x$ et $n$ les nombres d'évènements et de patients dans le bras d'intérêt.
 
-- mBOP : le BOP2 adapté au MAMS
-- mBOP borrow : partage complet de l'info de toxicité pour les bras arrêtés pour tox
-- mBOP borrow-seq : idem que mBOP borrow, mais on ne partage la toxicité
-- pBOP : partage de l'info de toxicité dans les autres bras par power prior
-- tBOP : partage de l'info de toxicité dans les autres bras par power prior si test non significatif entre le bras à partager et $H_0$ de toxicité
-- tBOP borrow : partage de l'info de toxicité dans les autres bras par power prior avec comme puissance le degré de signification du test entre le bras à partager et $H_0$ de toxicité
-- hierar : modèle hiérarchique (type celui de Schmidli) pour l'efficacité et la toxicité
+Le code pour analyser un essai avec BOP2 est dans le chunk ci-dessous.
 
-## FWER
-
-```{r, fig.cap = "FWER pour les scénarios où il faut toujours rejeter"}
-Res1 %>% 
-  filter(scenar %in% c("H0", "Not eff/Tox", "Not eff/Tox+"), carac_bras.ttt == "ttt1") %>% 
-  ggplot(aes(carac_globales.rejet_glob, methode)) +
-  geom_point() +
-  facet_wrap(vars(scenar)) +
-  labs(x = "FWER", y = NULL) +
-  expand_limits(x = 0)
-```
-
-Au niveau du FWER, le power prior seul donne une augmentation du FWER.
-Les autres stratégies donnent des résultats proches du BOP2, voire un peu meilleurs.
-Pour les scénarios de discordance entre efficacité et toxicité, les stratégies dynamiques donne un FWER proche, et pour mBOP borrow une diminution du FWER.
-
-```{r, fig.cap = "Rejet dans le bras efficace et toxique"}
-Res1 %>% 
-  filter(scenar %in% c("Not eff/Tox", "Not eff/Tox+"), carac_bras.ttt == "ttt1") %>% 
-  ggplot(aes(carac_bras.rejet_h0, methode)) +
-  geom_point() +
-  facet_wrap(vars(scenar)) +
-  labs(x = "% rejet", y = NULL) +
-  expand_limits(x = 0)
-```
-
-```{r, fig.cap = "Rejet dans le bras futile et non toxique"}
-Res1 %>% 
-  filter(scenar %in% c("Not eff/Tox", "Not eff/Tox+"), carac_bras.ttt == "ttt2") %>% 
-  ggplot(aes(carac_bras.rejet_h0, methode)) +
-  geom_point() +
-  facet_wrap(vars(scenar)) +
-  labs(x = "% rejet", y = NULL) +
-  expand_limits(x = 0)
-```
-
-Il semble que le gain se fasse dans le bras futile et non toxique (logique puisqu'on partage l'information de la toxicité).
-Les stratégies dynamiques contrôlent mieux que le power prior l'inflation du risque d'erreur de type I.
-
-## Puissance
-
-```{r, fig.cap = "Rejet dans le bras 1 du scénario de puissance"}
-Res1 %>% 
-  filter(scenar %in% c("H1"), carac_bras.ttt == "ttt1") %>% 
-  ggplot(aes(carac_bras.rejet_h0, methode)) +
-  geom_point() +
-  facet_wrap(vars(scenar)) +
-  labs(x = "Puissance", y = NULL) +
-  expand_limits(x = 0)
-```
-
-```{r, fig.cap = "Rejet bras 1 pour les scénarios avec tous les bras prometteurs"}
-Res1 %>% 
-  filter(scenar %in% c("2 H1", "2 > H1"), carac_bras.ttt == "ttt1") %>% 
-  ggplot(aes(carac_bras.rejet_h0, methode)) +
-  geom_point() +
-  facet_wrap(vars(scenar)) +
-  labs(x = "Puissance", y = NULL) +
-  expand_limits(x = 0)
-```
-
-```{r, fig.cap = "Rejet bras 2 pour les scénarios avec tous les bras prometteurs"}
-Res1 %>% 
-  filter(scenar %in% c("2 H1", "2 > H1"), carac_bras.ttt == "ttt2") %>% 
-  ggplot(aes(carac_bras.rejet_h0, methode)) +
-  geom_point() +
-  facet_wrap(vars(scenar)) +
-  labs(x = "Puissance", y = NULL) +
-  expand_limits(x = 0)
-```
-
-Il y a une perte de puissance qui est moindre pour les stratégies dynamiques dans le cas de la LFC.
-Pour les scénarios avec plus d'un bras prometteur, on a un gain relatif en puissance, mais moindre pour les stratégies dynamiques.
-
-## Nombre moyen de patients
-
-```{r, fig.cap = "Nombre moyen de patients dans les scénarios nuls"}
-Res1 %>% 
-  filter(scenar %in% c("H0", "Not eff/Tox", "Not eff/Tox+")) %>% 
-  ggplot(aes(carac_bras.tot_pat, methode)) +
-  geom_point() +
-  facet_grid(carac_bras.ttt ~ scenar) +
-  labs(x = "Nb moyen de patients", y = NULL) +
-  expand_limits(x = 0)
-```
-
-```{r, fig.cap = "Nombre moyen de patients dans les scénarios puissances"}
-Res1 %>% 
-  filter(!scenar %in% c("H0", "Not eff/Tox", "Not eff/Tox+")) %>% 
-  ggplot(aes(carac_bras.tot_pat, methode)) +
-  geom_point() +
-  facet_grid(carac_bras.ttt ~ scenar) +
-  labs(x = "Nb moyen de patients", y = NULL) +
-  expand_limits(x = 0)
-```
-
-Pour les tBOP, on dirait qu'il y a un peu moins de patients dans les scénarios nuls, et autant pour les scénarios puissances.
-
-# Avec 3 bras
-
-Paramètres d'optimisation du seuil (comme pour mBOP de notre article) :
-
-- FWER = 0.1
-- 10 000 essais simulés pour évaluer le seuil, puis 10 000 essais par scénario
-- Analyses d'efficacité et de toxicité à 20/40/60/80 patients
-- $H_0 : (0.2, 0.2, 0.2, 0.4)$
-- $H_1 : (0.1, 0.5, 0.2, 0.2)$
-
-J'ai pris 6 scénarios :
-
-- H0 = 3 bras sous $H_0$
-- H1 = 1 bras sous $H_1$ et 2 sous $H_0$
-- 3 H1 = 3 bras sous $H_1$
-- 3 > H1 = 3 bras sous $(0.05, 0.6, 0.2, 0.15)$
-- 3 negative = $H_0$, $(0.2, 0.4, 0.2, 0.2)$ et $(0.2, 0.2, 0.1, 0.5)$
-- 3 negative+ = $(0.2, 0.1, 0.3, 0.4)$, $(0.2, 0.45, 0.25, 0.1)$ et $(0.2, 0.15, 0.05, 0.6)$
-
-Les différents schémas évalués :
-
-- mBOP : le BOP2 adapté au MAMS
-- mBOP borrow : partage complet de l'info de toxicité pour les bras arrêtés pour tox (faiblesse du code pour l'instant à corriger)
-- pBOP : partage de l'info de toxicité dans les autres bras par power prior
-- tBOP : partage de l'info de toxicité dans les autres bras par power prior si test non significatif entre le bras à partager et $H_0$ de toxicité
-- tBOP borrow : partage de l'info de toxicité dans les autres bras par power prior avec comme puissance le degré de signification du test entre le bras à partager et $H_0$ de toxicité
-
-## FWER
-
-```{r, fig.cap = "FWER pour les scénarios où il faut toujours rejeter"}
-Res2 %>% 
-  filter(scenar %in% c("H0", "3 negative", "3 negative+"), carac_bras.ttt == "ttt1") %>% 
-  ggplot(aes(carac_globales.rejet_glob, methode)) +
-  geom_point() +
-  facet_wrap(vars(scenar)) +
-  labs(x = "FWER", y = NULL) +
-  expand_limits(x = 0)
-```
-
-Avec 3 bras, le FWER est diminué pour les stratégies dynamiques, et plus encore pour mBOP borrow.
-On a toujours l'inflation du FWER pour le power prior.
-
-```{r, fig.cap = "Rejet dans le bras futile et toxique"}
-Res2 %>% 
-  filter(scenar %in% c("3 negative", "3 negative+"), carac_bras.ttt == "ttt1") %>% 
-  ggplot(aes(carac_bras.rejet_h0, methode)) +
-  geom_point() +
-  facet_wrap(vars(scenar)) +
-  labs(x = "% rejet", y = NULL) +
-  expand_limits(x = 0)
-```
-
-```{r, fig.cap = "Rejet dans le bras efficace et toxique"}
-Res2 %>% 
-  filter(scenar %in% c("3 negative", "3 negative+"), carac_bras.ttt == "ttt2") %>% 
-  ggplot(aes(carac_bras.rejet_h0, methode)) +
-  geom_point() +
-  facet_wrap(vars(scenar)) +
-  labs(x = "% rejet", y = NULL) +
-  expand_limits(x = 0)
-```
-
-```{r, fig.cap = "Rejet dans le bras futile et non toxique"}
-Res2 %>% 
-  filter(scenar %in% c("3 negative", "3 negative+"), carac_bras.ttt == "ttt3") %>% 
-  ggplot(aes(carac_bras.rejet_h0, methode)) +
-  geom_point() +
-  facet_wrap(vars(scenar)) +
-  labs(x = "% rejet", y = NULL) +
-  expand_limits(x = 0)
-```
-
-Il y a gain de FWER (diminution) dans les bras concurrent au bras toxique, ce qui est logique puisqu'on va partager l'information d'un bras toxique.
-On arrive presque à contrôler le risque $\alpha$ bras-spécifique avec le partage d'information.
-
-## Puissance
-
-```{r, fig.cap = "Rejet dans le bras 1 du scénario de puissance"}
-Res2 %>% 
-  filter(scenar %in% c("H1"), carac_bras.ttt == "ttt1") %>% 
-  ggplot(aes(carac_bras.rejet_h0, methode)) +
-  geom_point() +
-  facet_wrap(vars(scenar)) +
-  labs(x = "Puissance", y = NULL) +
-  expand_limits(x = 0)
-```
-
-```{r, fig.cap = "Rejet bras 1 pour les scénarios avec tous les bras prometteurs"}
-Res2 %>% 
-  filter(scenar %in% c("3 H1", "3 > H1"), carac_bras.ttt == "ttt1") %>% 
-  ggplot(aes(carac_bras.rejet_h0, methode)) +
-  geom_point() +
-  facet_wrap(vars(scenar)) +
-  labs(x = "Puissance", y = NULL) +
-  expand_limits(x = 0)
-```
-
-```{r, fig.cap = "Rejet bras 2 pour les scénarios avec tous les bras prometteurs"}
-Res2 %>% 
-  filter(scenar %in% c("3 H1", "3 > H1"), carac_bras.ttt == "ttt2") %>% 
-  ggplot(aes(carac_bras.rejet_h0, methode)) +
-  geom_point() +
-  facet_wrap(vars(scenar)) +
-  labs(x = "Puissance", y = NULL) +
-  expand_limits(x = 0)
-```
-
-```{r, fig.cap = "Rejet bras 3 pour les scénarios avec tous les bras prometteurs"}
-Res2 %>% 
-  filter(scenar %in% c("3 H1", "3 > H1"), carac_bras.ttt == "ttt3") %>% 
-  ggplot(aes(carac_bras.rejet_h0, methode)) +
-  geom_point() +
-  facet_wrap(vars(scenar)) +
-  labs(x = "Puissance", y = NULL) +
-  expand_limits(x = 0)
-```
-
-Dans le scénario de la LFC, on a une perte de puissance, mais s'il y a 3 bras prometteurs, on a un gain de puissance.
-Le gain est meilleur quand on partage plus d'information entre les bras.
-Aussi, on a un meilleur gain de puissance qu'avec 2 bras de traitement il semble.
-
-## Nombre moyen de patients
-
-```{r, fig.cap = "Nombre moyen de patients dans les scénarios nuls"}
-Res2 %>% 
-  filter(scenar %in% c("H0", "3 negative", "3 negative+")) %>% 
-  ggplot(aes(carac_bras.tot_pat, methode)) +
-  geom_point() +
-  facet_grid(carac_bras.ttt ~ scenar) +
-  labs(x = "Nb moyen de patients", y = NULL) +
-  expand_limits(x = 0)
-```
-
-```{r, fig.cap = "Nombre moyen de patients dans les scénarios puissances"}
-Res2 %>% 
-  filter(!scenar %in% c("H0", "3 negative", "3 negative+")) %>% 
-  ggplot(aes(carac_bras.tot_pat, methode)) +
-  geom_point() +
-  facet_grid(carac_bras.ttt ~ scenar) +
-  labs(x = "Nb moyen de patients", y = NULL) +
-  expand_limits(x = 0)
-```
-
-On a cette fois-ci globalement plus de patients recrutés en partageant l'information.
-
-# Fonctions pour simuler
-
-Voilà les fonctions.
-Je voudrais bien qu'on regarde si je n'ai pas fait de bêtises ^^.
-
-```{r}
+```{r fct-bop, eval = FALSE}
+## data = données d'un essai
+## analyses = vecteurs des nombres de patients totaux par bras à chaque analyse
+## CPar et PPar = les 2 paramètres du schéma BOP2 (lambda et gamma)
+## AnaEff et AnaTox = les nombres de patients aux analyses d'efficacité et de toxicité
+## phi_eff et phi_tox = les niveaux tels que décrit dans la règle de décision précédente
+## prior_eff et prior_tox = les priors d'efficacité et de toxicité pour la loi Beta
 real_essai_bop <- function(data, analyses, CPar, PPar, AnaEff, AnaTox, 
                            phi_eff, phi_tox, prior_eff, prior_tox) {
   data$arret_eff <- data$arret_tox <- NA_integer_
+  data$est_eff <- data$icinf_eff <- data$icsup_eff <- NA_real_
+  data$est_tox <- data$icinf_tox <- data$icsup_tox <- NA_real_
   for (i in seq_len(max(data$nb_ana))) {
     Nb_pts <- analyses[i]
     seuil <- 1 - CPar * (Nb_pts / analyses[length(analyses)]) ** PPar
@@ -324,6 +70,9 @@ real_essai_bop <- function(data, analyses, CPar, PPar, AnaEff, AnaTox,
     } else {
       if (i == 1) data$arret_eff[data$nb_ana == i] <- 0 else data$arret_eff[data$nb_ana == i] <- data$arret_eff[data$nb_ana == (i - 1)]
     }
+    data$est_eff[data$nb_ana == i] <- (n_eff + prior_eff) / (Nb_pts + 1) 
+    data$icinf_eff[data$nb_ana == i] <- qbeta(.025, prior_eff + n_eff, 1 - prior_eff + Nb_pts - n_eff) 
+    data$icsup_eff[data$nb_ana == i] <- qbeta(.975, prior_eff + n_eff, 1 - prior_eff + Nb_pts - n_eff)
     PPTox <- 1 - pbeta(phi_tox, prior_tox + n_tox, 1 - prior_tox + Nb_pts - n_tox)
     if (i != 1) PPTox[data$arret_tox[data$nb_ana == (i - 1)] == 1] <- 1.5
     if (Nb_pts %in% AnaTox) {
@@ -331,96 +80,111 @@ real_essai_bop <- function(data, analyses, CPar, PPar, AnaEff, AnaTox,
     } else {
       if (i == 1) data$arret_tox[data$nb_ana == i] <- 0 else data$arret_tox[data$nb_ana == i] <- data$arret_tox[data$nb_ana == (i - 1)]
     }
+    data$est_tox[data$nb_ana == i] <- (n_tox + prior_tox) / (Nb_pts + 1) 
+    data$icinf_tox[data$nb_ana == i] <- qbeta(.025, prior_tox + n_tox, 1 - prior_tox + Nb_pts - n_tox) 
+    data$icsup_tox[data$nb_ana == i] <- qbeta(.975, prior_tox + n_tox, 1 - prior_tox + Nb_pts - n_tox)
   }
   return(data)
 }
+```
 
-real_essai_bop_borrow <- function(data, analyses, CPar, PPar, AnaEff, AnaTox, 
-                                  phi_eff, phi_tox, prior_eff, prior_tox) {
-  data$arret_eff <- data$arret_tox <- NA_integer_
-  BrasArretes <- rep(FALSE, length(unique(data$ttt)))
-  for (i in seq_len(max(data$nb_ana))) {
-    Nb_pts <- analyses[i]
-    seuil <- 1 - CPar * (Nb_pts / analyses[length(analyses)]) ** PPar
-    if (i == 1) {
-      n_eff <- data$tot_eff[data$nb_ana == i]
-      n_tox <- Nb_pts - data$tot_notox[data$nb_ana == i]
-      n_tox_autres <- vapply(seq_along(n_tox), \(x) sum((n_tox * BrasArretes)[-x]), numeric(1))
-      n_pts_bras <- rep(Nb_pts, length(n_tox))
-      n_pts_autres <- vapply(seq_along(n_tox), \(x) sum((n_pts_bras * BrasArretes)[-x]), numeric(1))
-    } else { # Si on n'est pas à la première analyse, il ne faut actualiser n_tox et n_pts que pour les cas où on ne s'est pas arrêté
-      VecNonArrets <- data$arret_eff[data$nb_ana == (i - 1)] == 0 & data$arret_tox[data$nb_ana == (i - 1)] == 0
-      n_eff[VecNonArrets] <- data$tot_eff[data$nb_ana == i][VecNonArrets]
-      n_tox[VecNonArrets] <- Nb_pts - data$tot_notox[data$nb_ana == i][VecNonArrets]
-      n_tox_autres <- vapply(seq_along(n_tox), \(x) sum((n_tox * BrasArretes)[-x]), numeric(1))
-      n_pts_bras[VecNonArrets] <- rep(Nb_pts, sum(VecNonArrets))
-      n_pts_autres <- vapply(seq_along(n_pts_bras), \(x) sum((n_pts_bras * BrasArretes)[-x]), numeric(1))
-    }
-    PPEff <- pbeta(phi_eff, prior_eff + n_eff, 1 - prior_eff + Nb_pts - n_eff)
-    if (i != 1) PPEff[data$arret_eff[data$nb_ana == (i - 1)] == 1] <- 1.5
-    if (Nb_pts %in% AnaEff) {
-      data$arret_eff[data$nb_ana == i] <- as.integer(PPEff > seuil)
-    } else {
-      if (i == 1) data$arret_eff[data$nb_ana == i] <- 0 else data$arret_eff[data$nb_ana == i] <- data$arret_eff[data$nb_ana == (i - 1)]
-    }
-    PPTox <- 1 - pbeta(phi_tox, prior_tox + n_tox + n_tox_autres, 1 - prior_tox + Nb_pts - n_tox + n_pts_autres - n_tox_autres)
-    if (i != 1) PPTox[data$arret_tox[data$nb_ana == (i - 1)] == 1] <- 1.5
-    if (Nb_pts %in% AnaTox) {
-      data$arret_tox[data$nb_ana == i] <- as.integer(PPTox > seuil)
-    } else {
-      if (i == 1) data$arret_tox[data$nb_ana == i] <- 0 else data$arret_tox[data$nb_ana == i] <- data$arret_tox[data$nb_ana == (i - 1)]
-    }
-    if (i == 1) {
-      BrasArretes <- data$arret_tox[data$nb_ana == i] == 1
-    } else {
-      BrasArretes[data$arret_eff[data$nb_ana == (i - 1)] == 0] <- data$arret_tox[data$nb_ana == i][data$arret_eff[data$nb_ana == (i - 1)] == 0] == 1
-    }
-    
-  }
-  return(data)
-}
 
-real_essai_bop_power <- function(data, analyses, CPar, PPar, AnaEff, AnaTox, A0, 
-                                 phi_eff, phi_tox, prior_eff, prior_tox) {
-  data$arret_eff <- data$arret_tox <- NA_integer_
-  for (i in seq_len(max(data$nb_ana))) {
-    Nb_pts <- analyses[i]
-    seuil <- 1 - CPar * (Nb_pts / analyses[length(analyses)]) ** PPar
-    if (i == 1) {
-      n_eff <- data$tot_eff[data$nb_ana == i]
-      n_tox <- Nb_pts - data$tot_notox[data$nb_ana == i]
-      n_tox_autres <- vapply(seq_along(n_tox), \(x) sum(n_tox[-x]), numeric(1))
-      n_pts_bras <- rep(Nb_pts, length(n_tox))
-      n_pts_autres <- vapply(seq_along(n_tox), \(x) sum(n_pts_bras[-x]), numeric(1))
-    } else { # Si on n'est pas à la première analyse, il ne faut actualiser n_tox et n_pts que pour les cas où on ne s'est pas arrêté
-      VecNonArrets <- data$arret_eff[data$nb_ana == (i - 1)] == 0 & data$arret_tox[data$nb_ana == (i - 1)] == 0
-      n_eff[VecNonArrets] <- data$tot_eff[data$nb_ana == i][VecNonArrets]
-      n_tox[VecNonArrets] <- Nb_pts - data$tot_notox[data$nb_ana == i][VecNonArrets]
-      n_tox_autres <- vapply(seq_along(n_tox), \(x) sum(n_tox[-x]), numeric(1))
-      n_pts_bras[VecNonArrets] <- rep(Nb_pts, sum(VecNonArrets))
-      n_pts_autres <- vapply(seq_along(n_pts_bras), \(x) sum(n_pts_bras[-x]), numeric(1))
-    }
-    PPEff <- pbeta(phi_eff, prior_eff + n_eff, 1 - prior_eff + Nb_pts - n_eff)
-    if (i != 1) PPEff[data$arret_eff[data$nb_ana == (i - 1)] == 1] <- 1.5
-    if (Nb_pts %in% AnaEff) {
-      data$arret_eff[data$nb_ana == i] <- as.integer(PPEff > seuil)
-    } else {
-      if (i == 1) data$arret_eff[data$nb_ana == i] <- 0 else data$arret_eff[data$nb_ana == i] <- data$arret_eff[data$nb_ana == (i - 1)]
-    }
-    PPTox <- 1 - pbeta(phi_tox, prior_tox + n_tox + A0 * n_tox_autres, 1 - prior_tox + Nb_pts - n_tox + A0 * (n_pts_autres - n_tox_autres))
-    if (i != 1) PPTox[data$arret_tox[data$nb_ana == (i - 1)] == 1] <- 1.5
-    if (Nb_pts %in% AnaTox) {
-      data$arret_tox[data$nb_ana == i] <- as.integer(PPTox > seuil)
-    } else {
-      if (i == 1) data$arret_tox[data$nb_ana == i] <- 0 else data$arret_tox[data$nb_ana == i] <- data$arret_tox[data$nb_ana == (i - 1)]
-    }
-  }
-  return(data)
-}
+<!-- ## BOP2 avec power prior : "pBOP a=..." -->
 
+<!-- En 2^ème^ choix, j'ai choisi de combiner le BOP2 avec le power prior d'Ibrahim et Chen avec un exposant qui est une constante. -->
+<!-- Cela a été appliqué à la toxicité uniquement. -->
+
+<!-- La probabilité a posteriori s'écrit de la façon suivante : -->
+
+<!-- $$ -->
+<!-- Pr(\pi|D_n)=Beta(a_0+x+a\times x_p,b_0+n-x+a\times(n_p-x_p)) -->
+<!-- $$ -->
+
+<!-- avec $x_p$ et $n_p$ le nombre de toxicités et de patients dans les autres bras ; et $a$ l'exposant du power prior. -->
+
+<!-- Le code pour analyser un essai avec cette méthode est dans le chunk ci-dessous. -->
+
+<!-- ```{r fct-boppow, eval = FALSE} -->
+<!-- ## data = données d'un essai -->
+<!-- ## analyses = vecteurs des nombres de patients totaux par bras à chaque analyse -->
+<!-- ## CPar et PPar = les 2 paramètres du schéma BOP2 (lambda et gamma) -->
+<!-- ## AnaEff et AnaTox = les nombres de patients aux analyses d'efficacité et de toxicité -->
+<!-- ## A0 = l'exposant du power prior -->
+<!-- ## phi_eff et phi_tox = les niveaux tels que décrit dans la règle de décision précédente -->
+<!-- ## prior_eff et prior_tox = les priors d'efficacité et de toxicité pour la loi Beta -->
+<!-- real_essai_bop_power <- function(data, analyses, CPar, PPar, AnaEff, AnaTox, A0,  -->
+<!--                                  phi_eff, phi_tox, prior_eff, prior_tox) { -->
+<!--   data$arret_eff <- data$arret_tox <- NA_integer_ -->
+<!--   for (i in seq_len(max(data$nb_ana))) { -->
+<!--     Nb_pts <- analyses[i] -->
+<!--     seuil <- 1 - CPar * (Nb_pts / analyses[length(analyses)]) ** PPar -->
+<!--     if (i == 1) { -->
+<!--       n_eff <- data$tot_eff[data$nb_ana == i] -->
+<!--       n_tox <- Nb_pts - data$tot_notox[data$nb_ana == i] -->
+<!--       n_tox_autres <- vapply(seq_along(n_tox), \(x) sum(n_tox[-x]), numeric(1)) -->
+<!--       n_pts_bras <- rep(Nb_pts, length(n_tox)) -->
+<!--       n_pts_autres <- vapply(seq_along(n_tox), \(x) sum(n_pts_bras[-x]), numeric(1)) -->
+<!--     } else { # Si on n'est pas à la première analyse, il ne faut actualiser n_tox et n_pts que pour les cas où on ne s'est pas arrêté -->
+<!--       VecNonArrets <- data$arret_eff[data$nb_ana == (i - 1)] == 0 & data$arret_tox[data$nb_ana == (i - 1)] == 0 -->
+<!--       n_eff[VecNonArrets] <- data$tot_eff[data$nb_ana == i][VecNonArrets] -->
+<!--       n_tox[VecNonArrets] <- Nb_pts - data$tot_notox[data$nb_ana == i][VecNonArrets] -->
+<!--       n_tox_autres <- vapply(seq_along(n_tox), \(x) sum(n_tox[-x]), numeric(1)) -->
+<!--       n_pts_bras[VecNonArrets] <- rep(Nb_pts, sum(VecNonArrets)) -->
+<!--       n_pts_autres <- vapply(seq_along(n_pts_bras), \(x) sum(n_pts_bras[-x]), numeric(1)) -->
+<!--     } -->
+<!--     PPEff <- pbeta(phi_eff, prior_eff + n_eff, 1 - prior_eff + Nb_pts - n_eff) -->
+<!--     if (i != 1) PPEff[data$arret_eff[data$nb_ana == (i - 1)] == 1] <- 1.5 -->
+<!--     if (Nb_pts %in% AnaEff) { -->
+<!--       data$arret_eff[data$nb_ana == i] <- as.integer(PPEff > seuil) -->
+<!--     } else { -->
+<!--       if (i == 1) data$arret_eff[data$nb_ana == i] <- 0 else data$arret_eff[data$nb_ana == i] <- data$arret_eff[data$nb_ana == (i - 1)] -->
+<!--     } -->
+<!--     # Power prior pour partager l'information sur la toxicité -->
+<!--     PPTox <- 1 - pbeta(phi_tox, prior_tox + n_tox + A0 * n_tox_autres, 1 - prior_tox + Nb_pts - n_tox + A0 * (n_pts_autres - n_tox_autres)) -->
+<!--     if (i != 1) PPTox[data$arret_tox[data$nb_ana == (i - 1)] == 1] <- 1.5 -->
+<!--     if (Nb_pts %in% AnaTox) { -->
+<!--       data$arret_tox[data$nb_ana == i] <- as.integer(PPTox > seuil) -->
+<!--     } else { -->
+<!--       if (i == 1) data$arret_tox[data$nb_ana == i] <- 0 else data$arret_tox[data$nb_ana == i] <- data$arret_tox[data$nb_ana == (i - 1)] -->
+<!--     } -->
+<!--   } -->
+<!--   return(data) -->
+<!-- } -->
+<!-- ``` -->
+
+
+## BOP2 avec power prior en partageant l'information selon test binomial exact : "tBOP a=... s=..."
+
+En 2^ème^ choix, j'ai choisi de combiner le BOP2 avec le power prior d'Ibrahim et Chen avec un exposant qui est une constante.
+Cela a été appliqué à la toxicité uniquement.
+
+La probabilité a posteriori s'écrit de la façon suivante :
+
+$$
+Pr(\pi|D_n)=Beta(a_0+x+a\times x_p,b_0+n-x+a\times(n_p-x_p))
+$$
+
+avec $x_p$ et $n_p$ le nombre de toxicités et de patients dans les autres bras ; et $a$ l'exposant du power prior.
+
+Et on ne partage l'information que si la différence entre la toxicité observée et une toxicité de référence est acceptable (quantifiée par une p-value au-dessus d'un certain seuil $s$).
+
+Le code pour analyser un essai avec cette méthode est dans le chunk ci-dessous.
+
+```{r fct-boptest, eval = FALSE}
+## data = données d'un essai
+## analyses = vecteurs des nombres de patients totaux par bras à chaque analyse
+## CPar et PPar = les 2 paramètres du schéma BOP2 (lambda et gamma)
+## AnaEff et AnaTox = les nombres de patients aux analyses d'efficacité et de toxicité
+## A0 = l'exposant du power prior
+## Tox0 = la toxicité théorique à laquelle on se compare
+## SeuilP = le seuil de p-value au-dessus duquel il faut être pour partager l'information
+## phi_eff et phi_tox = les niveaux tels que décrit dans la règle de décision précédente
+## prior_eff et prior_tox = les priors d'efficacité et de toxicité pour la loi Beta
 real_essai_bop_power_test <- function(data, analyses, CPar, PPar, AnaEff, AnaTox, A0, Tox0, SeuilP, 
                                       phi_eff, phi_tox, prior_eff, prior_tox) {
   data$arret_eff <- data$arret_tox <- NA_integer_
+  data$est_eff <- data$icinf_eff <- data$icsup_eff <- NA_real_
+  data$est_tox <- data$icinf_tox <- data$icsup_tox <- NA_real_
   for (i in seq_len(max(data$nb_ana))) {
     Nb_pts <- analyses[i]
     seuil <- 1 - CPar * (Nb_pts / analyses[length(analyses)]) ** PPar
@@ -429,7 +193,8 @@ real_essai_bop_power_test <- function(data, analyses, CPar, PPar, AnaEff, AnaTox
       n_tox <- Nb_pts - data$tot_notox[data$nb_ana == i]
       n_pts_bras <- rep(Nb_pts, length(n_tox))
       n_toxpts_autres <- vapply(seq_along(n_tox), \(x) {
-        Pvals <- vapply(seq_along(n_tox)[-x], \(t) binom.test(n_tox[t], n_pts_bras[t], Tox0)$p.value, numeric(1))
+        # Pvals <- vapply(seq_along(n_tox)[-x], \(t) binom.test(n_tox[t], n_pts_bras[t], Tox0)$p.value, numeric(1))
+        Pvals <- vapply(seq_along(n_tox)[-x], \(t) fisher.test(matrix(c(n_tox[x], n_pts_bras[x] - n_tox[x], n_tox[t], n_pts_bras[t] - n_tox[t]), 2, 2))$p.value, numeric(1))
         return(c(sum(n_tox[-x][Pvals > SeuilP]), sum((Pvals > SeuilP) * n_pts_bras[-x])))
       }, numeric(2))
     } else { # Si on n'est pas à la première analyse, il ne faut actualiser n_tox et n_pts que pour les cas où on ne s'est pas arrêté
@@ -437,32 +202,194 @@ real_essai_bop_power_test <- function(data, analyses, CPar, PPar, AnaEff, AnaTox
       n_eff[VecNonArrets] <- data$tot_eff[data$nb_ana == i][VecNonArrets]
       n_tox[VecNonArrets] <- Nb_pts - data$tot_notox[data$nb_ana == i][VecNonArrets]
       n_pts_bras[VecNonArrets] <- rep(Nb_pts, sum(VecNonArrets))
+      # On teste si la toxicité est significativement différente de Tox0 pour partager l'information si ce n'est pas significativement différent
       n_toxpts_autres <- vapply(seq_along(n_tox), \(x) {
-        Pvals <- vapply(seq_along(n_tox)[-x], \(t) binom.test(n_tox[t], n_pts_bras[t], Tox0)$p.value, numeric(1))
+        # Pvals <- vapply(seq_along(n_tox)[-x], \(t) binom.test(n_tox[t], n_pts_bras[t], Tox0)$p.value, numeric(1))
+        Pvals <- vapply(seq_along(n_tox)[-x], \(t) fisher.test(matrix(c(n_tox[x], n_pts_bras[x] - n_tox[x], n_tox[t], n_pts_bras[t] - n_tox[t]), 2, 2))$p.value, numeric(1))
         return(c(sum(n_tox[-x][Pvals > SeuilP]), sum((Pvals > SeuilP) * n_pts_bras[-x])))
       }, numeric(2))
     }
     PPEff <- pbeta(phi_eff, prior_eff + n_eff, 1 - prior_eff + Nb_pts - n_eff)
+    data$est_eff[data$nb_ana == i] <- (n_eff + prior_eff) / (Nb_pts + 1) 
+    data$icinf_eff[data$nb_ana == i] <- qbeta(.025, prior_eff + n_eff, 1 - prior_eff + Nb_pts - n_eff) 
+    data$icsup_eff[data$nb_ana == i] <- qbeta(.975, prior_eff + n_eff, 1 - prior_eff + Nb_pts - n_eff)
     if (i != 1) PPEff[data$arret_eff[data$nb_ana == (i - 1)] == 1] <- 1.5
     if (Nb_pts %in% AnaEff) {
       data$arret_eff[data$nb_ana == i] <- as.integer(PPEff > seuil)
     } else {
       if (i == 1) data$arret_eff[data$nb_ana == i] <- 0 else data$arret_eff[data$nb_ana == i] <- data$arret_eff[data$nb_ana == (i - 1)]
     }
-    PPTox <- 1 - pbeta(phi_tox, prior_tox + n_tox + A0 * sum(n_toxpts_autres[1, ]), 1 - prior_tox + Nb_pts - n_tox + A0 * (sum(n_toxpts_autres[2, ]) - sum(n_toxpts_autres[1, ])))
+    # Power prior, mais sur les bras non significativement différents
+    PPTox <- 1 - pbeta(phi_tox, prior_tox + n_tox + A0 * n_toxpts_autres[1, ], 1 - prior_tox + Nb_pts - n_tox + A0 * (n_toxpts_autres[2, ] - n_toxpts_autres[1, ]))
     if (i != 1) PPTox[data$arret_tox[data$nb_ana == (i - 1)] == 1] <- 1.5
     if (Nb_pts %in% AnaTox) {
       data$arret_tox[data$nb_ana == i] <- as.integer(PPTox > seuil)
     } else {
       if (i == 1) data$arret_tox[data$nb_ana == i] <- 0 else data$arret_tox[data$nb_ana == i] <- data$arret_tox[data$nb_ana == (i - 1)]
     }
+    data$est_tox[data$nb_ana == i] <- (prior_tox + n_tox + A0 * n_toxpts_autres[1, ]) / (Nb_pts + A0 * n_toxpts_autres[2, ] + 1) 
+    data$icinf_tox[data$nb_ana == i] <- qbeta(.025, prior_tox + n_tox + A0 * n_toxpts_autres[1, ], 1 - prior_tox + Nb_pts - n_tox + A0 * (n_toxpts_autres[2, ] - n_toxpts_autres[1, ]))
+    data$icsup_tox[data$nb_ana == i] <- qbeta(.975, prior_tox + n_tox + A0 * n_toxpts_autres[1, ], 1 - prior_tox + Nb_pts - n_tox + A0 * (n_toxpts_autres[2, ] - n_toxpts_autres[1, ]))
   }
   return(data)
 }
+```
 
-real_essai_bop_borrow_test <- function(data, analyses, CPar, PPar, AnaEff, AnaTox, A0, Tox0, 
-                                       phi_eff, phi_tox, prior_eff, prior_tox) {
+
+<!-- ## BOP2 avec power prior en partageant l'information selon test binomial exact sans seuil : "tBOP borrow" -->
+
+<!-- Ici, on met directement la p-value comme mesure de similitude avec la toxicité de référence pour contrôler le niveau de partage d'information avec les autres bras. -->
+
+<!-- En écrivant cela, je me rends compte que cette méthode n'est sûrement pas adaptée à notre problématique et sera sans doute à abandonner ou modifier. -->
+
+<!-- Le code pour analyser un essai avec cette méthode est dans le chunk ci-dessous. -->
+
+<!-- ```{r fct-bopbortest, eval = FALSE} -->
+<!-- ## data = données d'un essai -->
+<!-- ## analyses = vecteurs des nombres de patients totaux par bras à chaque analyse -->
+<!-- ## CPar et PPar = les 2 paramètres du schéma BOP2 (lambda et gamma) -->
+<!-- ## AnaEff et AnaTox = les nombres de patients aux analyses d'efficacité et de toxicité -->
+<!-- ## A0 = l'exposant du power prior -->
+<!-- ## Tox0 = la toxicité théorique à laquelle on se compare -->
+<!-- ## SeuilP = le seuil de p-value au-dessus duquel il faut être pour partager l'information -->
+<!-- ## phi_eff et phi_tox = les niveaux tels que décrit dans la règle de décision précédente -->
+<!-- ## prior_eff et prior_tox = les priors d'efficacité et de toxicité pour la loi Beta -->
+<!-- real_essai_bop_borrow_test <- function(data, analyses, CPar, PPar, AnaEff, AnaTox, A0, Tox0,  -->
+<!--                                        phi_eff, phi_tox, prior_eff, prior_tox) { -->
+<!--   data$arret_eff <- data$arret_tox <- NA_integer_ -->
+<!--   for (i in seq_len(max(data$nb_ana))) { -->
+<!--     Nb_pts <- analyses[i] -->
+<!--     seuil <- 1 - CPar * (Nb_pts / analyses[length(analyses)]) ** PPar -->
+<!--     if (i == 1) { -->
+<!--       n_eff <- data$tot_eff[data$nb_ana == i] -->
+<!--       n_tox <- Nb_pts - data$tot_notox[data$nb_ana == i] -->
+<!--       n_pts_bras <- rep(Nb_pts, length(n_tox)) -->
+<!--       n_toxpts_autres <- vapply(seq_along(n_tox), \(x) { -->
+<!--         Pvals <- vapply(seq_along(n_tox)[-x], \(t) binom.test(n_tox[t], n_pts_bras[t], Tox0)$p.value, numeric(1)) -->
+<!--         return(c(sum(n_tox[-x] * Pvals), sum(Pvals * n_pts_bras[-x]))) -->
+<!--       }, numeric(2)) -->
+<!--     } else { # Si on n'est pas à la première analyse, il ne faut actualiser n_tox et n_pts que pour les cas où on ne s'est pas arrêté -->
+<!--       VecNonArrets <- data$arret_eff[data$nb_ana == (i - 1)] == 0 & data$arret_tox[data$nb_ana == (i - 1)] == 0 -->
+<!--       n_eff[VecNonArrets] <- data$tot_eff[data$nb_ana == i][VecNonArrets] -->
+<!--       n_tox[VecNonArrets] <- Nb_pts - data$tot_notox[data$nb_ana == i][VecNonArrets] -->
+<!--       n_pts_bras[VecNonArrets] <- rep(Nb_pts, sum(VecNonArrets)) -->
+<!--       n_toxpts_autres <- vapply(seq_along(n_tox), \(x) { -->
+<!--         Pvals <- vapply(seq_along(n_tox)[-x], \(t) binom.test(n_tox[t], n_pts_bras[t], Tox0)$p.value, numeric(1)) -->
+<!--         return(c(sum(n_tox[-x] * Pvals), sum(Pvals * n_pts_bras[-x]))) -->
+<!--       }, numeric(2)) -->
+<!--     } -->
+<!--     PPEff <- pbeta(phi_eff, prior_eff + n_eff, 1 - prior_eff + Nb_pts - n_eff) -->
+<!--     if (i != 1) PPEff[data$arret_eff[data$nb_ana == (i - 1)] == 1] <- 1.5 -->
+<!--     if (Nb_pts %in% AnaEff) { -->
+<!--       data$arret_eff[data$nb_ana == i] <- as.integer(PPEff > seuil) -->
+<!--     } else { -->
+<!--       if (i == 1) data$arret_eff[data$nb_ana == i] <- 0 else data$arret_eff[data$nb_ana == i] <- data$arret_eff[data$nb_ana == (i - 1)] -->
+<!--     } -->
+<!--     # Idem que précédemment, mais la PValue est un multiplicateur, pas juste un seuil pour le partage -->
+<!--     PPTox <- 1 - pbeta(phi_tox, prior_tox + n_tox + A0 * sum(n_toxpts_autres[1, ]), 1 - prior_tox + Nb_pts - n_tox + A0 * (sum(n_toxpts_autres[2, ]) - sum(n_toxpts_autres[1, ]))) -->
+<!--     if (i != 1) PPTox[data$arret_tox[data$nb_ana == (i - 1)] == 1] <- 1.5 -->
+<!--     if (Nb_pts %in% AnaTox) { -->
+<!--       data$arret_tox[data$nb_ana == i] <- as.integer(PPTox > seuil) -->
+<!--     } else { -->
+<!--       if (i == 1) data$arret_tox[data$nb_ana == i] <- 0 else data$arret_tox[data$nb_ana == i] <- data$arret_tox[data$nb_ana == (i - 1)] -->
+<!--     } -->
+<!--   } -->
+<!--   return(data) -->
+<!-- } -->
+<!-- ``` -->
+
+
+<!-- ## BOP2 en partageant l'information des bras arrêtés : "mBOP borrow" -->
+
+<!-- Toujours pour la toxicité, on va ajouter de l'information. -->
+<!-- Dans ce cas-ci, la probabilité a posteriori s'écrit de la façon suivante pour la toxicité : -->
+
+<!-- $$ -->
+<!-- Pr(\pi|D_n)=Beta(a_0+x+x_a,b_0+n-x+n_a-x_a) -->
+<!-- $$ -->
+
+<!-- avec $x_a$ et $n_a$ le nombre de toxicités et de patients dans les bras arrêtés. -->
+
+<!-- Le code pour analyser un essai avec cette méthode est dans le chunk ci-dessous. -->
+
+<!-- ```{r fct-bopborrow, eval = FALSE} -->
+<!-- ## data = données d'un essai -->
+<!-- ## analyses = vecteurs des nombres de patients totaux par bras à chaque analyse -->
+<!-- ## CPar et PPar = les 2 paramètres du schéma BOP2 (lambda et gamma) -->
+<!-- ## AnaEff et AnaTox = les nombres de patients aux analyses d'efficacité et de toxicité -->
+<!-- ## phi_eff et phi_tox = les niveaux tels que décrit dans la règle de décision précédente -->
+<!-- ## prior_eff et prior_tox = les priors d'efficacité et de toxicité pour la loi Beta -->
+<!-- real_essai_bop_borrow <- function(data, analyses, CPar, PPar, AnaEff, AnaTox,  -->
+<!--                                   phi_eff, phi_tox, prior_eff, prior_tox) { -->
+<!--   data$arret_eff <- data$arret_tox <- NA_integer_ -->
+<!--   BrasArretes <- rep(FALSE, length(unique(data$ttt))) -->
+<!--   for (i in seq_len(max(data$nb_ana))) { -->
+<!--     Nb_pts <- analyses[i] -->
+<!--     seuil <- 1 - CPar * (Nb_pts / analyses[length(analyses)]) ** PPar -->
+<!--     # Décomptes d'efficacités et de toxicité -->
+<!--     if (i == 1) { -->
+<!--       n_eff <- data$tot_eff[data$nb_ana == i] -->
+<!--       n_tox <- Nb_pts - data$tot_notox[data$nb_ana == i] -->
+<!--       n_tox_autres <- vapply(seq_along(n_tox), \(x) sum((n_tox * BrasArretes)[-x]), numeric(1)) -->
+<!--       n_pts_bras <- rep(Nb_pts, length(n_tox)) -->
+<!--       n_pts_autres <- vapply(seq_along(n_tox), \(x) sum((n_pts_bras * BrasArretes)[-x]), numeric(1)) -->
+<!--     } else { # Si on n'est pas à la première analyse, il ne faut actualiser n_tox et n_pts que pour les cas où on ne s'est pas arrêté -->
+<!--       VecNonArrets <- data$arret_eff[data$nb_ana == (i - 1)] == 0 & data$arret_tox[data$nb_ana == (i - 1)] == 0 -->
+<!--       n_eff[VecNonArrets] <- data$tot_eff[data$nb_ana == i][VecNonArrets] -->
+<!--       n_tox[VecNonArrets] <- Nb_pts - data$tot_notox[data$nb_ana == i][VecNonArrets] -->
+<!--       n_tox_autres <- vapply(seq_along(n_tox), \(x) sum((n_tox * BrasArretes)[-x]), numeric(1)) -->
+<!--       n_pts_bras[VecNonArrets] <- rep(Nb_pts, sum(VecNonArrets)) -->
+<!--       n_pts_autres <- vapply(seq_along(n_pts_bras), \(x) sum((n_pts_bras * BrasArretes)[-x]), numeric(1)) -->
+<!--     } -->
+<!--     # Règles d'arrêt sur la proba a posteriori -->
+<!--     PPEff <- pbeta(phi_eff, prior_eff + n_eff, 1 - prior_eff + Nb_pts - n_eff) -->
+<!--     if (i != 1) PPEff[data$arret_eff[data$nb_ana == (i - 1)] == 1] <- 1.5 -->
+<!--     if (Nb_pts %in% AnaEff) { -->
+<!--       data$arret_eff[data$nb_ana == i] <- as.integer(PPEff > seuil) -->
+<!--     } else { -->
+<!--       if (i == 1) data$arret_eff[data$nb_ana == i] <- 0 else data$arret_eff[data$nb_ana == i] <- data$arret_eff[data$nb_ana == (i - 1)] -->
+<!--     } -->
+<!--     PPTox <- 1 - pbeta(phi_tox, prior_tox + n_tox + n_tox_autres, 1 - prior_tox + Nb_pts - n_tox + n_pts_autres - n_tox_autres) -->
+<!--     if (i != 1) PPTox[data$arret_tox[data$nb_ana == (i - 1)] == 1] <- 1.5 -->
+<!--     if (Nb_pts %in% AnaTox) { -->
+<!--       data$arret_tox[data$nb_ana == i] <- as.integer(PPTox > seuil) -->
+<!--     } else { -->
+<!--       if (i == 1) data$arret_tox[data$nb_ana == i] <- 0 else data$arret_tox[data$nb_ana == i] <- data$arret_tox[data$nb_ana == (i - 1)] -->
+<!--     } -->
+<!--     if (i == 1) { -->
+<!--       BrasArretes <- data$arret_tox[data$nb_ana == i] == 1 -->
+<!--     } else { -->
+<!--       BrasArretes[data$arret_eff[data$nb_ana == (i - 1)] == 0] <- data$arret_tox[data$nb_ana == i][data$arret_eff[data$nb_ana == (i - 1)] == 0] == 1 -->
+<!--     } -->
+
+<!--   } -->
+<!--   return(data) -->
+<!-- } -->
+<!-- ``` -->
+
+
+## BOP2 en partageant l'information des bras arrêtés en respectant une séquence : "seqBOP"
+
+Cette fois, j'ai décidé de garder l'ordre des doses et de le prendre en compte dans les règles de décision.
+L'idée était que si une forte dose n'est pas efficace, il y a des chances pour que les doses du dessous soient futiles elles aussi. 
+Et pour la toxicité, si une faible dose est toxique, il y a des chances pour que les doses du dessus aussi.
+Donc j'ai partagé l'information complètement, comme "bop_borrow", mais en respectant cette règle : on partage l'information des bras à une dose inférieure et arrêtés pour toxicité.
+
+Le code pour analyser un essai avec cette méthode est dans le chunk ci-dessous.
+
+```{r fct-bopseq, eval = FALSE}
+## data = données d'un essai
+## analyses = vecteurs des nombres de patients totaux par bras à chaque analyse
+## CPar et PPar = les 2 paramètres du schéma BOP2 (lambda et gamma)
+## AnaEff et AnaTox = les nombres de patients aux analyses d'efficacité et de toxicité
+## phi_eff et phi_tox = les niveaux tels que décrit dans la règle de décision précédente
+## prior_eff et prior_tox = les priors d'efficacité et de toxicité pour la loi Beta
+real_essai_bop_seq <- function(data, analyses, CPar, PPar, AnaEff, AnaTox, 
+                                  phi_eff, phi_tox, prior_eff, prior_tox) {
+  
   data$arret_eff <- data$arret_tox <- NA_integer_
+  data$est_eff <- data$icinf_eff <- data$icsup_eff <- NA_real_
+  data$est_tox <- data$icinf_tox <- data$icsup_tox <- NA_real_
   for (i in seq_len(max(data$nb_ana))) {
     Nb_pts <- analyses[i]
     seuil <- 1 - CPar * (Nb_pts / analyses[length(analyses)]) ** PPar
@@ -470,19 +397,132 @@ real_essai_bop_borrow_test <- function(data, analyses, CPar, PPar, AnaEff, AnaTo
       n_eff <- data$tot_eff[data$nb_ana == i]
       n_tox <- Nb_pts - data$tot_notox[data$nb_ana == i]
       n_pts_bras <- rep(Nb_pts, length(n_tox))
-      n_toxpts_autres <- vapply(seq_along(n_tox), \(x) {
-        Pvals <- vapply(seq_along(n_tox)[-x], \(t) binom.test(n_tox[t], n_pts_bras[t], Tox0)$p.value, numeric(1))
-        return(c(sum(n_tox[-x] * Pvals), sum(Pvals * n_pts_bras[-x])))
-      }, numeric(2))
+      # n_eff_autres <- rep(0, length(n_eff))
+      n_tox_autres <- rep(0, length(n_tox))
+      # n_ptseff_autres <- rep(0, length(n_pts_bras))
+      n_ptstox_autres <- rep(0, length(n_pts_bras))
     } else { # Si on n'est pas à la première analyse, il ne faut actualiser n_tox et n_pts que pour les cas où on ne s'est pas arrêté
       VecNonArrets <- data$arret_eff[data$nb_ana == (i - 1)] == 0 & data$arret_tox[data$nb_ana == (i - 1)] == 0
       n_eff[VecNonArrets] <- data$tot_eff[data$nb_ana == i][VecNonArrets]
       n_tox[VecNonArrets] <- Nb_pts - data$tot_notox[data$nb_ana == i][VecNonArrets]
       n_pts_bras[VecNonArrets] <- rep(Nb_pts, sum(VecNonArrets))
-      n_toxpts_autres <- vapply(seq_along(n_tox), \(x) {
-        Pvals <- vapply(seq_along(n_tox)[-x], \(t) binom.test(n_tox[t], n_pts_bras[t], Tox0)$p.value, numeric(1))
-        return(c(sum(n_tox[-x] * Pvals), sum(Pvals * n_pts_bras[-x])))
-      }, numeric(2))
+      # Partage d'infos des bras arrêtés (à dose inférieure pour tox et supérieure pour eff)
+      n_tox_autres <- vapply(seq_along(n_tox), \(x) sum(n_tox * data$arret_tox[data$nb_ana == (i - 1)] * (x > seq_along(n_tox))), numeric(1))
+      n_ptstox_autres <- vapply(seq_along(n_pts_bras), \(x) sum(n_pts_bras * data$arret_tox[data$nb_ana == (i - 1)] * (x > seq_along(n_tox))), numeric(1))
+      # n_eff_autres <- vapply(seq_along(n_eff), \(x) sum(n_eff * data$arret_eff[data$nb_ana == (i - 1)] * (x < seq_along(n_eff))), numeric(1))
+      # n_ptseff_autres <- vapply(seq_along(n_pts_bras), \(x) sum(n_pts_bras * data$arret_eff[data$nb_ana == (i - 1)] * (x < seq_along(n_eff))), numeric(1))
+    }
+    # Règles d'arrêt
+    # PPEff <- pbeta(phi_eff, prior_eff + n_eff + n_eff_autres, 1 - prior_eff + Nb_pts - n_eff + n_ptseff_autres - n_eff_autres)
+    PPEff <- pbeta(phi_eff, prior_eff + n_eff, 1 - prior_eff + Nb_pts - n_eff)
+    if (i != 1) PPEff[data$arret_eff[data$nb_ana == (i - 1)] == 1] <- 1.5
+    if (Nb_pts %in% AnaEff) {
+      data$arret_eff[data$nb_ana == i] <- as.integer(PPEff > seuil)
+    } else {
+      if (i == 1) data$arret_eff[data$nb_ana == i] <- 0 else data$arret_eff[data$nb_ana == i] <- data$arret_eff[data$nb_ana == (i - 1)]
+    }
+    data$est_eff[data$nb_ana == i] <- (n_eff + prior_eff) / (Nb_pts + 1) 
+    data$icinf_eff[data$nb_ana == i] <- qbeta(.025, prior_eff + n_eff, 1 - prior_eff + Nb_pts - n_eff) 
+    data$icsup_eff[data$nb_ana == i] <- qbeta(.975, prior_eff + n_eff, 1 - prior_eff + Nb_pts - n_eff)
+    PPTox <- 1 - pbeta(phi_tox, prior_tox + n_tox + n_tox_autres, 1 - prior_tox + Nb_pts - n_tox + n_ptstox_autres - n_tox_autres)
+    if (i != 1) PPTox[data$arret_tox[data$nb_ana == (i - 1)] == 1] <- 1.5
+    if (Nb_pts %in% AnaTox) {
+      data$arret_tox[data$nb_ana == i] <- as.integer(PPTox > seuil)
+    } else {
+      if (i == 1) data$arret_tox[data$nb_ana == i] <- 0 else data$arret_tox[data$nb_ana == i] <- data$arret_tox[data$nb_ana == (i - 1)]
+    }
+    data$est_tox[data$nb_ana == i] <- (n_tox + prior_tox + n_tox_autres) / (Nb_pts + n_ptstox_autres + 1) 
+    data$icinf_tox[data$nb_ana == i] <- qbeta(.025, prior_tox + n_tox + n_tox_autres, 1 - prior_tox + Nb_pts - n_tox + n_ptstox_autres - n_tox_autres)
+    data$icsup_tox[data$nb_ana == i] <- qbeta(.975, prior_tox + n_tox + n_tox_autres, 1 - prior_tox + Nb_pts - n_tox + n_ptstox_autres - n_tox_autres)
+  }
+  return(data)
+}
+```
+
+
+## BOP2 en utilisant un modèle hiérarchique pour la toxicité : "hBOP"
+
+L'hypothèse derrière un modèle hiérarchique serait l'échangeabilité, ce qui est peu probable dans notre cas.
+De ce que j'ai lu en faisant la biblio, souvent dans les basket trials, on utilise ce type de modèle en faisant l'hypothèse que l'efficacité d'un traitement sera la même dans toutes les indications par exemple.
+Néanmoins, je pense que cela peut contribuer à diminuer la variance et donc avoir une meilleure précision autour de l'estimation de toxicité.
+
+A noter que ce modèle est plus dur à estimer, et il y a des divergences en nombre variable selon les jeux de données.
+J'ai essayé de les régler, mais il en reste un peu.
+
+Le modèle est le suivant : 
+
+$$
+\mu \sim N(0, 5)\\
+\sigma \sim N(0, 5) [\sigma > 0]\\
+logit(p_1,p_2,...,p_K) \sim N(\mu,\sigma)\\
+(x_1,x_2,...,x_K)\sim Binom((n_1,n_2,...,n_K),(p_1,p_2,...,p_K))
+$$
+
+Le code pour analyser un essai avec cette méthode est dans le chunk ci-dessous.
+
+```{r fct-hiertox, eval = FALSE}
+## data = données d'un essai
+## analyses = vecteurs des nombres de patients totaux par bras à chaque analyse
+## CPar et PPar = les 2 paramètres du schéma BOP2 (lambda et gamma)
+## AnaEff et AnaTox = les nombres de patients aux analyses d'efficacité et de toxicité
+## phi_eff et phi_tox = les niveaux tels que décrit dans la règle de décision précédente
+## prior_eff et prior_tox = les priors d'efficacité et de toxicité pour la loi Beta
+ModeleHier <- "
+data {
+  int<lower = 1> Nb; // Nombre de bras
+  int<lower = 1> n[Nb]; // Nombre de patients par bras
+  int<lower = 0> y[Nb]; // Nombre de toxicités par bras
+}
+
+parameters{
+  real p_raw[Nb];
+  real mu;
+  real<lower = 0> sigma;
+}
+
+transformed parameters{
+  real p[Nb]; // Probabilité pour chaque bras
+  real logit_p[Nb]; // Prédicteur linéaire pour chaque bras
+  for(j in 1:Nb){
+    logit_p[j] = mu + sigma * p_raw[j]; // Non central parametrization
+  }
+  p = inv_logit(logit_p);
+}
+
+model{
+
+  // prior distributions
+  sigma ~ normal(0, 5);
+  mu  ~ normal(0, 5);
+
+  for (i in 1:Nb) {
+    p_raw[i] ~ normal(0, 1);
+    // binomial likelihood
+    y[i] ~ binomial(n[i], p[i]);
+  }
+ 
+}
+"
+CompilHier <- stan_model(model_code = ModeleHier)
+
+real_essai_modhier <- function(data, analyses, CPar, PPar, AnaEff, AnaTox, 
+                               phi_eff, phi_tox, prior_eff) {
+  
+  data$arret_eff <- data$arret_tox <- NA_integer_
+  data$est_eff <- data$icinf_eff <- data$icsup_eff <- NA_real_
+  data$est_tox <- data$icinf_tox <- data$icsup_tox <- NA_real_
+  for (i in seq_len(max(data$nb_ana))) {
+    Nb_pts <- analyses[i]
+    seuil <- 1 - CPar * (Nb_pts / analyses[length(analyses)]) ** PPar
+    if (i == 1) {
+      n_eff <- data$tot_eff[data$nb_ana == i]
+      n_tox <- Nb_pts - data$tot_notox[data$nb_ana == i]
+      n_pts_bras <- rep(Nb_pts, length(n_tox))
+    } else {
+      VecNonArrets <- data$arret_eff[data$nb_ana == (i - 1)] == 0 & data$arret_tox[data$nb_ana == (i - 1)] == 0
+      n_eff[VecNonArrets] <- data$tot_eff[data$nb_ana == i][VecNonArrets]
+      n_tox[VecNonArrets] <- Nb_pts - data$tot_notox[data$nb_ana == i][VecNonArrets]
+      n_pts_bras[VecNonArrets] <- rep(Nb_pts, sum(VecNonArrets))
     }
     PPEff <- pbeta(phi_eff, prior_eff + n_eff, 1 - prior_eff + Nb_pts - n_eff)
     if (i != 1) PPEff[data$arret_eff[data$nb_ana == (i - 1)] == 1] <- 1.5
@@ -491,7 +531,32 @@ real_essai_bop_borrow_test <- function(data, analyses, CPar, PPar, AnaEff, AnaTo
     } else {
       if (i == 1) data$arret_eff[data$nb_ana == i] <- 0 else data$arret_eff[data$nb_ana == i] <- data$arret_eff[data$nb_ana == (i - 1)]
     }
-    PPTox <- 1 - pbeta(phi_tox, prior_tox + n_tox + A0 * sum(n_toxpts_autres[1, ]), 1 - prior_tox + Nb_pts - n_tox + A0 * (sum(n_toxpts_autres[2, ]) - sum(n_toxpts_autres[1, ])))
+    data$est_eff[data$nb_ana == i] <- (n_eff + prior_eff) / (Nb_pts + 1) 
+    data$icinf_eff[data$nb_ana == i] <- qbeta(.025, prior_eff + n_eff, 1 - prior_eff + Nb_pts - n_eff) 
+    data$icsup_eff[data$nb_ana == i] <- qbeta(.975, prior_eff + n_eff, 1 - prior_eff + Nb_pts - n_eff)
+    # Probas a posteriori calculées par MCMC sur le modèle hiérarchique
+    if ((i != 1 && any(data$arret_tox[data$nb_ana == (i - 1)] == 0 & data$arret_eff[data$nb_ana == (i - 1)] == 0)) | (i == 1)) {
+      DonneesTox <- list(Nb = length(n_tox), n = n_pts_bras, y = n_tox)
+      SampledTox <- sampling(CompilHier, 
+                             data = DonneesTox,         
+                             chains = 3,             
+                             warmup = 5000,          
+                             iter = 30000,
+                             thin = 5,
+                             cores = 3,
+                             control = list(stepsize = .3, adapt_delta = .95, max_treedepth = 15),
+                             seed = 121221)
+      PPred <- extract(SampledTox, pars = "p")$p
+      PPTox <- colMeans(PPred > phi_tox) # On va chercher les distributions a posteriori de chaque bras pour la proportion de toxicité
+      data$est_tox[data$nb_ana == i] <- mean(PPred)
+      data$icinf_tox[data$nb_ana == i] <- quantile(PPred, probs = .025)
+      data$icsup_tox[data$nb_ana == i] <- quantile(PPred, probs = .975)
+    } else {
+      PPTox <- rep(1.5, length(n_tox))
+      data$est_tox[data$nb_ana == i] <- data$est_tox[data$nb_ana == (i - 1)] 
+      data$icinf_tox[data$nb_ana == i] <- data$icinf_tox[data$nb_ana == (i - 1)] 
+      data$icsup_tox[data$nb_ana == i] <- data$icsup_tox[data$nb_ana == (i - 1)] 
+    }
     if (i != 1) PPTox[data$arret_tox[data$nb_ana == (i - 1)] == 1] <- 1.5
     if (Nb_pts %in% AnaTox) {
       data$arret_tox[data$nb_ana == i] <- as.integer(PPTox > seuil)
@@ -499,151 +564,460 @@ real_essai_bop_borrow_test <- function(data, analyses, CPar, PPar, AnaEff, AnaTo
       if (i == 1) data$arret_tox[data$nb_ana == i] <- 0 else data$arret_tox[data$nb_ana == i] <- data$arret_tox[data$nb_ana == (i - 1)]
     }
   }
+  
   return(data)
-}
-
-opcharac <- function(ana_inter,
-                     ana_inter_tox = NULL,
-                     p_n,
-                     prior = NULL,
-                     p_a,
-                     phi = NULL,
-                     mat_beta_xi = matrix(c(1, 1, 0, 0, 0, 1, 0, 1), nrow = 2, byrow = TRUE),
-                     CPar = .6,
-                     PPar = .8,
-                     methode = c("bop", "bop_borrow", "bop_power", "bop_power_test", "bop_borrow_test"),
-                     A0 = 0, SeuilP = .2, 
-                     tableau_essais = NULL) {
-  
-  
-  # Check arguments ----
-  methode <- match.arg(methode)
-  if (length(CPar) != 1 | length(PPar) != 1) 
-    stop("CPar and PPar should be hyperparameters of the threshold determined by function deter_cutoff.", call. = FALSE)
-  if (!is.matrix(mat_beta_xi) || any(dim(mat_beta_xi) != c(2, 4)))
-    stop("\"mat_beta_xi\" should be a 2 by 4 matrix.", call. = FALSE)
-  if (!dplyr::near(sum(p_n), 1))
-    stop("Vector \"p_n\" should sum to 1.", call. = FALSE)
-  if (length(p_n) != 4)
-    stop("\"p_n\" should be a vector of length 4:\n1 = Pr(Eff & Tox), 2 = Pr(Eff & no Tox), 3 = Pr(no Eff & Tox) and 4 = Pr(no Eff & no Tox).", call. = FALSE)
-  if (is.null(prior)) {
-    prior <- p_n
-  } else {
-    if (length(prior) != 4)
-      stop("Vector \"prior\" should be of length 4:\n1 = Pr(Eff & Tox), 2 = Pr(Eff & no Tox), 3 = Pr(no Eff & Tox) and 4 = Pr(no Eff & no Tox).", call. = FALSE)
-  }
-  if (!dplyr::near(sum(p_a), 1))
-    stop("Vector \"p_a\" should sum to 1.", call. = FALSE)
-  if (length(p_a) != 4)
-    stop("\"p_a\" should be a vector of length 4:\n1 = Pr(Eff & Tox), 2 = Pr(Eff & no Tox), 3 = Pr(no Eff & Tox) and 4 = Pr(no Eff & no Tox).", call. = FALSE)
-  if (!is.numeric(ana_inter) | any(ana_inter < 0) | any(ana_inter %% 1 != 0))
-    stop("\"ana_inter\" should be a vector of positive integers.", call. = FALSE)
-  if (!is.null(ana_inter_tox)) {
-    if (any(ana_inter_tox %% 1 != 0))
-      stop("\"ana_inter_tox\" represents the number of supplementary patients at each interim analysis for toxicity and should thus be composed of integers.", call. = FALSE)
-    if (sum(ana_inter) != sum(ana_inter_tox))
-      stop("\"ana_inter\" and \"ana_inter_tox\" should sum to the same amount of patients.", call. = FALSE)
-  }
-  
-  # Precompute variables ----
-  
-  # Reconstitution of phi. If no specified value, the values under H0 are taken.
-  if (is.null(phi)) {
-    phitox <- c(sum(p_n * mat_beta_xi[1, ]), 1 - sum(p_n * mat_beta_xi[2, ]))
-    phi <- phitox
-    phinotox <- c(sum(p_n * mat_beta_xi[1, ]), sum(p_n * mat_beta_xi[2, ]))
-  } else {
-    phitox <- phi
-    phinotox <- c(phi[1], 1 - phi[2])
-  }
-  
-  # Number of arms
-  n_bras <- length(unique(tableau_essais$ttt))
-  
-  # Interim analyses
-  ana_eff <- cumsum(ana_inter)
-  ana_tox <- if (is.null(ana_inter_tox)) cumsum(ana_inter) else cumsum(ana_inter_tox)
-  analyses <- sort(union(ana_eff, ana_tox))
-  
-  phi_eff <- phitox[1] # Phi for efficacy
-  phi_tox <- phitox[2] # Phi for toxicity
-  prior_eff <- sum(prior * mat_beta_xi[1,])
-  prior_tox <- sum(prior * (1 - mat_beta_xi[2,]))
-  
-  # Compute the trials ----
-  
-  # Splitting the data to perform separately each trial
-  tableau_essais <- split(tableau_essais, tableau_essais$n_simu)
-  tableau_essais <- map_dfr(
-    .x = tableau_essais,
-    .f = function(data) {
-      if (methode == "bop") {
-        real_essai_bop(data, analyses, CPar, PPar, ana_eff, ana_tox, phi_eff, phi_tox, prior_eff, prior_tox)
-      } else if (methode == "bop_borrow") {
-        real_essai_bop_borrow(data, analyses, CPar, PPar, ana_eff, ana_tox, phi_eff, phi_tox, prior_eff, prior_tox)
-      } else if (methode == "bop_power") {
-        real_essai_bop_power(data, analyses, CPar, PPar, ana_eff, ana_tox, A0, phi_eff, phi_tox, prior_eff, prior_tox)
-      } else if (methode == "bop_power_test") {
-        real_essai_bop_power_test(data, analyses, CPar, PPar, ana_eff, ana_tox, A0, phi_tox, SeuilP, phi_eff, phi_tox, prior_eff, prior_tox)
-      } else if (methode == "bop_borrow_test") {
-        real_essai_bop_borrow_test(data, analyses, CPar, PPar, ana_eff, ana_tox, A0, phi_tox, phi_eff, phi_tox, prior_eff, prior_tox)
-      }
-      
-    }
-  )
-  
-  # Decision rules
-  tableau_essais <- tableau_essais %>%
-    mutate(
-      prior_eff = prior_eff,
-      prior_tox = prior_tox,
-      decision = dplyr::case_when((nb_ana != max(nb_ana)) & (arret_eff == 0) & (arret_tox == 0) ~ "Continue",
-                                  (nb_ana == max(nb_ana)) & (arret_eff == 0) & (arret_tox == 0) ~ "Accept the treatment",
-                                  (nb_ana != max(nb_ana)) & ((arret_eff != 0) | (arret_tox != 0)) ~ "Early stopping",
-                                  (nb_ana == max(nb_ana)) & ((arret_eff != 0) | (arret_tox != 0)) ~ "Stopping"),
-      decision_eff = dplyr::case_when((nb_ana != max(nb_ana)) & (arret_eff == 0) ~ "Continue",
-                                      (nb_ana == max(nb_ana)) & (arret_eff == 0) ~ "Accept the treatment",
-                                      (nb_ana != max(nb_ana)) & (arret_eff != 0) ~ "Early stopping (futility)",
-                                      (nb_ana == max(nb_ana)) & (arret_eff != 0) ~ "Stopping (futility)"),
-      decision_tox = dplyr::case_when((nb_ana != max(nb_ana)) & (arret_tox == 0) ~ "Continue",
-                                      (nb_ana == max(nb_ana)) & (arret_tox == 0) ~ "Accept the treatment",
-                                      (nb_ana != max(nb_ana)) & (arret_tox != 0) ~ "Early stopping (toxicity)",
-                                      (nb_ana == max(nb_ana)) & (arret_tox != 0) ~ "Stopping (toxicity)")) %>%
-    filter(decision != "Continue") %>%
-    group_by(n_simu, ttt) %>%
-    arrange(n_simu, ttt, nb_ana) %>%
-    slice(1) %>%
-    ungroup()
-  
-  
-  # Output of the function ----
-  return(list(
-    carac_globales = data.frame(
-      p_n = paste0("(", paste(p_n, collapse = "/"), ")"),
-      p_a = paste0("(", paste(p_a, collapse = "/"), ")"),
-      rejet_glob = tableau_essais %>%
-        group_by(n_simu) %>%
-        summarise(
-          rejet_glob = sum(decision == "Accept the treatment") > 0,
-          .groups = "drop"
-        ) %>%
-        summarise(rejet_glob = mean(rejet_glob)) %>%
-        pull(rejet_glob)
-    ),
-    carac_bras = data.frame(
-      summarise_decision(tableau_essais, ttt, decision, "Accept the treatment", rejet_h0) %>%
-        left_join(summarise_decision(tableau_essais, ttt, decision, "Early stopping", arret_precoce), by = "ttt") %>%
-        left_join(summarise_detect(tableau_essais, ttt, decision, "Stopping|stopping", arret), by = "ttt") %>%
-        left_join(summarise_decision(tableau_essais, ttt, decision_eff, "Early stopping (futility)", arret_precoce_fut), by = "ttt") %>%
-        left_join(summarise_decision(tableau_essais, ttt, decision_tox, "Early stopping (toxicity)", arret_precoce_tox), by = "ttt") %>%
-        left_join(summarise_detect(tableau_essais, ttt, decision_eff, "futility", arret_fut), by = "ttt") %>%
-        left_join(summarise_detect(tableau_essais, ttt, decision_tox, "toxicity", arret_tox), by = "ttt") %>%
-        left_join(summarise_ttt(tableau_essais, ttt, tot_pat), by = "ttt") %>%
-        left_join(summarise_ttt(tableau_essais, ttt, tot_eff), by = "ttt") %>%
-        left_join(summarise_ttt(tableau_essais, ttt, tot_pat - tot_notox, tot_tox), by = "ttt")
-    )
-  ))
   
 }
 ```
+
+Pour une raison qui m'échappe, la loi normale pour le paramètre de variance est meilleure que les autres distributions et donne moins de problèmes de convergence.
+
+Dans la littérature, certains proposaient la loi de Cauchy, mais Gelmann est cité comme disant qu'une loi gamma ou une loi de Student tronquée positive est mieux adaptée.
+Et on trouve aussi pas mal de loi normales tronquées.
+
+
+## BOP2 en analysant la toxicité par un modèle logistique : "bop_log4/5"
+
+J'ai juste fait un modèle logistique simple avec comme seule covariable la dose.
+Pour forcer le fait que la toxicité à la dose 3 soit plus élevée que celle à la dose 2, j'ai un peu réécris le modèle :
+
+$$
+logit(p) = \alpha + \beta_1 I(dose > 1) + \beta_2 I(dose=3)
+$$
+Encore une fois ce n'est que pour la toxicité.
+J'ai fait 2 cas :
+
+- pas de contrainte 
+- $\beta_1$ et $\beta_2$ sont positifs
+
+```{r fct-logtox, eval = FALSE}
+## data = données d'un essai
+## analyses = vecteurs des nombres de patients totaux par bras à chaque analyse
+## CPar et PPar = les 2 paramètres du schéma BOP2 (lambda et gamma)
+## AnaEff et AnaTox = les nombres de patients aux analyses d'efficacité et de toxicité
+## phi_eff et phi_tox = les niveaux tels que décrit dans la règle de décision précédente
+## prior_eff et prior_tox = les priors d'efficacité et de toxicité pour la loi Beta
+ModeleLog4 <- "
+data {
+  int<lower=0> N;
+  vector[N] x1;
+  vector[N] x2;
+  int<lower=0,upper=1> y[N];
+}
+parameters {
+  real alpha;
+  real beta;
+  real gamma;
+}
+model {
+  // Priors
+  alpha ~ normal(0, 5);
+  beta ~ normal(0, 5);
+  gamma ~ normal(0, 5);
+  // Likelihood
+  y ~ bernoulli_logit(alpha + beta * x1 + gamma * x2);
+}
+"
+CompilLog4 <- stan_model(model_code = ModeleLog4)
+
+ModeleLog5 <- "
+data {
+  int<lower=0> N;
+  vector[N] x1;
+  vector[N] x2;
+  int<lower=0,upper=1> y[N];
+}
+parameters {
+  real alpha;
+  real<lower = 0> beta;
+  real<lower = 0> gamma;
+}
+model {
+  // Priors
+  alpha ~ normal(0, 5);
+  beta ~ normal(0, 5);
+  gamma ~ normal(0, 5);
+  // Likelihood
+  y ~ bernoulli_logit(alpha + beta * x1 + gamma * x2);
+}
+"
+CompilLog5 <- stan_model(model_code = ModeleLog5)
+
+real_essai_bayeslog <- function(data, analyses, CPar, PPar, AnaEff, AnaTox, 
+                               phi_eff, phi_tox, prior_eff, modele_log) {
+  
+  data$arret_eff <- data$arret_tox <- NA_integer_
+  data$dose <- as.numeric(gsub("^ttt(\\d+)$", "\\1", data$ttt)) # Doses 1/2/3/... prises dans ces simulations
+  data$est_eff <- data$icinf_eff <- data$icsup_eff <- NA_real_
+  data$est_tox <- data$icinf_tox <- data$icsup_tox <- NA_real_
+  for (i in seq_len(max(data$nb_ana))) {
+    Nb_pts <- analyses[i]
+    seuil <- 1 - CPar * (Nb_pts / analyses[length(analyses)]) ** PPar
+    if (i == 1) {
+      n_eff <- data$tot_eff[data$nb_ana == i]
+      n_tox <- Nb_pts - data$tot_notox[data$nb_ana == i]
+      n_pts_bras <- rep(Nb_pts, length(n_tox))
+      doses_ttt <- data$dose[data$nb_ana == i]
+    } else {
+      VecNonArrets <- data$arret_eff[data$nb_ana == (i - 1)] == 0 & data$arret_tox[data$nb_ana == (i - 1)] == 0
+      n_eff[VecNonArrets] <- data$tot_eff[data$nb_ana == i][VecNonArrets]
+      n_tox[VecNonArrets] <- Nb_pts - data$tot_notox[data$nb_ana == i][VecNonArrets]
+      n_pts_bras[VecNonArrets] <- rep(Nb_pts, sum(VecNonArrets))
+      doses_ttt[VecNonArrets] <- data$dose[data$nb_ana == i][VecNonArrets]
+    }
+    PPEff <- pbeta(phi_eff, prior_eff + n_eff, 1 - prior_eff + Nb_pts - n_eff)
+    if (i != 1) PPEff[data$arret_eff[data$nb_ana == (i - 1)] == 1] <- 1.5
+    if (Nb_pts %in% AnaEff) {
+      data$arret_eff[data$nb_ana == i] <- as.integer(PPEff > seuil)
+    } else {
+      if (i == 1) data$arret_eff[data$nb_ana == i] <- 0 else data$arret_eff[data$nb_ana == i] <- data$arret_eff[data$nb_ana == (i - 1)]
+    }
+    data$est_eff[data$nb_ana == i] <- (n_eff + prior_eff) / (Nb_pts + 1) 
+    data$icinf_eff[data$nb_ana == i] <- qbeta(.025, prior_eff + n_eff, 1 - prior_eff + Nb_pts - n_eff) 
+    data$icsup_eff[data$nb_ana == i] <- qbeta(.975, prior_eff + n_eff, 1 - prior_eff + Nb_pts - n_eff)
+    # MCMC pour la proba a posteriori seulement si nécessaire (gain de temps)
+    if ((i != 1 && any(data$arret_tox[data$nb_ana == (i - 1)] == 0 & data$arret_eff[data$nb_ana == (i - 1)] == 0)) | (i == 1)) {
+      if (modele_log %in% c(1:3)) {
+        DonneesTox <- list(N = sum(n_pts_bras),
+                           y = rep(rep(0:1, length(doses_ttt)), unlist(lapply(seq_along(n_pts_bras), \(x) c(n_pts_bras[x] - n_tox[x], n_tox[x])))),
+                           x = rep(doses_ttt, n_pts_bras))
+      } else {
+        DonneesTox <- list(N = sum(n_pts_bras),
+                           y = rep(rep(0:1, length(doses_ttt)), unlist(lapply(seq_along(n_pts_bras), \(x) c(n_pts_bras[x] - n_tox[x], n_tox[x])))),
+                           x1 = rep(c(0, rep(1, length(doses_ttt) - 1)), n_pts_bras),
+                           x2 = rep(c(0, 0, rep(1, length(doses_ttt) - 2)), n_pts_bras))
+      }
+      SampledTox <- sampling(get(paste0("CompilLog", modele_log)), 
+                             data = DonneesTox,         
+                             chains = 3,             
+                             warmup = 5000,          
+                             iter = 55000,
+                             thin = 10,
+                             cores = 3,
+                             # J'ai dû ajouter cela car cela ne convergeait pas bien sinon pour le modèle qui restreint beta en positif
+                             control = list(stepsize = .3, adapt_delta = .95, max_treedepth = 15),
+                             seed = 121221)
+      DistPost <- extract(SampledTox)
+      if (modele_log %in% c(1:3)) {
+        PPred <- lapply(doses_ttt, \(x) 1 / (1 + exp(-1 * (DistPost$alpha + x * DistPost$beta))))
+        PPTox <- vapply(PPred, \(distrib) {mean(distrib > phi_tox)}, double(1))
+      } else {
+        PPred <- lapply(doses_ttt, \(x) 1 / (1 + exp(-1 * (DistPost$alpha + (x != 1) * DistPost$beta + (x == 3) * DistPost$gamma))))
+        PPTox <- vapply(PPred, \(distrib) {mean(distrib > phi_tox)}, double(1))
+      }
+      data$est_tox[data$nb_ana == i] <- vapply(PPred, mean, double(1))
+      data$icinf_tox[data$nb_ana == i] <- vapply(PPred, quantile, double(1), probs = .025)
+      data$icsup_tox[data$nb_ana == i] <- vapply(PPred, quantile, double(1), probs = .975)
+    } else {
+      PPTox <- rep(1.5, length(n_tox))
+      data$est_tox[data$nb_ana == i] <- data$est_tox[data$nb_ana == (i - 1)] 
+      data$icinf_tox[data$nb_ana == i] <- data$icinf_tox[data$nb_ana == (i - 1)] 
+      data$icsup_tox[data$nb_ana == i] <- data$icsup_tox[data$nb_ana == (i - 1)] 
+    }
+    if (i != 1) PPTox[data$arret_tox[data$nb_ana == (i - 1)] == 1] <- 1.5
+    if (Nb_pts %in% AnaTox) {
+      data$arret_tox[data$nb_ana == i] <- as.integer(PPTox > seuil)
+    } else {
+      if (i == 1) data$arret_tox[data$nb_ana == i] <- 0 else data$arret_tox[data$nb_ana == i] <- data$arret_tox[data$nb_ana == (i - 1)]
+    }
+  }
+  
+  return(data)
+  
+}
+```
+
+
+# Simulations
+
+```{r mise-en-forme-tableaux}
+# Correction d'une coquille de nom dans le script de simulations
+NomScenarsCorr <- rep(c("tBOP a=.25 s=.05", "tBOP a=.25 s=.1", "tBOP a=.25 s=.25", "tBOP a=.25 s=.5"), each = 7)
+for (i in seq_along(NomScenarsCorr)) {
+  Res1[[i + 42]][[3]]$methode <- NomScenarsCorr[i]
+}
+# Mise en forme dans un tableau
+Res <- map_dfr(seq_along(Res1), ~ do.call("cbind", Res1[[.x]][-4]), .id = "id")
+```
+
+## Paramètres de simulations
+
+J'ai simulé 5000 essais pour évaluer chaque scénario pour chaque
+
+Paramètres d'optimisation du seuil (comme pour mBOP de notre article) :
+
+- FWER = 0.1
+- 10 000 essais simulés pour évaluer le seuil, puis 5 000 essais par scénario
+- Analyses d'efficacité et de toxicité à 15/30/45 patients
+- 3 bras de traitement
+- les bras seraient 3 doses d'Ibrutinib : 140, 280, et 420 mg/jour
+- $H_0:\pi_{eff}=0.30 ; \pi_{tox}=0.40$ soit $(0.15;0.15;0.25;0.45)$ ($R=0.13$)
+- $H_1:\pi_{eff}=0.50;\pi_{tox}=0.30$ soit $(0.20;0.30;0.10;0.40)$ ($R=0.22$)
+
+J'ai pris 7 scénarios en respectant l'hypothèse que l'efficacité et la toxicité sont croissantes avec la dose, avec possiblement des plateaux.
+Ils sont représentés sur l'image ci-dessous :
+
+```{r img-sc}
+include_graphics(here("Figures/scenar_simul_v2.png"))
+```
+
+
+J'ai essayé d'avoir les scénarios 1 et 2 qui sont des contrôles.
+
+Scénario 3 : efficacité insuffisante qui monte vite vers désirable ; toxicité croissante autour d'une toxicité acceptable.
+Le bras 2 est à accepter, et le bras 3 c'est un peu controversé.
+
+Scénario 4 : efficacité intermédiaire qui augmente puis plateau ; toxicité idem que précédemment. 
+Au niveau des bras à accepter, c'est la même chose que le scénario 3.
+
+Scénario 5 : l'efficacité démarre comme le scénario 4 et le plateau est un peu moins haut, mais toujours dans la zone efficace ; le traitement est toxique.
+Aucun des bras n'est à retenir.
+
+Scénario 6 : idem que scénario 5 mais l'efficacité ne fait pas de plateau.
+Aucun des bras n'est à retenir.
+
+Scénario 7 : efficacité constante à $H_1$ et toxicité intermédiaire croissante.
+Les 3 bras sont controversés, de plus en plus.
+
+
+## Scénario 1
+
+Ici tout les bras sont à l'hypothèse nulle.
+
+```{r, fig.cap = "FWER pour le scénario 1"}
+Res %>% 
+  filter(scenar %in% c("Sc1"), carac_bras.ttt == "ttt1") %>% 
+  ggplot(aes(carac_globales.rejet_glob, methode)) +
+  geom_point() +
+  labs(x = "FWER", y = NULL) +
+  expand_limits(x = 0)
+```
+
+Globalement, le FWER est respecté.
+Il est autour de 7% car même si c'est calibré pour maximum 10%, le FWER calibré est de 6.95%.
+La stratégie de power prior avec test augmente le FWER avec un seuil sur la Pvalue de 0.25 et 0.5 et sinon le diminue un peu.
+Plus le paramètre de puissance du power prior est élevé, plus on partage d'information et plus l'effet sur le FWER est fort.
+Le modèle logistique 5 (avec les coefficients forcés supérieurs à 0), on a une inflation du FWER.
+L'autre modèle logistique est environ équivalent, et le modèle hiérarchique ainsi que le BOPseq sont plus conservateurs.
+
+```{r, fig.cap = "Proportion d'essai prometteurs dans chaque bras pour le scénario 1"}
+Res %>% 
+  filter(scenar %in% c("Sc1")) %>% 
+  ggplot(aes(carac_bras.rejet_h0, methode)) +
+  geom_point() +
+  facet_wrap(vars(carac_bras.ttt)) +
+  labs(x = "Proportion de traitement prometteurs", y = NULL) +
+  expand_limits(x = 0)
+```
+
+Les performances sont similaires dans tous les bras sauf pour le modèle logistique 5.
+Comme on force les coefficients positifs, on a toxicité dans le bras 3 > bras 2 > bras 1 et donc cela explique les proportions de rejet de $H_0$ qui diminuent avec les bras.
+
+
+## Scénario 2
+
+On est ici dans le cas où tous les bras sont à l'hypothèse alternative.
+
+```{r, fig.cap = "Puissance sous un scénario d'hypothèse alternative globale"}
+Res %>% 
+  filter(scenar %in% c("Sc2"), carac_bras.ttt == "ttt1") %>% 
+  ggplot(aes(carac_globales.rejet_glob, methode)) +
+  geom_point() +
+  labs(x = "Puissance", y = NULL) +
+  expand_limits(x = 0)
+```
+
+Globalement, la puissance est la même pour tous, mais elle est à 1.
+La stratégie seqBOP semble néanmoins plus conservatrice, et le modèle log5 est plus puissant, mais avec un risque d'erreur de type I plus élevé aussi...
+On peut regarder ce qu'il se passe par bras.
+
+```{r, fig.cap = "Puissance sous un scénario d'hypothèse alternative globale par bras"}
+Res %>% 
+  filter(scenar %in% c("Sc2")) %>% 
+  ggplot(aes(carac_bras.rejet_h0, methode)) +
+  geom_point() +
+  facet_wrap(vars(carac_bras.ttt)) +
+  labs(x = "Puissance", y = NULL) +
+  expand_limits(x = 0)
+```
+
+On peut faire le même constat que les approches de power prior sont moins conservatrices que les autres.
+On partage de l'information venant de bras efficaces et non toxiques donc cela semble logique.
+
+Les approches de partage des bras arrêtés sont plus conservatrices que le BOP multibras.
+
+Les modèles hiérarchique et logistiques sont un peu plus puissants par bras.
+Le modèle log5 montre aussi un plus grand rejet de $H_0$ sur les 1^ers^ bras, et cela diminue, conformément à ce qu'on a vu pour le scénario 1.
+Il n'y a pas l'air d'y avoir un gagnant clair, mais les power priors, le modèle log4 et le modèle hiérarchiques augmentent la puissance sous ce scénario.
+
+
+## Scénario 3
+
+Ici, l'efficacité augmente bien, mais de même que la toxicité.
+Le bras 1 est avec une efficacité intermédiaire, le 2 juste à H1 et le 3 toxique (intermédiaire).
+
+```{r, fig.cap = "Conclusion de traitement dans les bras du scénario 3"}
+Res %>% 
+  filter(scenar %in% c("Sc3")) %>% 
+  ggplot(aes(carac_bras.rejet_h0, methode)) +
+  geom_point() +
+  facet_wrap(vars(carac_bras.ttt)) +
+  labs(x = "Proportion traitement prometteur", y = NULL) +
+  expand_limits(x = 0)
+```
+
+Le bras 1 est futile mais très peu toxique. 
+Tous les schémas ont l'air d'avoir environ le même taux de faux positifs qui est un peu supérieur à 10%.
+Le modèle hiérarchique et log5 ont un risque de faux positif un peu plus élevé.
+
+Le bras 2 est prometteur, et on a minimum 70% de puissance pour le détecter.
+Les modèles log4 et seqBOP donnent environ la même puissance que le mBOP classique.
+Les schémas se basant sur le power prior augmentent la puissance dans ce scénario, en augmentant avec la puissance donnée pour le partage d'information et en diminuant le seuil de la pvalue.
+Le modèle hiérarchique gagne en puissance, ainsi que log5 (le plus gros gain).
+
+Le bras 3 est très efficace, mais a une toxicité intermédiaire.
+Globalement les résultats sont environ les mêmes que pour le bras 2.
+La seule différence est le modèle log5 qui est beaucoup plus conservateur dans ce bras que pour le bras 2.
+
+
+## Scénario 4
+
+L'efficacité fait un plateau au niveau des doses 2 et 3 en démarrant à une efficacité intermédiaire.
+La toxicité fait la même chose que pour le scénario 3 : augmentation de peu toxique à une toxicité intermédiaire.
+
+```{r, fig.cap = "Conclusion de traitement dans les bras du scénario 4"}
+Res %>% 
+  filter(scenar %in% c("Sc4")) %>% 
+  ggplot(aes(carac_bras.rejet_h0, methode)) +
+  geom_point() +
+  facet_wrap(vars(carac_bras.ttt)) +
+  labs(x = "Proportion traitement prometteur", y = NULL) +
+  expand_limits(x = 0)
+```
+
+Pour le bras 1, on a une efficacité intermédiaire, et les schémas ont environ 60% de conclusion à un bras efficace.
+Le modèle log5 augmente la proportion d'essais pour lequel le bras 1 est considéré prometteur.
+
+Le bras 2 est univoque et il faut le considérer comme prometteur.
+La conclusion est globalement la même que pour le bras 2 du scénario 3 :
+
+- seqBOP et log4 fait environ pareil que mBOP ;
+- Les stratégies de power prior augmentent la puissance dans ce bras ;
+- Le modèle hiérarchique et encore plus le modèle log5 augmentent la puissance.
+
+Le bras 3 est encore controversé avec une forte efficacité mais une toxicité intermédiaire.
+Là encore le constant est similaire au bras 3 du scénario 3 :
+
+- log4 fait environ comme mBOP ;
+- seqBOP contrôle un peu mieux la proportion de bras considérés prometteurs par rapport à mBOP ;
+- Les stratégies de power prior augmentent la proportion de bras dénotés prometteurs (plus avec la puissance ainsi que la diminution du seuil de pvalue) ;
+- Le modèle hiérarchique augmente la proportion de bras positifs d'environ 10% ;
+- Le modèle log5 diminue cette proportion quant à lui.
+
+
+## Scénario 5
+
+L'efficacité commence à une valeur intermédiaire puis fait un plateau à $H_1$.
+La toxicité démarre à une valeur intermédaire et augmente jusqu'à une valeur supérieure à $H_0$.
+
+```{r, fig.cap = "Conclusion de traitement prometteur dans les bras du scénario 5"}
+Res %>% 
+  filter(scenar %in% c("Sc5")) %>% 
+  ggplot(aes(carac_bras.rejet_h0, methode)) +
+  geom_point() +
+  facet_wrap(vars(carac_bras.ttt)) +
+  labs(x = "Proportion traitement prometteur", y = NULL) +
+  expand_limits(x = 0)
+```
+
+Le bras 1 a une efficacité et une toxicité intermédiaires, ce qui explique les 30% de rejet du schéma mBOP.
+Les schémas seqBOP et log4 donnent à peu de choses près la même chose.
+Pour les stratégies de power prior, comme on partage l'information avec des bras plus toxiques et qui sont en fait à un seuil $\geq$ au seuil de toxicité, le proportion d'essai positifs pour le bras 1 diminue par rapport à mBOP.
+Tout comme l'augementation, cette diminution est plus forte quand l'exposant est plus élevé et quand le seuil de pvalue diminue.
+Le modèle hiérarchique diminue la proportion de rejet de $H_0$.
+Et le modèle log5 augmente énormément la proportion de rejet de $H_0$ (presque x2).
+
+Dans le bras 2, on a une efficacité à $H_1$ et une toxicité à $H_0$ : traitement toxique donc il ne faut pas conclure à un traitement prometteur.
+Pour les stratégies de power prior, on a une proportion de conclusion à un traitement prometteur qui diminue avec les mêmes facteurs, et qui est augmentée pour descendre sous celle de mBOP.
+Le modèle log4 fait encore environ comme mBOP, et le modèle hiérarchique, seqBOP et log5 diminuent le risque de faux positif dans ce bras.
+
+Le bras 3 est lui aussi toxique, mais plus que sous $H_0$.
+On a une proportion de faux positifs un peu supérieure à 10% pour le schéma mBOP.
+Les stratégies avec power prior augmentent le risque de faux positifs.
+Le modèle log4 donne encore la même chose que mBOP, et seqBOP et log5 sont plus conservateurs (log5 est très conservateurs).
+Le modèle hiérarchique augmente légèrement le risque de faux positifs quant à lui.
+
+
+## Scénario 6
+
+On a la même chose que le scénario 5 mais sans plateau et avec une efficacité plus élevée.
+
+```{r, fig.cap = "Conclusion de traitement dans les bras du scénario 6"}
+Res %>% 
+  filter(scenar %in% c("Sc6")) %>% 
+  ggplot(aes(carac_bras.rejet_h0, methode)) +
+  geom_point() +
+  facet_wrap(vars(carac_bras.ttt)) +
+  labs(x = "Proportion traitement prometteur", y = NULL) +
+  expand_limits(x = 0)
+```
+
+Pour le bras 1 (efficace et de toxicité intermédiaire) on a la même image que pour le scénario 6 :
+
+- le modèle log4 et seqBOP font environ pareil que mBOP ;
+- les schémas avec power prior diminuent la proportion de traitement désignés prometteurs ;
+- le modèle hiérarchique diminue un peu la proportion de traitement désignés prometteurs ; 
+- le modèle log5 augmente énormément la proportion de traitement désignés prometteurs.
+
+La différence avec le bras 1 du scénario 5 est que comme on est dans une situation plus efficace, la proportion de rejet est bien plus élevée.
+
+Les bras 2 et 3 sont toxiques, avec une toxicité plus élevée dans le bras 3 que le bras 2 (l'hypothèse que l'on a prise).
+Les résultats sont les suivants :
+
+- log4 donne la même chose que mBOP ;
+- Les schémas avec power prior augmentent le risque de faux positif ;
+- Le modèle hiérarchique donne environ le même taux de faux positifs dans le bras 2 et un peu plus élevé que mBOP dans le bras 3 ;
+- seqBOP et encore plus log5 diminuent le risque de faux positifs.
+
+
+## Scénario 7
+
+L'efficacité est en plateau à $H_1$ et la toxicité augmente légèrement dans des valeurs intermédiaires.
+On a donc 3 bras un peu controversés.
+
+```{r, fig.cap = "Conclusion de traitement dans les bras du scénario 7"}
+Res %>% 
+  filter(scenar %in% c("Sc7")) %>% 
+  ggplot(aes(carac_bras.rejet_h0, methode)) +
+  geom_point() +
+  facet_wrap(vars(carac_bras.ttt)) +
+  labs(x = "Proportion traitement prometteur", y = NULL) +
+  expand_limits(x = 0)
+```
+
+Pour le bras 1, on a les stratégies de power prior qui augmentent légèrement la proportion de conclusion à un traitement prometteur, seqBOP et log4 donnent environ la même chose que mBOP.
+Le modèle hiérarchique augmente un peu la proportion et log5 augmente beaucoup.
+On est dans une toxicité intermédiaire et donc on a environ 60% de rejet de $H_0$.
+
+Puis, pour les bras 2 et 3, on a une augmentation de l'augmentation de proportion de rejet de $H_0$ pour les power priors, seqBOP est de plus en plus conservateur par rapport à mBOP.
+hBOP est un peu moins conservateur constamment, et log5 est de plus en plus conservateur.
+
+
+# Résumé
+
+Le modèle log4 n'apporte rien.
+Comme on ne met aucune contrainte cela revient à faire le prior conjugué beta.
+Un avantage serait l'incorporation de covariable (par exemple pour une randomisation stratifiée).
+
+Le schéma seqBOP est toujours soit équivalent soit plus conservateur que mBOP.
+En l'état, il n'y a pas d'effet sur le bras 1, et plus d'effet pour le bras 3.
+Plus il y a de bras toxiques tôt, plus l'impact est important.
+
+Pour les stratégies basées sur le powerprior, cela augmente la puissance, mais on peut voir que cela a tendance à augmenter le risque de faux positifs quand il y a des bras très peu toxiques et inversement.
+Aussi, il y a 2 paramètres à choisir.
+
+Le modèle hiérarchique performe assez bien alors même que je me disais que conceptuellement parlant c'est un modèle qui est faux.
+
+Et le modèle log5, même s'il y a des situations où il fait très bien, donne des situations où selon les autres bras, les situations intermédiaires peuvent mener à des conclusion radicalement différentes.
+
 
