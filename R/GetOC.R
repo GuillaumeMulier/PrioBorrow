@@ -374,7 +374,7 @@ real_essai_bop_borrow <- function(data, analyses, CPar, PPar, AnaEff, AnaTox,
 }
 
 real_essai_bop_seq <- function(data, analyses, CPar, PPar, AnaEff, AnaTox, 
-                                  phi_eff, phi_tox, prior_eff, prior_tox) {
+                               phi_eff, phi_tox, prior_eff, prior_tox) {
   
   data$arret_eff <- data$arret_tox <- NA_integer_
   data$est_eff <- data$icinf_eff <- data$icsup_eff <- NA_real_
@@ -715,6 +715,66 @@ generated quantities{
 "
 CompilExNex <- stan_model(model_code = ModeleExNex)
 
+## CBHM ----
+
+CalibrateCBHM <- function(NSimu = 10000, NPts, Q0, Q1, Graine = 121221) {
+  
+  set.seed(Graine)
+  on.exit(set.seed(NULL), add = TRUE)
+  NBras <- length(NPts)
+  
+  # Treatment effective for all subgroups
+  MatHomo <- do.call("cbind", lapply(seq_len(NBras), \(x) rbinom(NSimu, NPts[x], Q1)))
+  N <- sum(NPts)
+  SommeCols <- NPts
+  H_b <- apply(MatHomo, 1, \(r) {
+    Ligne1 <- r
+    Ligne2 <- NPts - r
+    SommeLignes <- c(sum(Ligne1), sum(Ligne2))
+    Expected <- SommeLignes %*% t(SommeCols) / N
+    Observed <- matrix(c(Ligne1, Ligne2), nrow = 2, byrow = TRUE)
+    Statistic <- sum((Observed - Expected) ** 2 / Expected)
+    return(Statistic)
+  })
+  H_b <- median(H_b)
+  
+  # Heterogeneous treatments
+  H_bBarreTot <- sapply(seq(1, NBras - 1), \(j) {
+    MatHetero <- do.call("cbind", lapply(seq_len(NBras), \(x) {
+      if (x <= j) {
+        rbinom(NSimu, NPts[x], Q1)
+      } else {
+        rbinom(NSimu, NPts[x], Q0)
+      }
+    }))
+    H_bBarre <- apply(MatHetero, 1, \(r) {
+      Ligne1 <- r
+      Ligne2 <- NPts - r
+      SommeLignes <- c(sum(Ligne1), sum(Ligne2))
+      Expected <- SommeLignes %*% t(SommeCols) / N
+      Observed <- matrix(c(Ligne1, Ligne2), nrow = 2, byrow = TRUE)
+      Statistic <- sum((Observed - Expected) ** 2 / Expected)
+      if (is.nan(Statistic)) Statistic <- 0
+      return(Statistic)
+    })
+    return(median(H_bBarre))
+  })
+  H_bBarreTot <- min(H_bBarreTot)
+  
+  # Get the parameters a and b
+  SigB <- 1
+  SigBBarre <- 80
+  a <- log(SigB) - (log(SigBBarre) - log(SigB)) / (log(H_bBarreTot) - log(H_b)) * log(H_b)
+  b <- (log(SigBBarre) - log(SigB)) / (log(H_bBarreTot) - log(H_b))
+  
+  return(list("a" = a, "b" = b))
+  
+}
+CalibrateCBHM(NSimu = 10000, NPts = c(30, 30, 30, 30), Q0 = .2, Q1 = .35, Graine = 121221)
+
+
+## Logistic regression ----
+
 ModeleLog1 <- "
 data {
   int<lower=0> N;
@@ -822,7 +882,7 @@ model {
 CompilLog5 <- stan_model(model_code = ModeleLog5)
 
 real_essai_bayeslog <- function(data, analyses, CPar, PPar, AnaEff, AnaTox, 
-                               phi_eff, phi_tox, prior_eff, modele_log) {
+                                phi_eff, phi_tox, prior_eff, modele_log) {
   
   data$arret_eff <- data$arret_tox <- NA_integer_
   data$dose <- as.numeric(gsub("^ttt(\\d+)$", "\\1", data$ttt)) # Doses 1/2/3/... prises dans ces simulations
