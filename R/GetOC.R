@@ -389,7 +389,7 @@ real_essai_bop_borrow <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_t
 
 ### Toxicity only ----
 
-real_essai_bop_seq <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, 
+real_essai_bop_seq_tox <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, 
                                phi_eff, phi_tox, prior_eff, prior_tox) {
   
   data$arret_eff <- data$arret_tox <- NA_integer_
@@ -440,7 +440,7 @@ real_essai_bop_seq <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_
 
 ### Efficacy and toxicity ----
 
-real_essai_bop_seq <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, 
+real_essai_bop_seq_efftox <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, 
                                phi_eff, phi_tox, prior_eff, prior_tox) {
   
   data$arret_eff <- data$arret_tox <- NA_integer_
@@ -496,7 +496,9 @@ real_essai_bop_seq <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_
 
 ## Power prior BOP ----
 
-real_essai_bop_power <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, A0, 
+### Toxicity only ----
+
+real_essai_bop_power_tox <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, A0, 
                                  phi_eff, phi_tox, prior_eff, prior_tox) {
   data$arret_eff <- data$arret_tox <- NA_integer_
   for (i in seq_len(max(data$nb_ana))) {
@@ -534,6 +536,51 @@ real_essai_bop_power <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_to
   }
   return(data)
 }
+
+### Efficacy and toxicity ----
+
+real_essai_bop_power_efftox <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, A0, 
+                                 phi_eff, phi_tox, prior_eff, prior_tox) {
+  data$arret_eff <- data$arret_tox <- NA_integer_
+  for (i in seq_len(max(data$nb_ana))) {
+    Nb_pts <- analyses[i]
+    seuil <- 1 - CPar * (Nb_pts / analyses[length(analyses)]) ** PPar
+    if (i == 1) {
+      n_eff <- data$tot_eff[data$nb_ana == i]
+      n_tox <- Nb_pts - data$tot_notox[data$nb_ana == i]
+      n_tox_autres <- vapply(seq_along(n_tox), \(x) sum(n_tox[-x]), numeric(1))
+      n_pts_bras <- rep(Nb_pts, length(n_tox))
+      n_pts_autres <- vapply(seq_along(n_tox), \(x) sum(n_pts_bras[-x]), numeric(1))
+    } else { # Si on n'est pas à la première analyse, il ne faut actualiser n_tox et n_pts que pour les cas où on ne s'est pas arrêté
+      VecNonArrets <- data$arret_eff[data$nb_ana == (i - 1)] == 0 & data$arret_tox[data$nb_ana == (i - 1)] == 0
+      n_eff[VecNonArrets] <- data$tot_eff[data$nb_ana == i][VecNonArrets]
+      n_tox[VecNonArrets] <- Nb_pts - data$tot_notox[data$nb_ana == i][VecNonArrets]
+      n_tox_autres <- vapply(seq_along(n_tox), \(x) sum(n_tox[-x]), numeric(1))
+      n_eff_autres <- vapply(seq_along(n_eff), \(x) sum(n_eff[-x]), numeric(1))
+      n_pts_bras[VecNonArrets] <- rep(Nb_pts, sum(VecNonArrets))
+      n_pts_autres <- vapply(seq_along(n_pts_bras), \(x) sum(n_pts_bras[-x]), numeric(1))
+    }
+    PPEff <- pbeta(phi_eff, prior_eff + n_eff + A0 * n_eff_autres, 1 - prior_eff + Nb_pts - n_eff + A0 * (n_pts_autres - n_eff_autres))
+    if (i != 1) PPEff[data$arret_eff[data$nb_ana == (i - 1)] == 1] <- 1.5
+    if (Nb_pts %in% ana_eff_cum) {
+      data$arret_eff[data$nb_ana == i] <- as.integer(PPEff > seuil)
+    } else {
+      if (i == 1) data$arret_eff[data$nb_ana == i] <- 0 else data$arret_eff[data$nb_ana == i] <- data$arret_eff[data$nb_ana == (i - 1)]
+    }
+    # Power prior pour partager l'information sur la toxicité
+    PPTox <- 1 - pbeta(phi_tox, prior_tox + n_tox + A0 * n_tox_autres, 1 - prior_tox + Nb_pts - n_tox + A0 * (n_pts_autres - n_tox_autres))
+    if (i != 1) PPTox[data$arret_tox[data$nb_ana == (i - 1)] == 1] <- 1.5
+    if (Nb_pts %in% ana_tox_cum) {
+      data$arret_tox[data$nb_ana == i] <- as.integer(PPTox > seuil)
+    } else {
+      if (i == 1) data$arret_tox[data$nb_ana == i] <- 0 else data$arret_tox[data$nb_ana == i] <- data$arret_tox[data$nb_ana == (i - 1)]
+    }
+  }
+  return(data)
+}
+
+
+## Power prior BOP with binomial test ----
 
 real_essai_bop_power_test <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, A0, Tox0, SeuilP, 
                                       phi_eff, phi_tox, prior_eff, prior_tox) {
