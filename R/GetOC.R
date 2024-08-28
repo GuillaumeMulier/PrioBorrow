@@ -4,6 +4,9 @@
 # Créé le 20/05/2024, modifié le 05/07/2024                   #
 # ----------------------------------------------------------- #
 
+
+# Helper functions ----
+
 "%nin%" <- function(x, y) match(x, y, nomatch = 0L) == 0L
 
 summarise_ttt <- function(data, groupe, colonne, intitule = {{colonne}}) {
@@ -292,7 +295,7 @@ gen_patients_multinom <- function(n_sim,
 
 
 
-real_essai_bop <- function(data, analyses, CPar, PPar, AnaEff, AnaTox, 
+real_essai_bop <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, 
                            phi_eff, phi_tox, prior_eff, prior_tox) {
   data$arret_eff <- data$arret_tox <- NA_integer_
   data$est_eff <- data$icinf_eff <- data$icsup_eff <- NA_real_
@@ -304,7 +307,7 @@ real_essai_bop <- function(data, analyses, CPar, PPar, AnaEff, AnaTox,
     n_tox <- Nb_pts - data$tot_notox[data$nb_ana == i]
     PPEff <- pbeta(phi_eff, prior_eff + n_eff, 1 - prior_eff + Nb_pts - n_eff)
     if (i != 1) PPEff[data$arret_eff[data$nb_ana == (i - 1)] == 1] <- 1.5
-    if (Nb_pts %in% AnaEff) {
+    if (Nb_pts %in% ana_eff_cum) {
       data$arret_eff[data$nb_ana == i] <- as.integer(PPEff > seuil)
     } else {
       if (i == 1) data$arret_eff[data$nb_ana == i] <- 0 else data$arret_eff[data$nb_ana == i] <- data$arret_eff[data$nb_ana == (i - 1)]
@@ -314,7 +317,7 @@ real_essai_bop <- function(data, analyses, CPar, PPar, AnaEff, AnaTox,
     data$icsup_eff[data$nb_ana == i] <- qbeta(.975, prior_eff + n_eff, 1 - prior_eff + Nb_pts - n_eff)
     PPTox <- 1 - pbeta(phi_tox, prior_tox + n_tox, 1 - prior_tox + Nb_pts - n_tox)
     if (i != 1) PPTox[data$arret_tox[data$nb_ana == (i - 1)] == 1] <- 1.5
-    if (Nb_pts %in% AnaTox) {
+    if (Nb_pts %in% ana_tox_cum) {
       data$arret_tox[data$nb_ana == i] <- as.integer(PPTox > seuil)
     } else {
       if (i == 1) data$arret_tox[data$nb_ana == i] <- 0 else data$arret_tox[data$nb_ana == i] <- data$arret_tox[data$nb_ana == (i - 1)]
@@ -326,7 +329,7 @@ real_essai_bop <- function(data, analyses, CPar, PPar, AnaEff, AnaTox,
   return(data)
 }
 
-real_essai_bop_borrow <- function(data, analyses, CPar, PPar, AnaEff, AnaTox, 
+real_essai_bop_borrow <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, 
                                   phi_eff, phi_tox, prior_eff, prior_tox) {
   data$arret_eff <- data$arret_tox <- NA_integer_
   BrasArretes <- rep(FALSE, length(unique(data$ttt)))
@@ -351,14 +354,14 @@ real_essai_bop_borrow <- function(data, analyses, CPar, PPar, AnaEff, AnaTox,
     # Règles d'arrêt sur la proba a posteriori
     PPEff <- pbeta(phi_eff, prior_eff + n_eff, 1 - prior_eff + Nb_pts - n_eff)
     if (i != 1) PPEff[data$arret_eff[data$nb_ana == (i - 1)] == 1] <- 1.5
-    if (Nb_pts %in% AnaEff) {
+    if (Nb_pts %in% ana_eff_cum) {
       data$arret_eff[data$nb_ana == i] <- as.integer(PPEff > seuil)
     } else {
       if (i == 1) data$arret_eff[data$nb_ana == i] <- 0 else data$arret_eff[data$nb_ana == i] <- data$arret_eff[data$nb_ana == (i - 1)]
     }
     PPTox <- 1 - pbeta(phi_tox, prior_tox + n_tox + n_tox_autres, 1 - prior_tox + Nb_pts - n_tox + n_pts_autres - n_tox_autres)
     if (i != 1) PPTox[data$arret_tox[data$nb_ana == (i - 1)] == 1] <- 1.5
-    if (Nb_pts %in% AnaTox) {
+    if (Nb_pts %in% ana_tox_cum) {
       data$arret_tox[data$nb_ana == i] <- as.integer(PPTox > seuil)
     } else {
       if (i == 1) data$arret_tox[data$nb_ana == i] <- 0 else data$arret_tox[data$nb_ana == i] <- data$arret_tox[data$nb_ana == (i - 1)]
@@ -373,7 +376,7 @@ real_essai_bop_borrow <- function(data, analyses, CPar, PPar, AnaEff, AnaTox,
   return(data)
 }
 
-real_essai_bop_seq <- function(data, analyses, CPar, PPar, AnaEff, AnaTox, 
+real_essai_bop_seq <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, 
                                phi_eff, phi_tox, prior_eff, prior_tox) {
   
   data$arret_eff <- data$arret_tox <- NA_integer_
@@ -405,7 +408,7 @@ real_essai_bop_seq <- function(data, analyses, CPar, PPar, AnaEff, AnaTox,
     # PPEff <- pbeta(phi_eff, prior_eff + n_eff + n_eff_autres, 1 - prior_eff + Nb_pts - n_eff + n_ptseff_autres - n_eff_autres)
     PPEff <- pbeta(phi_eff, prior_eff + n_eff, 1 - prior_eff + Nb_pts - n_eff)
     if (i != 1) PPEff[data$arret_eff[data$nb_ana == (i - 1)] == 1] <- 1.5
-    if (Nb_pts %in% AnaEff) {
+    if (Nb_pts %in% ana_eff_cum) {
       data$arret_eff[data$nb_ana == i] <- as.integer(PPEff > seuil)
     } else {
       if (i == 1) data$arret_eff[data$nb_ana == i] <- 0 else data$arret_eff[data$nb_ana == i] <- data$arret_eff[data$nb_ana == (i - 1)]
@@ -415,7 +418,7 @@ real_essai_bop_seq <- function(data, analyses, CPar, PPar, AnaEff, AnaTox,
     data$icsup_eff[data$nb_ana == i] <- qbeta(.975, prior_eff + n_eff, 1 - prior_eff + Nb_pts - n_eff)
     PPTox <- 1 - pbeta(phi_tox, prior_tox + n_tox + n_tox_autres, 1 - prior_tox + Nb_pts - n_tox + n_ptstox_autres - n_tox_autres)
     if (i != 1) PPTox[data$arret_tox[data$nb_ana == (i - 1)] == 1] <- 1.5
-    if (Nb_pts %in% AnaTox) {
+    if (Nb_pts %in% ana_tox_cum) {
       data$arret_tox[data$nb_ana == i] <- as.integer(PPTox > seuil)
     } else {
       if (i == 1) data$arret_tox[data$nb_ana == i] <- 0 else data$arret_tox[data$nb_ana == i] <- data$arret_tox[data$nb_ana == (i - 1)]
@@ -427,7 +430,7 @@ real_essai_bop_seq <- function(data, analyses, CPar, PPar, AnaEff, AnaTox,
   return(data)
 }
 
-real_essai_bop_power <- function(data, analyses, CPar, PPar, AnaEff, AnaTox, A0, 
+real_essai_bop_power <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, A0, 
                                  phi_eff, phi_tox, prior_eff, prior_tox) {
   data$arret_eff <- data$arret_tox <- NA_integer_
   for (i in seq_len(max(data$nb_ana))) {
@@ -449,7 +452,7 @@ real_essai_bop_power <- function(data, analyses, CPar, PPar, AnaEff, AnaTox, A0,
     }
     PPEff <- pbeta(phi_eff, prior_eff + n_eff, 1 - prior_eff + Nb_pts - n_eff)
     if (i != 1) PPEff[data$arret_eff[data$nb_ana == (i - 1)] == 1] <- 1.5
-    if (Nb_pts %in% AnaEff) {
+    if (Nb_pts %in% ana_eff_cum) {
       data$arret_eff[data$nb_ana == i] <- as.integer(PPEff > seuil)
     } else {
       if (i == 1) data$arret_eff[data$nb_ana == i] <- 0 else data$arret_eff[data$nb_ana == i] <- data$arret_eff[data$nb_ana == (i - 1)]
@@ -457,7 +460,7 @@ real_essai_bop_power <- function(data, analyses, CPar, PPar, AnaEff, AnaTox, A0,
     # Power prior pour partager l'information sur la toxicité
     PPTox <- 1 - pbeta(phi_tox, prior_tox + n_tox + A0 * n_tox_autres, 1 - prior_tox + Nb_pts - n_tox + A0 * (n_pts_autres - n_tox_autres))
     if (i != 1) PPTox[data$arret_tox[data$nb_ana == (i - 1)] == 1] <- 1.5
-    if (Nb_pts %in% AnaTox) {
+    if (Nb_pts %in% ana_tox_cum) {
       data$arret_tox[data$nb_ana == i] <- as.integer(PPTox > seuil)
     } else {
       if (i == 1) data$arret_tox[data$nb_ana == i] <- 0 else data$arret_tox[data$nb_ana == i] <- data$arret_tox[data$nb_ana == (i - 1)]
@@ -466,7 +469,7 @@ real_essai_bop_power <- function(data, analyses, CPar, PPar, AnaEff, AnaTox, A0,
   return(data)
 }
 
-real_essai_bop_power_test <- function(data, analyses, CPar, PPar, AnaEff, AnaTox, A0, Tox0, SeuilP, 
+real_essai_bop_power_test <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, A0, Tox0, SeuilP, 
                                       phi_eff, phi_tox, prior_eff, prior_tox) {
   data$arret_eff <- data$arret_tox <- NA_integer_
   data$est_eff <- data$icinf_eff <- data$icsup_eff <- NA_real_
@@ -500,7 +503,7 @@ real_essai_bop_power_test <- function(data, analyses, CPar, PPar, AnaEff, AnaTox
     data$icinf_eff[data$nb_ana == i] <- qbeta(.025, prior_eff + n_eff, 1 - prior_eff + Nb_pts - n_eff) 
     data$icsup_eff[data$nb_ana == i] <- qbeta(.975, prior_eff + n_eff, 1 - prior_eff + Nb_pts - n_eff)
     if (i != 1) PPEff[data$arret_eff[data$nb_ana == (i - 1)] == 1] <- 1.5
-    if (Nb_pts %in% AnaEff) {
+    if (Nb_pts %in% ana_eff_cum) {
       data$arret_eff[data$nb_ana == i] <- as.integer(PPEff > seuil)
     } else {
       if (i == 1) data$arret_eff[data$nb_ana == i] <- 0 else data$arret_eff[data$nb_ana == i] <- data$arret_eff[data$nb_ana == (i - 1)]
@@ -508,7 +511,7 @@ real_essai_bop_power_test <- function(data, analyses, CPar, PPar, AnaEff, AnaTox
     # Power prior, mais sur les bras non significativement différents
     PPTox <- 1 - pbeta(phi_tox, prior_tox + n_tox + A0 * n_toxpts_autres[1, ], 1 - prior_tox + Nb_pts - n_tox + A0 * (n_toxpts_autres[2, ] - n_toxpts_autres[1, ]))
     if (i != 1) PPTox[data$arret_tox[data$nb_ana == (i - 1)] == 1] <- 1.5
-    if (Nb_pts %in% AnaTox) {
+    if (Nb_pts %in% ana_tox_cum) {
       data$arret_tox[data$nb_ana == i] <- as.integer(PPTox > seuil)
     } else {
       if (i == 1) data$arret_tox[data$nb_ana == i] <- 0 else data$arret_tox[data$nb_ana == i] <- data$arret_tox[data$nb_ana == (i - 1)]
@@ -520,7 +523,7 @@ real_essai_bop_power_test <- function(data, analyses, CPar, PPar, AnaEff, AnaTox
   return(data)
 }
 
-real_essai_bop_borrow_test <- function(data, analyses, CPar, PPar, AnaEff, AnaTox, A0, Tox0, 
+real_essai_bop_borrow_test <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, A0, Tox0, 
                                        phi_eff, phi_tox, prior_eff, prior_tox) {
   data$arret_eff <- data$arret_tox <- NA_integer_
   for (i in seq_len(max(data$nb_ana))) {
@@ -546,7 +549,7 @@ real_essai_bop_borrow_test <- function(data, analyses, CPar, PPar, AnaEff, AnaTo
     }
     PPEff <- pbeta(phi_eff, prior_eff + n_eff, 1 - prior_eff + Nb_pts - n_eff)
     if (i != 1) PPEff[data$arret_eff[data$nb_ana == (i - 1)] == 1] <- 1.5
-    if (Nb_pts %in% AnaEff) {
+    if (Nb_pts %in% ana_eff_cum) {
       data$arret_eff[data$nb_ana == i] <- as.integer(PPEff > seuil)
     } else {
       if (i == 1) data$arret_eff[data$nb_ana == i] <- 0 else data$arret_eff[data$nb_ana == i] <- data$arret_eff[data$nb_ana == (i - 1)]
@@ -554,7 +557,7 @@ real_essai_bop_borrow_test <- function(data, analyses, CPar, PPar, AnaEff, AnaTo
     # Idem que précédemment, mais la PValue est un multiplicateur, pas juste un seuil pour le partage
     PPTox <- 1 - pbeta(phi_tox, prior_tox + n_tox + A0 * n_toxpts_autres[1, ], 1 - prior_tox + Nb_pts - n_tox + A0 * (n_toxpts_autres[2, ] - n_toxpts_autres[1, ]))
     if (i != 1) PPTox[data$arret_tox[data$nb_ana == (i - 1)] == 1] <- 1.5
-    if (Nb_pts %in% AnaTox) {
+    if (Nb_pts %in% ana_tox_cum) {
       data$arret_tox[data$nb_ana == i] <- as.integer(PPTox > seuil)
     } else {
       if (i == 1) data$arret_tox[data$nb_ana == i] <- 0 else data$arret_tox[data$nb_ana == i] <- data$arret_tox[data$nb_ana == (i - 1)]
@@ -563,7 +566,12 @@ real_essai_bop_borrow_test <- function(data, analyses, CPar, PPar, AnaEff, AnaTo
   return(data)
 }
 
-ModeleHier <- "
+
+## BHM ----
+
+### Toxicity only ----
+
+ModeleHier_t <- "
 data {
   int<lower = 1> Nb; // Nombre de bras
   int<lower = 1> n[Nb]; // Nombre de patients par bras
@@ -599,9 +607,9 @@ model{
  
 }
 "
-CompilHier <- stan_model(model_code = ModeleHier)
+CompilHier_t <- stan_model(model_code = ModeleHier_t)
 
-real_essai_modhier <- function(data, analyses, CPar, PPar, AnaEff, AnaTox, 
+real_essai_modhier <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, 
                                phi_eff, phi_tox, prior_eff) {
   
   data$arret_eff <- data$arret_tox <- NA_integer_
@@ -622,7 +630,7 @@ real_essai_modhier <- function(data, analyses, CPar, PPar, AnaEff, AnaTox,
     }
     PPEff <- pbeta(phi_eff, prior_eff + n_eff, 1 - prior_eff + Nb_pts - n_eff)
     if (i != 1) PPEff[data$arret_eff[data$nb_ana == (i - 1)] == 1] <- 1.5
-    if (Nb_pts %in% AnaEff) {
+    if (Nb_pts %in% ana_eff_cum) {
       data$arret_eff[data$nb_ana == i] <- as.integer(PPEff > seuil)
     } else {
       if (i == 1) data$arret_eff[data$nb_ana == i] <- 0 else data$arret_eff[data$nb_ana == i] <- data$arret_eff[data$nb_ana == (i - 1)]
@@ -633,7 +641,7 @@ real_essai_modhier <- function(data, analyses, CPar, PPar, AnaEff, AnaTox,
     # Probas a posteriori calculées par MCMC sur le modèle hiérarchique
     if ((i != 1 && any(data$arret_tox[data$nb_ana == (i - 1)] == 0 & data$arret_eff[data$nb_ana == (i - 1)] == 0)) | (i == 1)) {
       DonneesTox <- list(Nb = length(n_tox), n = n_pts_bras, y = n_tox)
-      SampledTox <- sampling(CompilHier, 
+      SampledTox <- sampling(CompilHier_t, 
                              data = DonneesTox,         
                              chains = 3,             
                              warmup = 5000,          
@@ -654,7 +662,7 @@ real_essai_modhier <- function(data, analyses, CPar, PPar, AnaEff, AnaTox,
       data$icsup_tox[data$nb_ana == i] <- data$icsup_tox[data$nb_ana == (i - 1)] 
     }
     if (i != 1) PPTox[data$arret_tox[data$nb_ana == (i - 1)] == 1] <- 1.5
-    if (Nb_pts %in% AnaTox) {
+    if (Nb_pts %in% ana_tox_cum) {
       data$arret_tox[data$nb_ana == i] <- as.integer(PPTox > seuil)
     } else {
       if (i == 1) data$arret_tox[data$nb_ana == i] <- 0 else data$arret_tox[data$nb_ana == i] <- data$arret_tox[data$nb_ana == (i - 1)]
@@ -664,6 +672,9 @@ real_essai_modhier <- function(data, analyses, CPar, PPar, AnaEff, AnaTox,
   return(data)
   
 }
+
+
+# EXNEX ----
 
 ModeleExNex <- "
 data {
@@ -715,6 +726,7 @@ generated quantities{
 "
 CompilExNex <- stan_model(model_code = ModeleExNex)
 
+
 ## CBHM ----
 
 CalibrateCBHM <- function(NSimu = 10000, NPts, Q0, Q1, Graine = 121221) {
@@ -728,12 +740,8 @@ CalibrateCBHM <- function(NSimu = 10000, NPts, Q0, Q1, Graine = 121221) {
   N <- sum(NPts)
   SommeCols <- NPts
   H_b <- apply(MatHomo, 1, \(r) {
-    Ligne1 <- r
-    Ligne2 <- NPts - r
-    SommeLignes <- c(sum(Ligne1), sum(Ligne2))
-    Expected <- SommeLignes %*% t(SommeCols) / N
-    Observed <- matrix(c(Ligne1, Ligne2), nrow = 2, byrow = TRUE)
-    Statistic <- sum((Observed - Expected) ** 2 / Expected)
+    suppressWarnings(Statistic <- as.numeric(chisq.test(matrix(c(r, NPts - r), nrow = 2, byrow = TRUE))$statistic))
+    if (Statistic < 1) Statistic <- 1
     return(Statistic)
   })
   H_b <- median(H_b)
@@ -748,13 +756,8 @@ CalibrateCBHM <- function(NSimu = 10000, NPts, Q0, Q1, Graine = 121221) {
       }
     }))
     H_bBarre <- apply(MatHetero, 1, \(r) {
-      Ligne1 <- r
-      Ligne2 <- NPts - r
-      SommeLignes <- c(sum(Ligne1), sum(Ligne2))
-      Expected <- SommeLignes %*% t(SommeCols) / N
-      Observed <- matrix(c(Ligne1, Ligne2), nrow = 2, byrow = TRUE)
-      Statistic <- sum((Observed - Expected) ** 2 / Expected)
-      if (is.nan(Statistic)) Statistic <- 0
+      suppressWarnings(Statistic <- as.numeric(chisq.test(matrix(c(r, NPts - r), nrow = 2, byrow = TRUE))$statistic))
+      if (Statistic < 1) Statistic <- 1
       return(Statistic)
     })
     return(median(H_bBarre))
@@ -770,7 +773,118 @@ CalibrateCBHM <- function(NSimu = 10000, NPts, Q0, Q1, Graine = 121221) {
   return(list("a" = a, "b" = b))
   
 }
-CalibrateCBHM(NSimu = 10000, NPts = c(30, 30, 30, 30), Q0 = .2, Q1 = .35, Graine = 121221)
+# CalibrateCBHM(NSimu = 10000, NPts = c(30, 30, 30, 30), Q0 = .2, Q1 = .35, Graine = 121221)
+
+### Toxicity only ----
+
+ModeleCBHM_t <- "
+data {
+  int<lower = 1> Nb; // Nombre de bras
+  int<lower = 1> n[Nb]; // Nombre de patients par bras
+  int<lower = 0> y[Nb]; // Nombre de toxicités par bras
+  real<lower = 0> variance; // La variance du CBHM
+  real moy_mu, moy_p; // Moyenne du prior pour mu et logit(p)
+  real<lower = 0> sigma_mu, sigma_p; // Ecart-type du prior pour mu et logit(p)
+}
+
+parameters{
+  real p_raw[Nb];
+  real mu;
+}
+
+transformed parameters{
+  real p[Nb]; // Probabilité pour chaque bras
+  real logit_p[Nb]; // Prédicteur linéaire pour chaque bras
+  for(j in 1:Nb){
+    logit_p[j] = mu + variance * p_raw[j]; // Non central parametrization
+  }
+  p = inv_logit(logit_p);
+}
+
+model{
+
+  // prior distributions
+  mu  ~ normal(moy_mu, sigma_mu);
+
+  for (i in 1:Nb) {
+    p_raw[i] ~ normal(moy_p, sigma_p);
+    // binomial likelihood
+    y[i] ~ binomial(n[i], p[i]);
+  }
+ 
+}
+"
+CompilCBHM_t <- stan_model(model_code = ModeleCBHM_t)
+
+real_essai_modcbhm <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, 
+                               phi_eff, phi_tox, prior_eff,
+                               a, b, moy_mu = 0, sigma_mu = 5, moy_p = 0, sigma_p = 5) {
+  
+  data$arret_eff <- data$arret_tox <- NA_integer_
+  data$est_eff <- data$icinf_eff <- data$icsup_eff <- NA_real_
+  data$est_tox <- data$icinf_tox <- data$icsup_tox <- NA_real_
+  for (i in seq_len(max(data$nb_ana))) {
+    Nb_pts <- analyses[i]
+    seuil <- 1 - CPar * (Nb_pts / analyses[length(analyses)]) ** PPar
+    if (i == 1) {
+      n_eff <- data$tot_eff[data$nb_ana == i]
+      n_tox <- Nb_pts - data$tot_notox[data$nb_ana == i]
+      n_pts_bras <- rep(Nb_pts, length(n_tox))
+    } else {
+      VecNonArrets <- data$arret_eff[data$nb_ana == (i - 1)] == 0 & data$arret_tox[data$nb_ana == (i - 1)] == 0
+      n_eff[VecNonArrets] <- data$tot_eff[data$nb_ana == i][VecNonArrets]
+      n_tox[VecNonArrets] <- Nb_pts - data$tot_notox[data$nb_ana == i][VecNonArrets]
+      n_pts_bras[VecNonArrets] <- rep(Nb_pts, sum(VecNonArrets))
+    }
+    PPEff <- pbeta(phi_eff, prior_eff + n_eff, 1 - prior_eff + Nb_pts - n_eff)
+    if (i != 1) PPEff[data$arret_eff[data$nb_ana == (i - 1)] == 1] <- 1.5
+    if (Nb_pts %in% ana_eff_cum) {
+      data$arret_eff[data$nb_ana == i] <- as.integer(PPEff > seuil)
+    } else {
+      if (i == 1) data$arret_eff[data$nb_ana == i] <- 0 else data$arret_eff[data$nb_ana == i] <- data$arret_eff[data$nb_ana == (i - 1)]
+    }
+    data$est_eff[data$nb_ana == i] <- (n_eff + prior_eff) / (Nb_pts + 1) 
+    data$icinf_eff[data$nb_ana == i] <- qbeta(.025, prior_eff + n_eff, 1 - prior_eff + Nb_pts - n_eff) 
+    data$icsup_eff[data$nb_ana == i] <- qbeta(.975, prior_eff + n_eff, 1 - prior_eff + Nb_pts - n_eff)
+    # Probas a posteriori calculées par MCMC sur le modèle STAN CBHM
+    if ((i != 1 && any(data$arret_tox[data$nb_ana == (i - 1)] == 0 & data$arret_eff[data$nb_ana == (i - 1)] == 0)) | (i == 1)) {
+      Statistic <- as.numeric(chisq.test(matrix(c(n_tox, n_pts_bras - n_tox), nrow = 2, byrow = TRUE))$statistic)
+      if (Statistic < 1) Statistic <- 1 # Security added in the code of the article
+      VarianceCBHM <- exp(a + b * log(Statistic))
+      if (is.na(VarianceCBHM) || !is.finite(VarianceCBHM) || VarianceCBHM > 1e+4) VarianceCBHM <- 1e+4
+      DonneesTox <- list(Nb = length(n_tox), n = n_pts_bras, y = n_tox, variance = sqrt(VarianceCBHM), 
+                         moy_mu = moy_mu, moy_p = moy_p, sigma_mu = sigma_mu, sigma_p = sigma_p)
+      SampledTox <- sampling(CompilCBHM_t, 
+                             data = DonneesTox,         
+                             chains = 3,             
+                             warmup = 2000,          
+                             iter = 4000,
+                             thin = 1,
+                             cores = 1,
+                             control = list(stepsize = .3, adapt_delta = .95, max_treedepth = 15),
+                             seed = 121221)
+      PPred <- extract(SampledTox, pars = "p")$p
+      PPTox <- colMeans(PPred > phi_tox) # On va chercher les distributions a posteriori de chaque bras pour la proportion de toxicité
+      data$est_tox[data$nb_ana == i] <- colMeans(PPred)
+      data$icinf_tox[data$nb_ana == i] <- apply(PPred, 2, quantile, probs = .025)
+      data$icsup_tox[data$nb_ana == i] <- apply(PPred, 2, quantile, probs = .975)
+    } else {
+      PPTox <- rep(1.5, length(n_tox))
+      data$est_tox[data$nb_ana == i] <- data$est_tox[data$nb_ana == (i - 1)] 
+      data$icinf_tox[data$nb_ana == i] <- data$icinf_tox[data$nb_ana == (i - 1)] 
+      data$icsup_tox[data$nb_ana == i] <- data$icsup_tox[data$nb_ana == (i - 1)] 
+    }
+    if (i != 1) PPTox[data$arret_tox[data$nb_ana == (i - 1)] == 1] <- 1.5
+    if (Nb_pts %in% ana_tox_cum) {
+      data$arret_tox[data$nb_ana == i] <- as.integer(PPTox > seuil)
+    } else {
+      if (i == 1) data$arret_tox[data$nb_ana == i] <- 0 else data$arret_tox[data$nb_ana == i] <- data$arret_tox[data$nb_ana == (i - 1)]
+    }
+  }
+  
+  return(data)
+  
+}
 
 
 ## Logistic regression ----
@@ -881,7 +995,7 @@ model {
 "
 CompilLog5 <- stan_model(model_code = ModeleLog5)
 
-real_essai_bayeslog <- function(data, analyses, CPar, PPar, AnaEff, AnaTox, 
+real_essai_bayeslog <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, 
                                 phi_eff, phi_tox, prior_eff, modele_log) {
   
   data$arret_eff <- data$arret_tox <- NA_integer_
@@ -905,7 +1019,7 @@ real_essai_bayeslog <- function(data, analyses, CPar, PPar, AnaEff, AnaTox,
     }
     PPEff <- pbeta(phi_eff, prior_eff + n_eff, 1 - prior_eff + Nb_pts - n_eff)
     if (i != 1) PPEff[data$arret_eff[data$nb_ana == (i - 1)] == 1] <- 1.5
-    if (Nb_pts %in% AnaEff) {
+    if (Nb_pts %in% ana_eff_cum) {
       data$arret_eff[data$nb_ana == i] <- as.integer(PPEff > seuil)
     } else {
       if (i == 1) data$arret_eff[data$nb_ana == i] <- 0 else data$arret_eff[data$nb_ana == i] <- data$arret_eff[data$nb_ana == (i - 1)]
@@ -953,7 +1067,7 @@ real_essai_bayeslog <- function(data, analyses, CPar, PPar, AnaEff, AnaTox,
       data$icsup_tox[data$nb_ana == i] <- data$icsup_tox[data$nb_ana == (i - 1)] 
     }
     if (i != 1) PPTox[data$arret_tox[data$nb_ana == (i - 1)] == 1] <- 1.5
-    if (Nb_pts %in% AnaTox) {
+    if (Nb_pts %in% ana_tox_cum) {
       data$arret_tox[data$nb_ana == i] <- as.integer(PPTox > seuil)
     } else {
       if (i == 1) data$arret_tox[data$nb_ana == i] <- 0 else data$arret_tox[data$nb_ana == i] <- data$arret_tox[data$nb_ana == (i - 1)]
@@ -964,6 +1078,8 @@ real_essai_bayeslog <- function(data, analyses, CPar, PPar, AnaEff, AnaTox,
   
 }
 
+
+# Get operating characteristics ----
 
 opcharac <- function(ana_inter,
                      ana_inter_tox = NULL,
@@ -1025,9 +1141,9 @@ opcharac <- function(ana_inter,
   n_bras <- length(unique(tableau_essais$ttt))
   
   # Interim analyses
-  ana_eff <- cumsum(ana_inter)
-  ana_tox <- if (is.null(ana_inter_tox)) cumsum(ana_inter) else cumsum(ana_inter_tox)
-  analyses <- sort(union(ana_eff, ana_tox))
+  ana_eff_cum <- cumsum(ana_inter)
+  ana_tox_cum <- if (is.null(ana_inter_tox)) cumsum(ana_inter) else cumsum(ana_inter_tox)
+  analyses <- sort(union(ana_eff_cum, ana_tox_cum))
   
   phi_eff <- phitox[1] # Phi for efficacy
   phi_tox <- phitox[2] # Phi for toxicity
@@ -1042,22 +1158,22 @@ opcharac <- function(ana_inter,
     .x = tableau_essais,
     .f = function(data) {
       if (methode == "bop") {
-        real_essai_bop(data, analyses, CPar, PPar, ana_eff, ana_tox, phi_eff, phi_tox, prior_eff, prior_tox)
+        real_essai_bop(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, phi_eff, phi_tox, prior_eff, prior_tox)
       } else if (methode == "bop_borrow") {
-        real_essai_bop_borrow(data, analyses, CPar, PPar, ana_eff, ana_tox, phi_eff, phi_tox, prior_eff, prior_tox)
+        real_essai_bop_borrow(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, phi_eff, phi_tox, prior_eff, prior_tox)
       } else if (methode == "bop_power") {
-        real_essai_bop_power(data, analyses, CPar, PPar, ana_eff, ana_tox, A0, phi_eff, phi_tox, prior_eff, prior_tox)
+        real_essai_bop_power(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, A0, phi_eff, phi_tox, prior_eff, prior_tox)
       } else if (methode == "bop_power_test") {
-        real_essai_bop_power_test(data, analyses, CPar, PPar, ana_eff, ana_tox, A0, phi_tox, SeuilP, phi_eff, phi_tox, prior_eff, prior_tox)
+        real_essai_bop_power_test(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, A0, phi_tox, SeuilP, phi_eff, phi_tox, prior_eff, prior_tox)
       } else if (methode == "bop_borrow_test") {
-        real_essai_bop_borrow_test(data, analyses, CPar, PPar, ana_eff, ana_tox, A0, phi_tox, phi_eff, phi_tox, prior_eff, prior_tox)
+        real_essai_bop_borrow_test(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, A0, phi_tox, phi_eff, phi_tox, prior_eff, prior_tox)
       } else if (methode == "hier_tox") {
-        real_essai_modhier(data, analyses, CPar, PPar, ana_eff, ana_tox, phi_eff, phi_tox, prior_eff)
+        real_essai_modhier(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, phi_eff, phi_tox, prior_eff)
       } else if (methode %in% c("bop_log1", "bop_log2", "bop_log3", "bop_log4", "bop_log5")) {
         ModeleAPrendre <- gsub("^bop_log(\\d)$", "\\1", methode)
-        real_essai_bayeslog(data, analyses, CPar, PPar, ana_eff, ana_tox, phi_eff, phi_tox, prior_eff, ModeleAPrendre)
+        real_essai_bayeslog(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, phi_eff, phi_tox, prior_eff, ModeleAPrendre)
       } else if (methode == "bop_seq") {
-        real_essai_bop_seq(data, analyses, CPar, PPar, ana_eff, ana_tox, phi_eff, phi_tox, prior_eff, prior_tox)
+        real_essai_bop_seq(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, phi_eff, phi_tox, prior_eff, prior_tox)
       }
       
     }
