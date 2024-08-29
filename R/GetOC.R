@@ -645,8 +645,8 @@ real_essai_bop_power_test_tox <- function(data, analyses, CPar, PPar, ana_eff_cu
 
 real_essai_bop_power_test_efftox <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, 
                                              A0_eff, SeuilP_eff, A0_tox = A0_eff, SeuilP_tox = SeuilP_eff, 
-                                          # Tox0, Eff0,
-                                          phi_eff, phi_tox, prior_eff, prior_tox) {
+                                             # Tox0, Eff0,
+                                             phi_eff, phi_tox, prior_eff, prior_tox) {
   # Tox0 is commented because we want to compare arm between them, not compare arm to a reference value as in historical borrowing
   data$arret_eff <- data$arret_tox <- NA_integer_
   data$est_eff <- data$icinf_eff <- data$icsup_eff <- NA_real_
@@ -713,8 +713,10 @@ real_essai_bop_power_test_efftox <- function(data, analyses, CPar, PPar, ana_eff
 
 ## Power prior BOP with binomial/fisher test with borrowing relative to pvalue ----
 
-real_essai_bop_borrow_test <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, A0, Tox0, 
-                                       phi_eff, phi_tox, prior_eff, prior_tox) {
+### Toxicity only ----
+
+real_essai_bop_borrow_test_tox <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, A0, Tox0, 
+                                           phi_eff, phi_tox, prior_eff, prior_tox) {
   data$arret_eff <- data$arret_tox <- NA_integer_
   for (i in seq_len(max(data$nb_ana))) {
     Nb_pts <- analyses[i]
@@ -756,51 +758,111 @@ real_essai_bop_borrow_test <- function(data, analyses, CPar, PPar, ana_eff_cum, 
   return(data)
 }
 
+### Efficacy and toxicity ----
+
+real_essai_bop_borrow_test_efftox <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, 
+                                              A0_eff, Eff0, A0_tox, Tox0, 
+                                              phi_eff, phi_tox, prior_eff, prior_tox) {
+  data$arret_eff <- data$arret_tox <- NA_integer_
+  for (i in seq_len(max(data$nb_ana))) {
+    Nb_pts <- analyses[i]
+    seuil <- 1 - CPar * (Nb_pts / analyses[length(analyses)]) ** PPar
+    if (i == 1) {
+      n_eff <- data$tot_eff[data$nb_ana == i]
+      n_tox <- Nb_pts - data$tot_notox[data$nb_ana == i]
+      n_pts_bras <- rep(Nb_pts, length(n_tox))
+      n_effpts_autres <- vapply(seq_along(n_eff), \(x) {
+        Pvals <- vapply(seq_along(n_eff)[-x], \(t) binom.test(n_eff[t], n_pts_bras[t], Eff0)$p.value, numeric(1))
+        return(c(sum(n_eff[-x] * Pvals), sum(Pvals * n_pts_bras[-x])))
+      }, numeric(2))
+      n_toxpts_autres <- vapply(seq_along(n_tox), \(x) {
+        Pvals <- vapply(seq_along(n_tox)[-x], \(t) binom.test(n_tox[t], n_pts_bras[t], Tox0)$p.value, numeric(1))
+        return(c(sum(n_tox[-x] * Pvals), sum(Pvals * n_pts_bras[-x])))
+      }, numeric(2))
+    } else { # Si on n'est pas à la première analyse, il ne faut actualiser n_tox et n_pts que pour les cas où on ne s'est pas arrêté
+      VecNonArrets <- data$arret_eff[data$nb_ana == (i - 1)] == 0 & data$arret_tox[data$nb_ana == (i - 1)] == 0
+      n_eff[VecNonArrets] <- data$tot_eff[data$nb_ana == i][VecNonArrets]
+      n_tox[VecNonArrets] <- Nb_pts - data$tot_notox[data$nb_ana == i][VecNonArrets]
+      n_pts_bras[VecNonArrets] <- rep(Nb_pts, sum(VecNonArrets))
+      n_effpts_autres <- vapply(seq_along(n_eff), \(x) {
+        Pvals <- vapply(seq_along(n_eff)[-x], \(t) binom.test(n_eff[t], n_pts_bras[t], Eff0)$p.value, numeric(1))
+        return(c(sum(n_eff[-x] * Pvals), sum(Pvals * n_pts_bras[-x])))
+      }, numeric(2))
+      n_toxpts_autres <- vapply(seq_along(n_tox), \(x) {
+        Pvals <- vapply(seq_along(n_tox)[-x], \(t) binom.test(n_tox[t], n_pts_bras[t], Tox0)$p.value, numeric(1))
+        return(c(sum(n_tox[-x] * Pvals), sum(Pvals * n_pts_bras[-x])))
+      }, numeric(2))
+    }
+    PPEff <- pbeta(phi_eff, prior_eff + n_eff + A0_eff * n_effpts_autres[1, ], 1 - prior_eff + Nb_pts - n_eff + A0_eff * (n_effpts_autres[2, ] - n_effpts_autres[1, ]))
+    if (i != 1) PPEff[data$arret_eff[data$nb_ana == (i - 1)] == 1] <- 1.5
+    if (Nb_pts %in% ana_eff_cum) {
+      data$arret_eff[data$nb_ana == i] <- as.integer(PPEff > seuil)
+    } else {
+      if (i == 1) data$arret_eff[data$nb_ana == i] <- 0 else data$arret_eff[data$nb_ana == i] <- data$arret_eff[data$nb_ana == (i - 1)]
+    }
+    # Idem que précédemment, mais la PValue est un multiplicateur, pas juste un seuil pour le partage
+    PPTox <- 1 - pbeta(phi_tox, prior_tox + n_tox + A0_tox * n_toxpts_autres[1, ], 1 - prior_tox + Nb_pts - n_tox + A0_tox * (n_toxpts_autres[2, ] - n_toxpts_autres[1, ]))
+    if (i != 1) PPTox[data$arret_tox[data$nb_ana == (i - 1)] == 1] <- 1.5
+    if (Nb_pts %in% ana_tox_cum) {
+      data$arret_tox[data$nb_ana == i] <- as.integer(PPTox > seuil)
+    } else {
+      if (i == 1) data$arret_tox[data$nb_ana == i] <- 0 else data$arret_tox[data$nb_ana == i] <- data$arret_tox[data$nb_ana == (i - 1)]
+    }
+  }
+  return(data)
+}
+
 
 ## BHM ----
 
 ### Toxicity only ----
 
-ModeleHier_t <- "
-data {
-  int<lower = 1> Nb; // Nombre de bras
-  int<lower = 1> n[Nb]; // Nombre de patients par bras
-  int<lower = 0> y[Nb]; // Nombre de toxicités par bras
-}
-
-parameters{
-  real p_raw[Nb];
-  real mu;
-  real<lower = 0> sigma;
-}
-
-transformed parameters{
-  real p[Nb]; // Probabilité pour chaque bras
-  real logit_p[Nb]; // Prédicteur linéaire pour chaque bras
-  for(j in 1:Nb){
-    logit_p[j] = mu + sigma * p_raw[j]; // Non central parametrization
+CompilBHM_tox <- function(moy_mu = 0, moy_sig = 0, moy_p = 0,
+                          sigma_mu = 5, sigma_sig = 5, sigma_p = 1) {
+  ModeleHier_t <- "
+  data {
+    int<lower = 1> Nb; // Nombre de bras
+    int<lower = 1> n[Nb]; // Nombre de patients par bras
+    int<lower = 0> y[Nb]; // Nombre de toxicités par bras
   }
-  p = inv_logit(logit_p);
-}
-
-model{
-
-  // prior distributions
-  sigma ~ normal(0, 5);
-  mu  ~ normal(0, 5);
-
-  for (i in 1:Nb) {
-    p_raw[i] ~ normal(0, 1);
-    // binomial likelihood
-    y[i] ~ binomial(n[i], p[i]);
+  parameters{
+    real p_raw[Nb];
+    real mu;
+    real<lower = 0> sigma;
   }
- 
-}
+  transformed parameters{
+    real p[Nb]; // Probabilité pour chaque bras
+    real logit_p[Nb]; // Prédicteur linéaire pour chaque bras
+    for(j in 1:Nb){
+      logit_p[j] = mu + sigma * p_raw[j]; // Non central parametrization
+    }
+    p = inv_logit(logit_p);
+  }
+  model{
+  
+    // prior distributions
+    sigma ~ normal(%moy_sig%, %sigma_sig%);
+    mu  ~ normal(%moy_mu%, %sigma_mu%);
+  
+    for (i in 1:Nb) {
+      p_raw[i] ~ normal(%moy_p%, %sigma_p%);
+      // binomial likelihood
+      y[i] ~ binomial(n[i], p[i]);
+    }
+  }
 "
-CompilHier_t <- stan_model(model_code = ModeleHier_t)
+  ModeleHier_t <- gsub("%moy_mu%", moy_mu, ModeleHier_t)
+  ModeleHier_t <- gsub("%moy_sig%", moy_sig, ModeleHier_t)
+  ModeleHier_t <- gsub("%moy_p%", moy_p, ModeleHier_t)
+  ModeleHier_t <- gsub("%sigma_mu%", sigma_mu, ModeleHier_t)
+  ModeleHier_t <- gsub("%sigma_sig%", sigma_sig, ModeleHier_t)
+  ModeleHier_t <- gsub("%sigma_p%", sigma_p, ModeleHier_t)
+  return(stan_model(model_code = ModeleHier_t))
+}
+CompilHier_t <- CompilBHM_tox()
 
-real_essai_modhier <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, 
-                               phi_eff, phi_tox, prior_eff) {
+real_essai_modhier_tox <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, 
+                                   phi_eff, phi_tox, prior_eff) {
   
   data$arret_eff <- data$arret_tox <- NA_integer_
   data$est_eff <- data$icinf_eff <- data$icsup_eff <- NA_real_
@@ -834,17 +896,26 @@ real_essai_modhier <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_
       SampledTox <- sampling(CompilHier_t, 
                              data = DonneesTox,         
                              chains = 3,             
-                             warmup = 5000,          
-                             iter = 30000,
-                             thin = 5,
-                             cores = 3,
+                             warmup = 2000,          
+                             iter = 4000,
+                             thin = 1,
+                             cores = 1,
                              control = list(stepsize = .3, adapt_delta = .95, max_treedepth = 15),
                              seed = 121221)
+      # SampledTox <- sampling(CompilHier_t, 
+      #                        data = DonneesTox,         
+      #                        chains = 3,             
+      #                        warmup = 5000,          
+      #                        iter = 30000,
+      #                        thin = 5,
+      #                        cores = 3,
+      #                        control = list(stepsize = .3, adapt_delta = .95, max_treedepth = 15),
+      #                        seed = 121221)
       PPred <- extract(SampledTox, pars = "p")$p
       PPTox <- colMeans(PPred > phi_tox) # On va chercher les distributions a posteriori de chaque bras pour la proportion de toxicité
-      data$est_tox[data$nb_ana == i] <- mean(PPred)
-      data$icinf_tox[data$nb_ana == i] <- quantile(PPred, probs = .025)
-      data$icsup_tox[data$nb_ana == i] <- quantile(PPred, probs = .975)
+      data$est_tox[data$nb_ana == i] <- colMeans(PPred)
+      data$icinf_tox[data$nb_ana == i] <- apply(PPred, 2, quantile, probs = .025)
+      data$icsup_tox[data$nb_ana == i] <- apply(PPred, 2, quantile, probs = .975)
     } else {
       PPTox <- rep(1.5, length(n_tox))
       data$est_tox[data$nb_ana == i] <- data$est_tox[data$nb_ana == (i - 1)] 
@@ -863,61 +934,141 @@ real_essai_modhier <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_
   
 }
 
+### Efficacy and toxicity ----
 
-# EXNEX ----
-
-ModeleExNex <- "
-data {
-  int<lower = 1> Nb; // Nombre de bras
-  int<lower = 1> n[Nb]; // Nombre de patients par bras
-  int<lower = 0> y[Nb]; // Nombre de toxicités par bras
-  real mu_nex; // Moyenne du log-odds pour la partie non échangeable
-  real<lower = 0> etype_nex; // Sd du log-odds pour la partie non échangeable
-  real<lower = 0, upper = 1> prob_ex[Nb];
-}
-
-parameters{
-  real theta[Nb]; // Log(odds) dans chaque bras
-  real mu_ex; // Moyenne du log(odds) pour la distribution EX
-  real<lower = 0> etype_ex; // Sd du log(odds) pour la distribution EX
-}
-
-transformed parameters{
-  real p[Nb]; // Probabilité pour chaque bras
-  p = inv_logit(theta); // Theta = prédicteur linéaire pour chaque bras
-}
-
-model{
-
-  // prior distributions
-  etype_ex ~ normal(0, 1);
-  mu_ex  ~ normal(-1.734601, 2.616);
-
-  for (i in 1:Nb) {
-    target += log_mix(prob_ex[i],
-                      normal_lpdf(theta[i] | mu_ex, etype_ex),
-                      normal_lpdf(theta[i] | mu_nex, etype_nex));
-    // binomial likelihood
-    y[i] ~ binomial(n[i], p[i]);
+CompilBHM_efftox <- function(moy_mu_eff = 0, moy_sig_eff = 0, moy_p_eff = 0, moy_mu_tox = 0, moy_sig_tox = 0, moy_p_tox = 0,
+                             sigma_mu_eff = 5, sigma_sig_eff = 5, sigma_p_eff = 1, sigma_mu_tox = 5, sigma_sig_tox = 5, sigma_p_tox = 1) {
+  ModeleHier_et <- "
+  data {
+    int<lower = 1> Nb; // Nombre de bras
+    int<lower = 1> n[Nb]; // Nombre de patients par bras
+    int<lower = 0> y_tox[Nb]; // Nombre de toxicités par bras
+    int<lower = 0> y_eff[Nb]; // Nombre de réponses par bras
   }
- 
-}
-
-generated quantities{
-  // Probabilité d'être EX (https://mc-stan.org/docs/stan-users-guide/finite-mixtures.html)
-  real postprob_ex[Nb];
-  for (i in 1:Nb) {
-    postprob_ex[i] = normal_lpdf(theta[i] | mu_ex, etype_ex) + bernoulli_lpmf(0 | prob_ex[i]) - 
-      log_sum_exp(normal_lpdf(theta[i] | mu_ex, etype_ex) + bernoulli_lpmf(0 | prob_ex[i]),
-                  normal_lpdf(theta[i] | mu_nex, etype_nex) + bernoulli_lpmf(1 | prob_ex[i]));
+  parameters{
+    real p_raw_tox[Nb];
+    real p_raw_eff[Nb];
+    real mu_tox, mu_eff;
+    real<lower = 0> sigma_tox, sigma_eff;
   }
-  postprob_ex = exp(postprob_ex);
-}
+  transformed parameters{
+    real p_tox[Nb];
+    real p_eff[Nb]; // Probabilité pour chaque bras d'efficacité et de toxicité
+    real logit_p_tox[Nb];
+    real logit_p_eff[Nb]; // Prédicteur linéaire pour chaque bras d'efficacité et de toxicité
+    for(j in 1:Nb){
+      logit_p_tox[j] = mu_tox + sigma_tox * p_raw_tox[j]; // Non central parametrization
+      logit_p_eff[j] = mu_eff + sigma_eff * p_raw_eff[j]; 
+    }
+    p_tox = inv_logit(logit_p_tox);
+    p_eff = inv_logit(logit_p_eff);
+  }
+  model{
+    // prior distributions
+    sigma_tox ~ normal(%moy_sig_tox%, %sigma_sig_tox%);
+    sigma_eff ~ normal(%moy_sig_eff%, %sigma_sig_eff%);
+    mu_tox  ~ normal(%moy_mu_tox%, %sigma_mu_tox%);
+    mu_eff  ~ normal(%moy_mu_eff%, %sigma_sig_eff%);
+  
+    for (i in 1:Nb) {
+      p_raw_tox[i] ~ normal(%moy_p_tox%, %sigma_p_tox%);
+      p_raw_eff[i] ~ normal(%moy_p_eff%, %sigma_p_eff%);
+      // binomial likelihood
+      y_tox[i] ~ binomial(n[i], p_tox[i]);
+      y_eff[i] ~ binomial(n[i], p_eff[i]);
+    }
+  }
 "
-CompilExNex <- stan_model(model_code = ModeleExNex)
+  ModeleHier_et <- gsub("%moy_mu_tox%", moy_mu_tox, ModeleHier_et)
+  ModeleHier_et <- gsub("%moy_sig_tox%", moy_sig_tox, ModeleHier_et)
+  ModeleHier_et <- gsub("%moy_p_tox%", moy_p_tox, ModeleHier_et)
+  ModeleHier_et <- gsub("%sigma_mu_tox%", sigma_mu_tox, ModeleHier_et)
+  ModeleHier_et <- gsub("%sigma_sig_tox%", sigma_sig_tox, ModeleHier_et)
+  ModeleHier_et <- gsub("%sigma_p_tox%", sigma_p_tox, ModeleHier_et)
+  ModeleHier_et <- gsub("%moy_mu_eff%", moy_mu_eff, ModeleHier_et)
+  ModeleHier_et <- gsub("%moy_sig_eff%", moy_sig_eff, ModeleHier_et)
+  ModeleHier_et <- gsub("%moy_p_eff%", moy_p_eff, ModeleHier_et)
+  ModeleHier_et <- gsub("%sigma_mu_eff%", sigma_mu_eff, ModeleHier_et)
+  ModeleHier_et <- gsub("%sigma_sig_eff%", sigma_sig_eff, ModeleHier_et)
+  ModeleHier_et <- gsub("%sigma_p_eff%", sigma_p_eff, ModeleHier_et)
+  return(stan_model(model_code = ModeleHier_et))
+}
+CompilHier_et <- CompilBHM_efftox()
+
+real_essai_modhier_efftox <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, 
+                                      phi_eff, phi_tox, prior_eff,
+                                      moy_mu = 0, moy_sigma = 0, moy_p = 0, sigma_mu = 5, sigma_sigma = 5, sigma_p = 1) {
+  
+  data$arret_eff <- data$arret_tox <- NA_integer_
+  data$est_eff <- data$icinf_eff <- data$icsup_eff <- NA_real_
+  data$est_tox <- data$icinf_tox <- data$icsup_tox <- NA_real_
+  for (i in seq_len(max(data$nb_ana))) {
+    Nb_pts <- analyses[i]
+    seuil <- 1 - CPar * (Nb_pts / analyses[length(analyses)]) ** PPar
+    if (i == 1) {
+      n_eff <- data$tot_eff[data$nb_ana == i]
+      n_tox <- Nb_pts - data$tot_notox[data$nb_ana == i]
+      n_pts_bras <- rep(Nb_pts, length(n_tox))
+    } else {
+      VecNonArrets <- data$arret_eff[data$nb_ana == (i - 1)] == 0 & data$arret_tox[data$nb_ana == (i - 1)] == 0
+      n_eff[VecNonArrets] <- data$tot_eff[data$nb_ana == i][VecNonArrets]
+      n_tox[VecNonArrets] <- Nb_pts - data$tot_notox[data$nb_ana == i][VecNonArrets]
+      n_pts_bras[VecNonArrets] <- rep(Nb_pts, sum(VecNonArrets))
+    }
+    # Probas a posteriori calculées par MCMC sur le modèle hiérarchique
+    if ((i != 1 && any(data$arret_tox[data$nb_ana == (i - 1)] == 0 & data$arret_eff[data$nb_ana == (i - 1)] == 0)) | (i == 1)) {
+      DonneesEffTox <- list(Nb = length(n_tox), n = n_pts_bras, y_tox = n_tox, y_eff = n_eff)
+      SampledEffTox <- sampling(CompilHier_et, 
+                                data = DonneesEffTox,         
+                                chains = 3,             
+                                warmup = 2000,          
+                                iter = 4000,
+                                thin = 1,
+                                cores = 1,
+                                control = list(stepsize = .3, adapt_delta = .95, max_treedepth = 15),
+                                seed = 121221)
+      PPredTox <- extract(SampledEffTox, pars = "p_tox")$p_tox
+      PPTox <- colMeans(PPredTox > phi_tox) # On va chercher les distributions a posteriori de chaque bras pour la proportion de toxicité
+      data$est_tox[data$nb_ana == i] <- colMeans(PPredTox)
+      data$icinf_tox[data$nb_ana == i] <- apply(PPredTox, 2, quantile, probs = .025)
+      data$icsup_tox[data$nb_ana == i] <- apply(PPredTox, 2, quantile, probs = .975)
+      PPredEff <- extract(SampledEffTox, pars = "p_eff")$p_eff
+      PPEff <- colMeans(PPredEff < phi_eff) # On va chercher les distributions a posteriori de chaque bras pour la proportion de toxicité
+      data$est_eff[data$nb_ana == i] <- colMeans(PPredEff)
+      data$icinf_eff[data$nb_ana == i] <- apply(PPredEff, 2, quantile, probs = .025)
+      data$icsup_eff[data$nb_ana == i] <- apply(PPredEff, 2, quantile, probs = .975)
+    } else {
+      PPTox <- rep(1.5, length(n_tox))
+      data$est_tox[data$nb_ana == i] <- data$est_tox[data$nb_ana == (i - 1)] 
+      data$icinf_tox[data$nb_ana == i] <- data$icinf_tox[data$nb_ana == (i - 1)] 
+      data$icsup_tox[data$nb_ana == i] <- data$icsup_tox[data$nb_ana == (i - 1)] 
+      PPEff <- rep(1.5, length(n_eff))
+      data$est_eff[data$nb_ana == i] <- data$est_eff[data$nb_ana == (i - 1)] 
+      data$icinf_eff[data$nb_ana == i] <- data$icinf_eff[data$nb_ana == (i - 1)] 
+      data$icsup_eff[data$nb_ana == i] <- data$icsup_eff[data$nb_ana == (i - 1)] 
+    }
+    if (i != 1) PPEff[data$arret_eff[data$nb_ana == (i - 1)] == 1] <- 1.5
+    if (Nb_pts %in% ana_eff_cum) {
+      data$arret_eff[data$nb_ana == i] <- as.integer(PPEff > seuil)
+    } else {
+      if (i == 1) data$arret_eff[data$nb_ana == i] <- 0 else data$arret_eff[data$nb_ana == i] <- data$arret_eff[data$nb_ana == (i - 1)]
+    }
+    if (i != 1) PPTox[data$arret_tox[data$nb_ana == (i - 1)] == 1] <- 1.5
+    if (Nb_pts %in% ana_tox_cum) {
+      data$arret_tox[data$nb_ana == i] <- as.integer(PPTox > seuil)
+    } else {
+      if (i == 1) data$arret_tox[data$nb_ana == i] <- 0 else data$arret_tox[data$nb_ana == i] <- data$arret_tox[data$nb_ana == (i - 1)]
+    }
+  }
+  
+  return(data)
+  
+}
 
 
 ## CBHM ----
+
+### Calibration of parameters ----
 
 CalibrateCBHM <- function(NSimu = 10000, NPts, Q0, Q1, Graine = 121221) {
   
@@ -967,48 +1118,54 @@ CalibrateCBHM <- function(NSimu = 10000, NPts, Q0, Q1, Graine = 121221) {
 
 ### Toxicity only ----
 
-ModeleCBHM_t <- "
-data {
-  int<lower = 1> Nb; // Nombre de bras
-  int<lower = 1> n[Nb]; // Nombre de patients par bras
-  int<lower = 0> y[Nb]; // Nombre de toxicités par bras
-  real<lower = 0> variance; // La variance du CBHM
-  real moy_mu, moy_p; // Moyenne du prior pour mu et logit(p)
-  real<lower = 0> sigma_mu, sigma_p; // Ecart-type du prior pour mu et logit(p)
-}
-
-parameters{
-  real p_raw[Nb];
-  real mu;
-}
-
-transformed parameters{
-  real p[Nb]; // Probabilité pour chaque bras
-  real logit_p[Nb]; // Prédicteur linéaire pour chaque bras
-  for(j in 1:Nb){
-    logit_p[j] = mu + variance * p_raw[j]; // Non central parametrization
+CompilCBHM_tox <- function(moy_mu = 0, moy_p = 0,
+                           sigma_mu = 5, sigma_p = 1) {
+  ModeleCBHM_t <- "
+  data {
+    int<lower = 1> Nb; // Nombre de bras
+    int<lower = 1> n[Nb]; // Nombre de patients par bras
+    int<lower = 0> y[Nb]; // Nombre de toxicités par bras
+    real<lower = 0> variance; // La variance du CBHM
   }
-  p = inv_logit(logit_p);
-}
-
-model{
-
-  // prior distributions
-  mu  ~ normal(moy_mu, sigma_mu);
-
-  for (i in 1:Nb) {
-    p_raw[i] ~ normal(moy_p, sigma_p);
-    // binomial likelihood
-    y[i] ~ binomial(n[i], p[i]);
+  
+  parameters{
+    real p_raw[Nb];
+    real mu;
   }
- 
-}
+  
+  transformed parameters{
+    real p[Nb]; // Probabilité pour chaque bras
+    real logit_p[Nb]; // Prédicteur linéaire pour chaque bras
+    for(j in 1:Nb){
+      logit_p[j] = mu + variance * p_raw[j]; // Non central parametrization
+    }
+    p = inv_logit(logit_p);
+  }
+  
+  model{
+  
+    // prior distributions
+    mu  ~ normal(%moy_mu%, %sigma_mu%);
+  
+    for (i in 1:Nb) {
+      p_raw[i] ~ normal(%moy_p%, %sigma_p%);
+      // binomial likelihood
+      y[i] ~ binomial(n[i], p[i]);
+    }
+   
+  }
 "
-CompilCBHM_t <- stan_model(model_code = ModeleCBHM_t)
+  ModeleCBHM_t <- gsub("%moy_mu%", moy_mu, ModeleCBHM_t)
+  ModeleCBHM_t <- gsub("%moy_p%", moy_p, ModeleCBHM_t)
+  ModeleCBHM_t <- gsub("%sigma_mu%", sigma_mu, ModeleCBHM_t)
+  ModeleCBHM_t <- gsub("%sigma_p%", sigma_p, ModeleCBHM_t)
+  return(stan_model(model_code = ModeleCBHM_t))
+}
+CompiledCBHM_t <- CompilCBHM_tox()
 
-real_essai_modcbhm <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, 
+real_essai_modcbhm_tox <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, 
                                phi_eff, phi_tox, prior_eff,
-                               a, b, moy_mu = 0, sigma_mu = 5, moy_p = 0, sigma_p = 5) {
+                               a, b) {
   
   data$arret_eff <- data$arret_tox <- NA_integer_
   data$est_eff <- data$icinf_eff <- data$icsup_eff <- NA_real_
@@ -1075,6 +1232,65 @@ real_essai_modcbhm <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_
   return(data)
   
 }
+
+
+## EXNEX ----
+
+### Toxicity only ----
+
+
+ModeleExNex <- "
+data {
+  int<lower = 1> Nb; // Nombre de bras
+  int<lower = 1> n[Nb]; // Nombre de patients par bras
+  int<lower = 0> y[Nb]; // Nombre de toxicités par bras
+  real mu_nex; // Moyenne du log-odds pour la partie non échangeable
+  real<lower = 0> etype_nex; // Sd du log-odds pour la partie non échangeable
+  real<lower = 0, upper = 1> prob_ex[Nb];
+}
+
+parameters{
+  real theta[Nb]; // Log(odds) dans chaque bras
+  real mu_ex; // Moyenne du log(odds) pour la distribution EX
+  real<lower = 0> etype_ex; // Sd du log(odds) pour la distribution EX
+}
+
+transformed parameters{
+  real p[Nb]; // Probabilité pour chaque bras
+  p = inv_logit(theta); // Theta = prédicteur linéaire pour chaque bras
+}
+
+model{
+
+  // prior distributions
+  etype_ex ~ normal(0, 1);
+  mu_ex  ~ normal(-1.734601, 2.616);
+
+  for (i in 1:Nb) {
+    target += log_mix(prob_ex[i],
+                      normal_lpdf(theta[i] | mu_ex, etype_ex),
+                      normal_lpdf(theta[i] | mu_nex, etype_nex));
+    // binomial likelihood
+    y[i] ~ binomial(n[i], p[i]);
+  }
+ 
+}
+
+generated quantities{
+  // Probabilité d'être EX (https://mc-stan.org/docs/stan-users-guide/finite-mixtures.html)
+  real postprob_ex[Nb];
+  for (i in 1:Nb) {
+    postprob_ex[i] = normal_lpdf(theta[i] | mu_ex, etype_ex) + bernoulli_lpmf(0 | prob_ex[i]) - 
+      log_sum_exp(normal_lpdf(theta[i] | mu_ex, etype_ex) + bernoulli_lpmf(0 | prob_ex[i]),
+                  normal_lpdf(theta[i] | mu_nex, etype_nex) + bernoulli_lpmf(1 | prob_ex[i]));
+  }
+  postprob_ex = exp(postprob_ex);
+}
+"
+CompilExNex <- stan_model(model_code = ModeleExNex)
+
+
+
 
 
 ## Logistic regression ----
