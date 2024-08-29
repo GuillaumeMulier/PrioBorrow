@@ -1195,13 +1195,12 @@ real_essai_modcbhm_tox <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_
     data$icsup_eff[data$nb_ana == i] <- qbeta(.975, prior_eff + n_eff, 1 - prior_eff + Nb_pts - n_eff)
     # Probas a posteriori calculées par MCMC sur le modèle STAN CBHM
     if ((i != 1 && any(data$arret_tox[data$nb_ana == (i - 1)] == 0 & data$arret_eff[data$nb_ana == (i - 1)] == 0)) | (i == 1)) {
-      Statistic <- as.numeric(chisq.test(matrix(c(n_tox, n_pts_bras - n_tox), nrow = 2, byrow = TRUE))$statistic)
+      suppressWarnings(Statistic <- as.numeric(chisq.test(matrix(c(n_tox, n_pts_bras - n_tox), nrow = 2, byrow = TRUE))$statistic))
       if (Statistic < 1) Statistic <- 1 # Security added in the code of the article
       VarianceCBHM <- exp(a + b * log(Statistic))
       if (is.na(VarianceCBHM) || !is.finite(VarianceCBHM) || VarianceCBHM > 1e+4) VarianceCBHM <- 1e+4
-      DonneesTox <- list(Nb = length(n_tox), n = n_pts_bras, y = n_tox, variance = sqrt(VarianceCBHM), 
-                         moy_mu = moy_mu, moy_p = moy_p, sigma_mu = sigma_mu, sigma_p = sigma_p)
-      SampledTox <- sampling(CompilCBHM_t, 
+      DonneesTox <- list(Nb = length(n_tox), n = n_pts_bras, y = n_tox, variance = sqrt(VarianceCBHM))
+      SampledTox <- sampling(CompiledCBHM_t, 
                              data = DonneesTox,         
                              chains = 3,             
                              warmup = 2000,          
@@ -1220,6 +1219,146 @@ real_essai_modcbhm_tox <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_
       data$est_tox[data$nb_ana == i] <- data$est_tox[data$nb_ana == (i - 1)] 
       data$icinf_tox[data$nb_ana == i] <- data$icinf_tox[data$nb_ana == (i - 1)] 
       data$icsup_tox[data$nb_ana == i] <- data$icsup_tox[data$nb_ana == (i - 1)] 
+    }
+    if (i != 1) PPTox[data$arret_tox[data$nb_ana == (i - 1)] == 1] <- 1.5
+    if (Nb_pts %in% ana_tox_cum) {
+      data$arret_tox[data$nb_ana == i] <- as.integer(PPTox > seuil)
+    } else {
+      if (i == 1) data$arret_tox[data$nb_ana == i] <- 0 else data$arret_tox[data$nb_ana == i] <- data$arret_tox[data$nb_ana == (i - 1)]
+    }
+  }
+  
+  return(data)
+  
+}
+
+### Efficacy and toxicity ----
+
+CompilCBHM_efftox <- function(moy_mu_tox = 0, moy_p_tox = 0, sigma_mu_tox = 5, sigma_p_tox = 1,
+                              moy_mu_eff = 0, moy_p_eff = 0, sigma_mu_eff = 5, sigma_p_eff = 1) {
+  ModeleCBHM_et <- "
+  data {
+    int<lower = 1> Nb; // Nombre de bras
+    int<lower = 1> n[Nb]; // Nombre de patients par bras
+    int<lower = 0> y_tox[Nb]; // Nombre de toxicités par bras
+    real<lower = 0> etype_tox; // La variance du CBHM pour la toxicité
+    int<lower = 0> y_eff[Nb]; // Nombre de réponses par bras
+    real<lower = 0> etype_eff; // La variance du CBHM pour l'efficacité
+  }
+  
+  parameters{
+    real p_raw_eff[Nb];
+    real mu_eff;
+    real p_raw_tox[Nb];
+    real mu_tox;
+  }
+  
+  transformed parameters{
+    real p_eff[Nb]; // Probabilité d'efficacité pour chaque bras
+    real p_tox[Nb]; // Probabilité de toxicité pour chaque bras
+    real logit_p_eff[Nb]; // Prédicteur linéaire pour l'efficacité dans chaque bras
+    real logit_p_tox[Nb]; // Prédicteur linéaire pour la toxicité dans chaque bras
+    for(j in 1:Nb){
+      logit_p_eff[j] = mu_eff + etype_eff * p_raw_eff[j]; // Non central parametrization
+      logit_p_tox[j] = mu_tox + etype_tox * p_raw_tox[j]; 
+    }
+    p_eff = inv_logit(logit_p_eff);
+    p_tox = inv_logit(logit_p_tox);
+  }
+  
+  model{
+  
+    // prior distributions
+    mu_eff  ~ normal(%moy_mu_eff%, %sigma_mu_eff%);
+    mu_tox  ~ normal(%moy_mu_tox%, %sigma_mu_tox%);
+  
+    for (i in 1:Nb) {
+      p_raw_eff[i] ~ normal(%moy_p_eff%, %sigma_p_eff%);
+      p_raw_tox[i] ~ normal(%moy_p_tox%, %sigma_p_tox%);
+      // binomial likelihood
+      y_eff[i] ~ binomial(n[i], p_eff[i]);
+      y_tox[i] ~ binomial(n[i], p_tox[i]);
+    }
+   
+  }
+"
+  ModeleCBHM_et <- gsub("%moy_mu_eff%", moy_mu_eff, ModeleCBHM_et)
+  ModeleCBHM_et <- gsub("%moy_p_eff%", moy_p_eff, ModeleCBHM_et)
+  ModeleCBHM_et <- gsub("%sigma_mu_eff%", sigma_mu_eff, ModeleCBHM_et)
+  ModeleCBHM_et <- gsub("%sigma_p_eff%", sigma_p_eff, ModeleCBHM_et)
+  ModeleCBHM_et <- gsub("%moy_mu_tox%", moy_mu_tox, ModeleCBHM_et)
+  ModeleCBHM_et <- gsub("%moy_p_tox%", moy_p_tox, ModeleCBHM_et)
+  ModeleCBHM_et <- gsub("%sigma_mu_tox%", sigma_mu_tox, ModeleCBHM_et)
+  ModeleCBHM_et <- gsub("%sigma_p_tox%", sigma_p_tox, ModeleCBHM_et)
+  return(stan_model(model_code = ModeleCBHM_et))
+}
+CompiledCBHM_et <- CompilCBHM_efftox()
+
+real_essai_modcbhm_efftox <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, 
+                                   phi_eff, phi_tox, prior_eff,
+                                   a_eff, b_eff, a_tox, b_tox) {
+  
+  data$arret_eff <- data$arret_tox <- NA_integer_
+  data$est_eff <- data$icinf_eff <- data$icsup_eff <- NA_real_
+  data$est_tox <- data$icinf_tox <- data$icsup_tox <- NA_real_
+  for (i in seq_len(max(data$nb_ana))) {
+    Nb_pts <- analyses[i]
+    seuil <- 1 - CPar * (Nb_pts / analyses[length(analyses)]) ** PPar
+    if (i == 1) {
+      n_eff <- data$tot_eff[data$nb_ana == i]
+      n_tox <- Nb_pts - data$tot_notox[data$nb_ana == i]
+      n_pts_bras <- rep(Nb_pts, length(n_tox))
+    } else {
+      VecNonArrets <- data$arret_eff[data$nb_ana == (i - 1)] == 0 & data$arret_tox[data$nb_ana == (i - 1)] == 0
+      n_eff[VecNonArrets] <- data$tot_eff[data$nb_ana == i][VecNonArrets]
+      n_tox[VecNonArrets] <- Nb_pts - data$tot_notox[data$nb_ana == i][VecNonArrets]
+      n_pts_bras[VecNonArrets] <- rep(Nb_pts, sum(VecNonArrets))
+    }
+    # Probas a posteriori calculées par MCMC sur le modèle STAN CBHM
+    if ((i != 1 && any(data$arret_tox[data$nb_ana == (i - 1)] == 0 & data$arret_eff[data$nb_ana == (i - 1)] == 0)) | (i == 1)) {
+      suppressWarnings(StatisticEff <- as.numeric(chisq.test(matrix(c(n_eff, n_pts_bras - n_eff), nrow = 2, byrow = TRUE))$statistic))
+      suppressWarnings(StatisticTox <- as.numeric(chisq.test(matrix(c(n_tox, n_pts_bras - n_tox), nrow = 2, byrow = TRUE))$statistic))
+      if (StatisticEff < 1) StatisticEff <- 1 # Security added in the code of the article
+      if (StatisticTox < 1) StatisticTox <- 1
+      VarianceCBHMEff <- exp(a_eff + b_eff * log(StatisticEff))
+      VarianceCBHMTox <- exp(a_tox + b_tox * log(StatisticTox))
+      if (is.na(VarianceCBHMEff) || !is.finite(VarianceCBHMEff) || VarianceCBHMEff > 1e+4) VarianceCBHMEff <- 1e+4 # If too large variance, problems for fitting models
+      if (is.na(VarianceCBHMTox) || !is.finite(VarianceCBHMTox) || VarianceCBHMTox > 1e+4) VarianceCBHMTox <- 1e+4
+      DonneesTox <- list(Nb = length(n_tox), n = n_pts_bras, y_tox = n_tox, etype_tox = sqrt(VarianceCBHMTox), y_eff = n_eff, etype_eff = sqrt(VarianceCBHMEff))
+      SampledTox <- sampling(CompiledCBHM_et, 
+                             data = DonneesTox,         
+                             chains = 3,             
+                             warmup = 2000,          
+                             iter = 4000,
+                             thin = 1,
+                             cores = 1,
+                             control = list(stepsize = .3, adapt_delta = .95, max_treedepth = 15),
+                             seed = 121221)
+      PPredTox <- extract(SampledTox, pars = "p_tox")$p_tox
+      PPTox <- colMeans(PPredTox > phi_tox) # On va chercher les distributions a posteriori de chaque bras pour la proportion de toxicité
+      data$est_tox[data$nb_ana == i] <- colMeans(PPredTox)
+      data$icinf_tox[data$nb_ana == i] <- apply(PPredTox, 2, quantile, probs = .025)
+      data$icsup_tox[data$nb_ana == i] <- apply(PPredTox, 2, quantile, probs = .975)
+      PPredEff <- extract(SampledTox, pars = "p_eff")$p_eff
+      PPEff <- colMeans(PPredEff < phi_eff) # On va chercher les distributions a posteriori de chaque bras pour la proportion de toxicité
+      data$est_eff[data$nb_ana == i] <- colMeans(PPredEff)
+      data$icinf_eff[data$nb_ana == i] <- apply(PPredEff, 2, quantile, probs = .025)
+      data$icsup_eff[data$nb_ana == i] <- apply(PPredEff, 2, quantile, probs = .975)
+    } else {
+      PPTox <- rep(1.5, length(n_tox))
+      data$est_tox[data$nb_ana == i] <- data$est_tox[data$nb_ana == (i - 1)] 
+      data$icinf_tox[data$nb_ana == i] <- data$icinf_tox[data$nb_ana == (i - 1)] 
+      data$icsup_tox[data$nb_ana == i] <- data$icsup_tox[data$nb_ana == (i - 1)] 
+      PPEff <- rep(1.5, length(n_eff))
+      data$est_eff[data$nb_ana == i] <- data$est_eff[data$nb_ana == (i - 1)] 
+      data$icinf_eff[data$nb_ana == i] <- data$icinf_eff[data$nb_ana == (i - 1)] 
+      data$icsup_eff[data$nb_ana == i] <- data$icsup_eff[data$nb_ana == (i - 1)] 
+    }
+    if (i != 1) PPEff[data$arret_eff[data$nb_ana == (i - 1)] == 1] <- 1.5
+    if (Nb_pts %in% ana_eff_cum) {
+      data$arret_eff[data$nb_ana == i] <- as.integer(PPEff > seuil)
+    } else {
+      if (i == 1) data$arret_eff[data$nb_ana == i] <- 0 else data$arret_eff[data$nb_ana == i] <- data$arret_eff[data$nb_ana == (i - 1)]
     }
     if (i != 1) PPTox[data$arret_tox[data$nb_ana == (i - 1)] == 1] <- 1.5
     if (Nb_pts %in% ana_tox_cum) {
