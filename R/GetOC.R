@@ -1647,8 +1647,19 @@ real_essai_modexnex_efftox <- function(data, analyses, CPar, PPar, ana_eff_cum, 
 
 ## Logistic regression ----
 
-CompilLog1 <- function(mu_inter = 0, sigma_inter = 5, mu_coef = 0, sigma_coef = 5) {
-  ModeleLog1 <- "
+# The different logistic regression models:
+## - log1: classic logistic regression
+## - log2: force beta to be positive
+## - log3: positive informative prior for log(OR), but still high variance
+## - log4: dosis in qualitative variable
+## - log5: dosis in qualitative variable and force beta and gamma positive (so that p_dose3 > p_dose2 > p_dose1)
+## - log6: dosis as continuous variable with a squared term
+
+### Toxicity only ----
+
+CompilModLog_tox <- function(mu_inter = 0, sigma_inter = 5, mu_coef = 0, sigma_coef = 5,
+                          PentePos = FALSE, SecondCov = FALSE) {
+  ModeleLog <- "
   data {
     int<lower=0> N;
     vector[N] x;
@@ -1666,124 +1677,36 @@ CompilLog1 <- function(mu_inter = 0, sigma_inter = 5, mu_coef = 0, sigma_coef = 
     y ~ bernoulli_logit(alpha + beta * x);
   }
 "
-  ModeleLog1 <- gsub("%mu_inter%", mu_inter, ModeleLog1)
-  ModeleLog1 <- gsub("%sigma_inter%", sigma_inter, ModeleLog1)
-  ModeleLog1 <- gsub("%mu_coef%", mu_coef, ModeleLog1)
-  ModeleLog1 <- gsub("%sigma_coef%", sigma_coef, ModeleLog1)
-  return(stan_model(model_code = ModeleLog1))
+  if (SecondCov) {
+    ModeleLog <- gsub("vector\\[N\\] x;", "vector\\[N\\] x;\n    vector\\[N\\] x_2;", ModeleLog)
+    ModeleLog <- gsub("real beta;", "real beta;\n    real gamma;", ModeleLog)
+    ModeleLog <- gsub("%sigma_coef%);", "%sigma_coef%);\n    gamma ~ normal(%mu_coef%, %sigma_coef%);", ModeleLog)
+    ModeleLog <- gsub("beta \\* x", "beta \\* x + gamma \\* x_2", ModeleLog)
+  } 
+  if (PentePos) {
+    ModeleLog <- gsub("real beta", "real<lower = 0> beta", ModeleLog)
+    ModeleLog <- gsub("real gamma", "real<lower = 0> gamma", ModeleLog)
+  } 
+  ModeleLog <- gsub("%mu_inter%", mu_inter, ModeleLog)
+  ModeleLog <- gsub("%sigma_inter%", sigma_inter, ModeleLog)
+  ModeleLog <- gsub("%mu_coef%", mu_coef, ModeleLog)
+  ModeleLog <- gsub("%sigma_coef%", sigma_coef, ModeleLog)
+  return(stan_model(model_code = ModeleLog))
 }
-CompiledLog1 <- CompilLog1()
-ModeleLog1 <- "
-data {
-  int<lower=0> N;
-  vector[N] x;
-  int<lower=0,upper=1> y[N];
-}
-parameters {
-  real alpha;
-  real beta;
-}
-model {
-  // Priors
-  alpha ~ normal(0, 5);
-  beta ~ normal(0, 5); // Prior peu informatif centré sur 0
-  // Likelihood
-  y ~ bernoulli_logit(alpha + beta * x);
-}
-"
-CompilLog1 <- stan_model(model_code = ModeleLog1)
+CompiledLog1 <- CompilModLog_tox(PentePos = FALSE, SecondCov = FALSE)
+CompiledLog2 <- CompilModLog_tox(PentePos = FALSE, SecondCov = FALSE, mu_coef = .5)
+CompiledLog3 <- CompilModLog_tox(PentePos = TRUE, SecondCov = FALSE)
+CompiledLog4 <- CompilModLog_tox(PentePos = FALSE, SecondCov = TRUE)
+CompiledLog5 <- CompilModLog_tox(PentePos = TRUE, SecondCov = TRUE)
+CompiledLog6 <- CompilModLog_tox(PentePos = FALSE, SecondCov = TRUE)
 
-ModeleLog2 <- "
-data {
-  int<lower=0> N;
-  vector[N] x;
-  int<lower=0,upper=1> y[N];
-}
-parameters {
-  real alpha;
-  real<lower=0> beta; // Forçage d'une pente positive (hypothèse de monotonicité)
-}
-model {
-  // Priors
-  alpha ~ normal(0, 5);
-  beta ~ normal(0, 5);
-  // Likelihood
-  y ~ bernoulli_logit(alpha + beta * x);
-}
-"
-CompilLog2 <- stan_model(model_code = ModeleLog2)
-
-ModeleLog3 <- "
-data {
-  int<lower=0> N;
-  vector[N] x;
-  int<lower=0,upper=1> y[N];
-}
-parameters {
-  real alpha;
-  real beta;
-}
-model {
-  // Priors
-  alpha ~ normal(0, 5);
-  beta ~ normal(.5, 5); // Prior peu informatif centré sur plus que 0
-  // Likelihood
-  y ~ bernoulli_logit(alpha + beta * x);
-}
-"
-CompilLog3 <- stan_model(model_code = ModeleLog3)
-
-ModeleLog4 <- "
-data {
-  int<lower=0> N;
-  vector[N] x1;
-  vector[N] x2;
-  int<lower=0,upper=1> y[N];
-}
-parameters {
-  real alpha;
-  real beta;
-  real gamma;
-}
-model {
-  // Priors
-  alpha ~ normal(0, 5);
-  beta ~ normal(0, 5);
-  gamma ~ normal(0, 5);
-  // Likelihood
-  y ~ bernoulli_logit(alpha + beta * x1 + gamma * x2);
-}
-"
-CompilLog4 <- stan_model(model_code = ModeleLog4)
-
-ModeleLog5 <- "
-data {
-  int<lower=0> N;
-  vector[N] x1;
-  vector[N] x2;
-  int<lower=0,upper=1> y[N];
-}
-parameters {
-  real alpha;
-  real<lower = 0> beta;
-  real<lower = 0> gamma;
-}
-model {
-  // Priors
-  alpha ~ normal(0, 5);
-  beta ~ normal(0, 5);
-  gamma ~ normal(0, 5);
-  // Likelihood
-  y ~ bernoulli_logit(alpha + beta * x1 + gamma * x2);
-}
-"
-CompilLog5 <- stan_model(model_code = ModeleLog5)
-
-real_essai_bayeslog <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, 
-                                phi_eff, phi_tox, prior_eff, modele_log) {
+real_essai_bayeslog_tox <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, 
+                                    phi_eff, phi_tox, prior_eff, modele_log) {
   
   data$arret_eff <- data$arret_tox <- NA_integer_
   data$dose <- as.numeric(gsub("^ttt(\\d+)$", "\\1", data$ttt)) # Doses 1/2/3/... prises dans ces simulations
+  # For the simulations we made the hypothesis of 3 doses with proportionality 1/2/3 so replacing the dose by 1/2/3 isn't changing anything in our case
+  # But if it is not the case, one may adapt this manner to determine doses in simulations
   data$est_eff <- data$icinf_eff <- data$icsup_eff <- NA_real_
   data$est_tox <- data$icinf_tox <- data$icsup_tox <- NA_real_
   for (i in seq_len(max(data$nb_ana))) {
@@ -1813,34 +1736,36 @@ real_essai_bayeslog <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox
     data$icsup_eff[data$nb_ana == i] <- qbeta(.975, prior_eff + n_eff, 1 - prior_eff + Nb_pts - n_eff)
     # MCMC pour la proba a posteriori seulement si nécessaire (gain de temps)
     if ((i != 1 && any(data$arret_tox[data$nb_ana == (i - 1)] == 0 & data$arret_eff[data$nb_ana == (i - 1)] == 0)) | (i == 1)) {
-      if (modele_log %in% c(1:3)) {
+      if (modele_log %in% c(1:3, 6)) {
         DonneesTox <- list(N = sum(n_pts_bras),
                            y = rep(rep(0:1, length(doses_ttt)), unlist(lapply(seq_along(n_pts_bras), \(x) c(n_pts_bras[x] - n_tox[x], n_tox[x])))),
                            x = rep(doses_ttt, n_pts_bras))
+        if (modele_log == 6) DonneesTox[["x_2"]] <- DonneesTox[["x"]] ** 2
       } else {
         DonneesTox <- list(N = sum(n_pts_bras),
                            y = rep(rep(0:1, length(doses_ttt)), unlist(lapply(seq_along(n_pts_bras), \(x) c(n_pts_bras[x] - n_tox[x], n_tox[x])))),
-                           x1 = rep(c(0, rep(1, length(doses_ttt) - 1)), n_pts_bras),
-                           x2 = rep(c(0, 0, rep(1, length(doses_ttt) - 2)), n_pts_bras))
+                           x = rep(c(0, rep(1, length(doses_ttt) - 1)), n_pts_bras),
+                           x_2 = rep(c(0, 0, rep(1, length(doses_ttt) - 2)), n_pts_bras))
       }
-      SampledTox <- sampling(get(paste0("CompilLog", modele_log)), 
+      SampledTox <- sampling(get("CompiledLog")[[paste0("log", modele_log)]], 
                              data = DonneesTox,         
                              chains = 3,             
-                             warmup = 5000,          
-                             iter = 55000,
-                             thin = 10,
-                             cores = 3,
+                             warmup = 2000,          
+                             iter = 4000,
+                             thin = 1,
+                             cores = 1,
                              # J'ai dû ajouter cela car cela ne convergeait pas bien sinon pour le modèle qui restreint beta en positif
                              control = list(stepsize = .3, adapt_delta = .95, max_treedepth = 15),
                              seed = 121221)
       DistPost <- extract(SampledTox)
       if (modele_log %in% c(1:3)) {
         PPred <- lapply(doses_ttt, \(x) 1 / (1 + exp(-1 * (DistPost$alpha + x * DistPost$beta))))
-        PPTox <- vapply(PPred, \(distrib) {mean(distrib > phi_tox)}, double(1))
+      } else if (modele_log == 6) {
+        PPred <- lapply(doses_ttt, \(x) 1 / (1 + exp(-1 * (DistPost$alpha + x * DistPost$beta + x ** 2 * DistPost$gamma))))
       } else {
         PPred <- lapply(doses_ttt, \(x) 1 / (1 + exp(-1 * (DistPost$alpha + (x != 1) * DistPost$beta + (x == 3) * DistPost$gamma))))
-        PPTox <- vapply(PPred, \(distrib) {mean(distrib > phi_tox)}, double(1))
       }
+      PPTox <- vapply(PPred, \(distrib) {mean(distrib > phi_tox)}, double(1))
       data$est_tox[data$nb_ana == i] <- vapply(PPred, mean, double(1))
       data$icinf_tox[data$nb_ana == i] <- vapply(PPred, quantile, double(1), probs = .025)
       data$icsup_tox[data$nb_ana == i] <- vapply(PPred, quantile, double(1), probs = .975)
@@ -1855,6 +1780,170 @@ real_essai_bayeslog <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox
       data$arret_tox[data$nb_ana == i] <- as.integer(PPTox > seuil)
     } else {
       if (i == 1) data$arret_tox[data$nb_ana == i] <- 0 else data$arret_tox[data$nb_ana == i] <- data$arret_tox[data$nb_ana == (i - 1)]
+    }
+  }
+  
+  return(data)
+  
+}
+
+### Efficacy and toxicity ----
+
+CompilModLog_efftox <- function(mu_inter_tox = 0, sigma_inter_tox = 5, mu_coef_tox = 0, sigma_coef_tox = 5,
+                                mu_inter_eff = 0, sigma_inter_eff = 5, mu_coef_eff = 0, sigma_coef_eff = 5,
+                                PentePos_tox = FALSE, SecondCov_tox = FALSE,
+                                PentePos_eff = FALSE, SecondCov_eff = FALSE) {
+  ModeleLog <- "
+  data {
+    int<lower=0> N;
+    vector[N] x;
+    int<lower=0,upper=1> y_tox[N];
+    int<lower=0,upper=1> y_eff[N];
+  }
+  parameters {
+    real alpha_tox;
+    real beta_tox;
+    real alpha_eff;
+    real beta_eff;
+  }
+  model {
+    // Priors
+    alpha_tox ~ normal(%mu_inter_tox%, %sigma_inter_tox%);
+    beta_tox ~ normal(%mu_coef_tox%, %sigma_coef_tox%); 
+    alpha_eff ~ normal(%mu_inter_eff%, %sigma_inter_eff%);
+    beta_eff ~ normal(%mu_coef_eff%, %sigma_coef_eff%); 
+    // Likelihood
+    y_tox ~ bernoulli_logit(alpha_tox + beta_tox * x);
+    y_eff ~ bernoulli_logit(alpha_eff + beta_eff * x);
+  }
+"
+  if (SecondCov_eff | SecondCov_tox) {
+    ModeleLog <- gsub("vector\\[N\\] x;", "vector\\[N\\] x;\n    vector\\[N\\] x_2;", ModeleLog)
+    if (SecondCov_tox) {
+      ModeleLog <- gsub("real beta_tox;", "real beta_tox;\n    real gamma_tox;", ModeleLog)
+      ModeleLog <- gsub("%sigma_coef_tox%);", "%sigma_coef_tox%);\n    gamma_tox ~ normal(%mu_coef_tox%, %sigma_coef_tox%);", ModeleLog)
+      ModeleLog <- gsub("beta_tox \\* x", "beta_tox \\* x + gamma_tox \\* x_2", ModeleLog)
+    }
+    if (SecondCov_eff) {
+      ModeleLog <- gsub("real beta_eff;", "real beta_eff;\n    real gamma_eff;", ModeleLog)
+      ModeleLog <- gsub("%sigma_coef_eff%);", "%sigma_coef_eff%);\n    gamma_eff ~ normal(%mu_coef_eff%, %sigma_coef_eff%);", ModeleLog)
+      ModeleLog <- gsub("beta_eff \\* x", "beta_eff \\* x + gamma_eff \\* x_2", ModeleLog)
+    }
+  } 
+  if (PentePos_tox) {
+    ModeleLog <- gsub("real beta_tox", "real<lower = 0> beta_tox", ModeleLog)
+    ModeleLog <- gsub("real gamma_tox", "real<lower = 0> gamma_tox", ModeleLog)
+  } 
+  if (PentePos_eff) {
+    ModeleLog <- gsub("real beta_eff", "real<lower = 0> beta_eff", ModeleLog)
+    ModeleLog <- gsub("real gamma_eff", "real<lower = 0> gamma_eff", ModeleLog)
+  } 
+  ModeleLog <- gsub("%mu_inter_tox%", mu_inter_tox, ModeleLog)
+  ModeleLog <- gsub("%sigma_inter_tox%", sigma_inter_tox, ModeleLog)
+  ModeleLog <- gsub("%mu_coef_tox%", mu_coef_tox, ModeleLog)
+  ModeleLog <- gsub("%sigma_coef_tox%", sigma_coef_tox, ModeleLog)
+  ModeleLog <- gsub("%mu_inter_eff%", mu_inter_eff, ModeleLog)
+  ModeleLog <- gsub("%sigma_inter_eff%", sigma_inter_eff, ModeleLog)
+  ModeleLog <- gsub("%mu_coef_eff%", mu_coef_eff, ModeleLog)
+  ModeleLog <- gsub("%sigma_coef_eff%", sigma_coef_eff, ModeleLog)
+  return(stan_model(model_code = ModeleLog))
+}
+CompiledLog1 <- CompilModLog_efftox()
+CompiledLog2 <- CompilModLog_efftox(mu_coef_eff = .5, mu_coef_tox = .5)
+CompiledLog3 <- CompilModLog_efftox(PentePos_eff = TRUE, PentePos_tox = TRUE)
+CompiledLog4 <- CompilModLog_efftox(SecondCov_eff = TRUE, SecondCov_tox = TRUE)
+CompiledLog5 <- CompilModLog_efftox(PentePos_eff = TRUE, SecondCov_eff = TRUE, PentePos_tox = TRUE, SecondCov_tox = TRUE)
+CompiledLog6 <- CompilModLog_efftox(SecondCov_eff = TRUE, SecondCov_tox = TRUE)
+
+real_essai_bayeslog_efftox <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, 
+                                       phi_eff, phi_tox, prior_eff, modele_log) {
+  
+  data$arret_eff <- data$arret_tox <- NA_integer_
+  data$dose <- as.numeric(gsub("^ttt(\\d+)$", "\\1", data$ttt)) # Doses 1/2/3/... prises dans ces simulations
+  # For the simulations we made the hypothesis of 3 doses with proportionality 1/2/3 so replacing the dose by 1/2/3 isn't changing anything in our case
+  # But if it is not the case, one may adapt this manner to determine doses in simulations
+  data$est_eff <- data$icinf_eff <- data$icsup_eff <- NA_real_
+  data$est_tox <- data$icinf_tox <- data$icsup_tox <- NA_real_
+  for (i in seq_len(max(data$nb_ana))) {
+    Nb_pts <- analyses[i]
+    seuil <- 1 - CPar * (Nb_pts / analyses[length(analyses)]) ** PPar
+    if (i == 1) {
+      n_eff <- data$tot_eff[data$nb_ana == i]
+      n_tox <- Nb_pts - data$tot_notox[data$nb_ana == i]
+      n_pts_bras <- rep(Nb_pts, length(n_tox))
+      doses_ttt <- data$dose[data$nb_ana == i]
+    } else {
+      VecNonArrets <- data$arret_eff[data$nb_ana == (i - 1)] == 0 & data$arret_tox[data$nb_ana == (i - 1)] == 0
+      n_eff[VecNonArrets] <- data$tot_eff[data$nb_ana == i][VecNonArrets]
+      n_tox[VecNonArrets] <- Nb_pts - data$tot_notox[data$nb_ana == i][VecNonArrets]
+      n_pts_bras[VecNonArrets] <- rep(Nb_pts, sum(VecNonArrets))
+      doses_ttt[VecNonArrets] <- data$dose[data$nb_ana == i][VecNonArrets]
+    }
+    # MCMC pour la proba a posteriori seulement si nécessaire (gain de temps)
+    if ((i != 1 && any(data$arret_tox[data$nb_ana == (i - 1)] == 0 & data$arret_eff[data$nb_ana == (i - 1)] == 0)) | (i == 1)) {
+      if (modele_log %in% c(1:3, 6)) {
+        DonneesTox <- list(N = sum(n_pts_bras),
+                           y_tox = rep(rep(0:1, length(doses_ttt)), unlist(lapply(seq_along(n_pts_bras), \(x) c(n_pts_bras[x] - n_tox[x], n_tox[x])))),
+                           y_eff = rep(rep(0:1, length(doses_ttt)), unlist(lapply(seq_along(n_pts_bras), \(x) c(n_pts_bras[x] - n_eff[x], n_eff[x])))),
+                           x = rep(doses_ttt, n_pts_bras))
+        if (modele_log == 6) DonneesTox[["x_2"]] <- DonneesTox[["x"]] ** 2
+      } else {
+        DonneesTox <- list(N = sum(n_pts_bras),
+                           y_tox = rep(rep(0:1, length(doses_ttt)), unlist(lapply(seq_along(n_pts_bras), \(x) c(n_pts_bras[x] - n_tox[x], n_tox[x])))),
+                           y_eff = rep(rep(0:1, length(doses_ttt)), unlist(lapply(seq_along(n_pts_bras), \(x) c(n_pts_bras[x] - n_eff[x], n_eff[x])))),
+                           x = rep(c(0, rep(1, length(doses_ttt) - 1)), n_pts_bras),
+                           x_2 = rep(c(0, 0, rep(1, length(doses_ttt) - 2)), n_pts_bras))
+      }
+      SampledTox <- sampling(get("CompiledLogEfftox")[[paste0("log", modele_log)]], 
+                             data = DonneesTox,         
+                             chains = 3,             
+                             warmup = 2000,          
+                             iter = 4000,
+                             thin = 1,
+                             cores = 1,
+                             # J'ai dû ajouter cela car cela ne convergeait pas bien sinon pour le modèle qui restreint beta en positif
+                             control = list(stepsize = .3, adapt_delta = .95, max_treedepth = 15),
+                             seed = 121221)
+      DistPost <- extract(SampledTox)
+      if (modele_log %in% c(1:3)) {
+        PPredTox <- lapply(doses_ttt, \(x) 1 / (1 + exp(-1 * (DistPost$alpha_tox + x * DistPost$beta_tox))))
+        PPredEff <- lapply(doses_ttt, \(x) 1 / (1 + exp(-1 * (DistPost$alpha_eff + x * DistPost$beta_eff))))
+      } else if (modele_log == 6) {
+        PPredTox <- lapply(doses_ttt, \(x) 1 / (1 + exp(-1 * (DistPost$alpha_tox + x * DistPost$beta_tox + x ** 2 * DistPost$gamma_tox))))
+        PPredEff <- lapply(doses_ttt, \(x) 1 / (1 + exp(-1 * (DistPost$alpha_eff + x * DistPost$beta_eff + x ** 2 * DistPost$gamma_eff))))
+      } else {
+        PPredTox <- lapply(doses_ttt, \(x) 1 / (1 + exp(-1 * (DistPost$alpha_tox + (x != 1) * DistPost$beta_tox + (x == 3) * DistPost$gamma_tox))))
+        PPredEff <- lapply(doses_ttt, \(x) 1 / (1 + exp(-1 * (DistPost$alpha_eff + (x != 1) * DistPost$beta_eff + (x == 3) * DistPost$gamma_eff))))
+      }
+      PPTox <- vapply(PPredTox, \(distrib) {mean(distrib > phi_tox)}, double(1))
+      data$est_tox[data$nb_ana == i] <- vapply(PPredTox, mean, double(1))
+      data$icinf_tox[data$nb_ana == i] <- vapply(PPredTox, quantile, double(1), probs = .025)
+      data$icsup_tox[data$nb_ana == i] <- vapply(PPredTox, quantile, double(1), probs = .975)
+      PPEff <- vapply(PPredEff, \(distrib) {mean(distrib < phi_eff)}, double(1))
+      data$est_eff[data$nb_ana == i] <- vapply(PPredEff, mean, double(1))
+      data$icinf_eff[data$nb_ana == i] <- vapply(PPredEff, quantile, double(1), probs = .025)
+      data$icsup_eff[data$nb_ana == i] <- vapply(PPredEff, quantile, double(1), probs = .975)
+    } else {
+      PPTox <- rep(1.5, length(n_tox))
+      data$est_tox[data$nb_ana == i] <- data$est_tox[data$nb_ana == (i - 1)] 
+      data$icinf_tox[data$nb_ana == i] <- data$icinf_tox[data$nb_ana == (i - 1)] 
+      data$icsup_tox[data$nb_ana == i] <- data$icsup_tox[data$nb_ana == (i - 1)] 
+      PPEff <- rep(1.5, length(n_eff))
+      data$est_eff[data$nb_ana == i] <- data$est_eff[data$nb_ana == (i - 1)] 
+      data$icinf_eff[data$nb_ana == i] <- data$icinf_eff[data$nb_ana == (i - 1)] 
+      data$icsup_eff[data$nb_ana == i] <- data$icsup_eff[data$nb_ana == (i - 1)] 
+    }
+    if (i != 1) PPTox[data$arret_tox[data$nb_ana == (i - 1)] == 1] <- 1.5
+    if (Nb_pts %in% ana_tox_cum) {
+      data$arret_tox[data$nb_ana == i] <- as.integer(PPTox > seuil)
+    } else {
+      if (i == 1) data$arret_tox[data$nb_ana == i] <- 0 else data$arret_tox[data$nb_ana == i] <- data$arret_tox[data$nb_ana == (i - 1)]
+    }
+    if (i != 1) PPEff[data$arret_eff[data$nb_ana == (i - 1)] == 1] <- 1.5
+    if (Nb_pts %in% ana_eff_cum) {
+      data$arret_eff[data$nb_ana == i] <- as.integer(PPEff > seuil)
+    } else {
+      if (i == 1) data$arret_eff[data$nb_ana == i] <- 0 else data$arret_eff[data$nb_ana == i] <- data$arret_eff[data$nb_ana == (i - 1)]
     }
   }
   
