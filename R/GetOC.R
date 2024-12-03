@@ -484,9 +484,9 @@ real_essai_bop_seq_efftox <- function(data, analyses, CPar, PPar, ana_eff_cum, a
     } else {
       if (i == 1) data$arret_eff[data$nb_ana == i] <- 0 else data$arret_eff[data$nb_ana == i] <- data$arret_eff[data$nb_ana == (i - 1)]
     }
-    data$est_eff[data$nb_ana == i] <- (n_eff + prior_eff) / (Nb_pts + 1) 
-    data$icinf_eff[data$nb_ana == i] <- qbeta(.025, prior_eff + n_eff, 1 - prior_eff + Nb_pts - n_eff) 
-    data$icsup_eff[data$nb_ana == i] <- qbeta(.975, prior_eff + n_eff, 1 - prior_eff + Nb_pts - n_eff)
+    data$est_eff[data$nb_ana == i] <- (n_eff + prior_eff + n_eff_autres) / (Nb_pts + n_ptseff_autres + 1) 
+    data$icinf_eff[data$nb_ana == i] <- qbeta(.025, prior_eff + n_eff + n_eff_autres, 1 - prior_eff + Nb_pts - n_eff + n_ptseff_autres - n_eff_autres) 
+    data$icsup_eff[data$nb_ana == i] <- qbeta(.975, prior_eff + n_eff + n_eff_autres, 1 - prior_eff + Nb_pts - n_eff + n_ptseff_autres - n_eff_autres)
     PPTox <- 1 - pbeta(phi_tox, prior_tox + n_tox + n_tox_autres, 1 - prior_tox + Nb_pts - n_tox + n_ptstox_autres - n_tox_autres)
     if (i != 1) PPTox[data$arret_tox[data$nb_ana == (i - 1)] == 1] <- 1.5
     if (Nb_pts %in% ana_tox_cum) {
@@ -1784,6 +1784,7 @@ real_essai_bayeslog_tox <- function(data, analyses, CPar, PPar, ana_eff_cum, ana
                              # J'ai dû ajouter cela car cela ne convergeait pas bien sinon pour le modèle qui restreint beta en positif
                              control = list(stepsize = .3, adapt_delta = .95, max_treedepth = 15),
                              seed = 121221)
+      # print(SampledTox)
       DistPost <- extract(SampledTox)
       if (modele_log %in% c(1:3)) {
         PPred <- lapply(doses_ttt, \(x) 1 / (1 + exp(-1 * (DistPost$alpha + x * DistPost$beta))))
@@ -2090,10 +2091,12 @@ opcharac <- function(ana_inter,
         real_essai_modexnex_efftox(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, phi_eff, phi_tox, prior_eff, p_mix_eff, p_mix_tox)
       } else if (methode %in% c("bop_log1_tox", "bop_log2_tox", "bop_log3_tox", "bop_log4_tox", "bop_log5_tox", "bop_log6_tox")) {
         ModeleAPrendre <- gsub("^bop_log(\\d)_tox$", "\\1", methode)
-        real_essai_bayeslog_tox(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, phi_eff, phi_tox, prior_eff, ModeleAPrendre)
+        tryCatch(real_essai_bayeslog_tox(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, phi_eff, phi_tox, prior_eff, ModeleAPrendre),
+                 error = function(e) NULL)
       } else if (methode %in% c("bop_log1_efftox", "bop_log2_efftox", "bop_log3_efftox", "bop_log4_efftox", "bop_log5_efftox", "bop_log6_efftox")) {
         ModeleAPrendre <- gsub("^bop_log(\\d)_efftox$", "\\1", methode)
-        real_essai_bayeslog_efftox(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, phi_eff, phi_tox, prior_eff, ModeleAPrendre)
+        tryCatch(real_essai_bayeslog_efftox(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, phi_eff, phi_tox, prior_eff, ModeleAPrendre),
+                 error = function(e) NULL)
       }
       
     }
@@ -2128,6 +2131,7 @@ opcharac <- function(ana_inter,
     carac_globales = data.frame(
       p_n = paste0("(", paste(p_n, collapse = "/"), ")"),
       p_a = paste0("(", paste(p_a, collapse = "/"), ")"),
+      nb_essais = length(unique(tableau_essais$n_simu)),
       rejet_glob = tableau_essais %>%
         group_by(n_simu) %>%
         summarise(

@@ -94,7 +94,6 @@ if (FALSE) {
 }
 # The explored methods
 Methodes <- list(
-  "mBOP" = list(methode = "bop", efftox = 1, tox = 1, A0 = NA, SeuilP = NA),
   "seqBOP_tox" = list(methode = "bop_seq_tox", efftox = 0, tox = 1, A0 = NA, SeuilP = NA),
   "seqBOP_efftox" = list(methode = "bop_seq_efftox", efftox = 1, tox = 0, A0 = NA, SeuilP = NA),
   "tBOP a=.5 s=.1_tox" = list(methode = "bop_power_test_tox", A0 = .5, SeuilP = .1),
@@ -114,58 +113,62 @@ Methodes <- list(
   "bop_log1_efftox" = list(methode = "bop_log1_efftox", A0 = NA, SeuilP = NA),
   "bop_log2_efftox" = list(methode = "bop_log2_efftox", A0 = NA, SeuilP = NA),
   "bop_log5_efftox" = list(methode = "bop_log5_efftox", A0 = NA, SeuilP = NA),
-  "bop_log6_efftox" = list(methode = "bop_log6_efftox", A0 = NA, SeuilP = NA)
+  "bop_log6_efftox" = list(methode = "bop_log6_efftox", A0 = NA, SeuilP = NA),
+  "mBOP" = list(methode = "bop", efftox = 1, tox = 1, A0 = NA, SeuilP = NA)
 )
 NomMethodes <- names(Methodes)
-GrilleSimu <- expand.grid(
-  scenar = seq_along(Scenarios),
-  methode = seq_along(Methodes)
-)
 
 # Simulations
-cl <- makeCluster(12)
+cl <- makeCluster(24)
 registerDoParallel(cl)
 
 cat("----\nSimulations à 3 bras\n----\n\n", file = "~/simu_priors/log.txt", append = TRUE)
 
-Resultats <- list()
-save(Resultats, file = "~/simu_priors/resultats_priors_20240906.RData")
-
-for (m in seq_along(Methodes)) {
+# for (m in seq_len(ceiling(length(Methodes) / 2))) {
+for (m in c(1)) {
   
   # Load 
-  cat(paste0("----\n", NomMethodes[m], "\n----\n\n"), file = "~/simu_priors/log.txt", append = TRUE)
-  load("~/simu_priors/resultats_priors_20240906.RData")
+  if (2 * m <= length(Methodes)) {
+    cat(paste0("----\n", NomMethodes[2 * m - 1], " et ", NomMethodes[2 * m], "\n----\n\n"), file = "~/simu_priors/log.txt", append = TRUE)
+  } else {
+    cat(paste0("----\n", NomMethodes[2 * m - 1], "\n----\n\n"), file = "~/simu_priors/log.txt", append = TRUE)
+  }
   
   # Parameters of the method
-  Params <- Methodes[[m]]
+  Params1 <- Methodes[[2 * m - 1]]
+  if (2 * m <= length(Methodes)) Params2 <- Methodes[[2 * m]]
   
   # Simulate the scenarios 
-  ResT <- foreach(i = seq_along(Scenarios),
+  VecScenarios <- if (2 * m <= length(Methodes)) seq_len(2 * length(Scenarios)) else seq_along(Scenarios)
+  ResT <- foreach(i = VecScenarios,
                   .packages = c("dplyr", "purrr", "rlang", "stringr", "rstan"),
                   .export = c("%nin%", "Alpha", "AnaEff", "AnaTox", "CBHM_eff",
-                              "CBHM_tox", "gen_patients_multinom", "GrilleSimu",
+                              "CBHM_tox", "gen_patients_multinom",
                               "m", "Methodes", "NBras", "NomMethodes", "NomScenars", "NSimu",
-                              "opcharac", "PA", "Params", "PN", "real_essai_bayeslog_efftox",
+                              "opcharac", "PA", "Params1", "Params2", "PN", "real_essai_bayeslog_efftox",
                               "real_essai_bayeslog_tox", "real_essai_bop", "real_essai_bop_borrow",
                               "real_essai_bop_borrow_test_efftox", "real_essai_bop_borrow_test_tox",
                               "real_essai_bop_power_efftox", "real_essai_bop_power_test_efftox",
                               "real_essai_bop_power_test_tox", "real_essai_bop_power_tox",
                               "real_essai_bop_seq_efftox", "real_essai_bop_seq_tox", "real_essai_modcbhm_efftox",
                               "real_essai_modcbhm_tox", "real_essai_modexnex_efftox", "real_essai_modexnex_tox",
-                              "real_essai_modhier_efftox", "real_essai_modhier_tox", "Resultats",
+                              "real_essai_modhier_efftox", "real_essai_modhier_tox",
                               "Scenarios", "SeuilBOP", "summarise_decision", "summarise_detect",
                               "summarise_ttt")) %dopar% {
                                 
-                                cat(paste0("Scénario n°", i, "/", length(Scenarios), " : ", NomScenars[i], " with ", NomMethodes[m], "\n"), file = "~/simu_priors/log.txt", append = TRUE)
+                                NScenar <- i %% length(Scenarios)
+                                if (NScenar == 0) NScenar <- length(Scenarios)
+                                NumMethode <- if (i <= length(Scenarios)) 2 * m - 1 else 2 * m
+                                Params <- if (i <= length(Scenarios)) Params1 else Params2
+                                cat(paste0("Scénario n°", NScenar, "/", length(Scenarios), " : ", NomScenars[NScenar], " with ", NomMethodes[NumMethode], "\n"), file = "~/simu_priors/log.txt", append = TRUE)
                                 
                                 # Générer essais
                                 tableau_essais <- gen_patients_multinom(NSimu, AnaEff, AnaTox,
-                                                                        multinom_ttt = Scenarios[[i]],
+                                                                        multinom_ttt = Scenarios[[NScenar]],
                                                                         rand_ratio = rep(1, NBras), seed = 121221)
                                 
                                 # Simuler le résultat
-                                Resultat <- opcharac(ana_inter = AnaEff, ana_inter_tox = AnaTox,
+                                Resultat <- tryCatch(opcharac(ana_inter = AnaEff, ana_inter_tox = AnaTox,
                                                      p_n = PN, p_a = PA,
                                                      CPar = SeuilBOP[[1]][["C_"]], PPar = SeuilBOP[[1]][["gamma"]],
                                                      methode = Params$methode,
@@ -174,20 +177,20 @@ for (m in seq_along(Methodes)) {
                                                      a_tox = CBHM_tox$a, b_tox = CBHM_tox$b,
                                                      a_eff = CBHM_eff$a, b_eff = CBHM_eff$b,
                                                      p_mix_tox = rep(.5, NBras), p_mix_eff = rep(.5, NBras),
-                                                     tableau_essais = tableau_essais)
+                                                     tableau_essais = tableau_essais),
+                                                     error = function(e) list(paste0(e)))
                                 Resultat <- append(Resultat,
-                                                   values = list(data.frame(methode = NomMethodes[m], scenar = NomScenars[i])),
+                                                   values = list(data.frame(methode = NomMethodes[NumMethode], scenar = NomScenars[NScenar])),
                                                    after = 2)
                                 return(Resultat)
                                 
                               }
   
-  # Increment the list of results and save output
-  Resultats[[m]] <- ResT
-  save(Resultats, file = "~/simu_priors/resultats_priors_20240906.RData")
-  # save(Resultats, file = "Data/resultats_priors_20240906.RData")
-  
+  # Save results
+  save(ResT, file = paste0("~/simu_priors/resultats_priors_20241007_", m, ".RData"))
+       
 }
+
 stopCluster(cl)
 
 cat("\nFini !\n", file = "~/simu_priors/log.txt", append = TRUE)
