@@ -1,7 +1,7 @@
 # -------------------------------------------------------------------- #
 # Script de simulation test pour l'inclusion de borrowing dans le BOP2 #
 # Auteur : G. Mulier                                                   #
-# Créé le 21/05/2024, modifié le 05/12/2024                            #
+# Créé le 21/05/2024, modifié le 30/08/2024                            #
 # -------------------------------------------------------------------- #
 
 # devtools::load_all("~/pkgs/multibrasBOP2/")
@@ -34,16 +34,18 @@ NBras <- 3
 
 # Scénarios
 Scenarios <- list(
-  Sc1  = list(ttt1 = c(0.15, 0.15, 0.25, 0.45), ttt2 = c(0.15, 0.15, 0.25, 0.45), ttt3 = c(0.15, 0.15, 0.25, 0.45)),
-  Sc2  = list(ttt1 = c(0.13, 0.12, 0.27, 0.48), ttt2 = c(0.15, 0.13, 0.27, 0.45), ttt3 = c(0.16, 0.14, 0.29, 0.41)),
-  Sc3  = list(ttt1 = c(0.20, 0.30, 0.10, 0.40), ttt2 = c(0.20, 0.30, 0.10, 0.40), ttt3 = c(0.20, 0.30, 0.10, 0.40)),
-  Sc4  = list(ttt1 = c(0.15, 0.35, 0.10, 0.40), ttt2 = c(0.17, 0.35, 0.11, 0.37), ttt3 = c(0.19, 0.36, 0.11, 0.34)),
-  Sc5  = list(ttt1 = c(0.10, 0.20, 0.15, 0.55), ttt2 = c(0.20, 0.30, 0.10, 0.40), ttt3 = c(0.19, 0.36, 0.11, 0.34)),
-  Sc6  = list(ttt1 = c(0.15, 0.35, 0.10, 0.40), ttt2 = c(0.18, 0.34, 0.12, 0.36), ttt3 = c(0.25, 0.30, 0.15, 0.30)),
-  Sc7  = list(ttt1 = c(0.11, 0.19, 0.17, 0.53), ttt2 = c(0.20, 0.30, 0.10, 0.40), ttt3 = c(0.25, 0.30, 0.15, 0.30)),
-  Sc8  = list(ttt1 = c(0.14, 0.26, 0.14, 0.46), ttt2 = c(0.20, 0.30, 0.10, 0.40), ttt3 = c(0.25, 0.30, 0.15, 0.30)),
-  Sc9  = list(ttt1 = c(0.18, 0.32, 0.12, 0.38), ttt2 = c(0.22, 0.28, 0.15, 0.35), ttt3 = c(0.23, 0.27, 0.17, 0.33)),
-  Sc10 = list(ttt1 = c(0.12, 0.18, 0.18, 0.52), ttt2 = c(0.17, 0.23, 0.18, 0.42), ttt3 = c(0.23, 0.27, 0.17, 0.33))
+  Sc1 = list(ttt1 = c(0.15, 0.15, 0.25, 0.45), ttt2 = c(0.15, 0.15, 0.25, 0.45), ttt3 = c(0.15, 0.15, 0.25, 0.45)),
+  Sc2 = list(ttt1 = c(0.20, 0.30, 0.10, 0.40), ttt2 = c(0.20, 0.30, 0.10, 0.40), ttt3 = c(0.20, 0.30, 0.10, 0.40)),
+  Sc3 = list(ttt1 = c(0.15, 0.20, 0.15, 0.50), ttt2 = c(0.19, 0.23, 0.16, 0.42), ttt3 = c(0.25, 0.25, 0.15, 0.35)),
+  Sc4 = list(ttt1 = c(0.15, 0.20, 0.15, 0.50), ttt2 = c(0.20, 0.22, 0.18, 0.40), ttt3 = c(0.25, 0.25, 0.15, 0.35)),
+  Sc5 = list(ttt1 = c(0.13, 0.22, 0.15, 0.50), ttt2 = c(0.16, 0.26, 0.15, 0.43), ttt3 = c(0.20, 0.30, 0.15, 0.35)),
+  Sc6 = list(ttt1 = c(0.13, 0.22, 0.15, 0.50), ttt2 = c(0.18, 0.24, 0.15, 0.43), ttt3 = c(0.20, 0.30, 0.15, 0.35)),
+  Sc7 = list(ttt1 = c(0.15, 0.20, 0.15, 0.50), ttt2 = c(0.20, 0.22, 0.18, 0.40), ttt3 = c(0.22, 0.28, 0.16, 0.34)),
+  Sc8 = list(ttt1 = c(0.15, 0.20, 0.15, 0.50), ttt2 = c(0.20, 0.25, 0.15, 0.40), ttt3 = c(0.25, 0.25, 0.15, 0.35)),
+  Sc9 = list(ttt1 = c(0.15, 0.20, 0.15, 0.50), ttt2 = c(0.20, 0.25, 0.18, 0.37), ttt3 = c(0.25, 0.25, 0.15, 0.35)),
+  Sc10 = list(ttt1 = c(0.13, 0.22, 0.15, 0.50), ttt2 = c(0.18, 0.27, 0.13, 0.42), ttt3 = c(0.20, 0.30, 0.15, 0.35)),
+  Sc11 = list(ttt1 = c(0.13, 0.22, 0.15, 0.50), ttt2 = c(0.18, 0.27, 0.15, 0.40), ttt3 = c(0.20, 0.30, 0.15, 0.35)),
+  Sc12 = list(ttt1 = c(0.15, 0.20, 0.15, 0.50), ttt2 = c(0.20, 0.25, 0.18, 0.37), ttt3 = c(0.22, 0.28, 0.16, 0.34))
 )
 NomScenars <- names(Scenarios)
 
@@ -94,38 +96,36 @@ if (FALSE) {
 Methodes <- list(
   "seqBOP_tox" = list(methode = "bop_seq_tox", efftox = 0, tox = 1, A0 = NA, SeuilP = NA),
   "seqBOP_efftox" = list(methode = "bop_seq_efftox", efftox = 1, tox = 0, A0 = NA, SeuilP = NA),
-  "powBOP_tox" = list(methode = "bop_power_tox", A0 = .5, SeuilP = NA),
-  "powBOP_efftox" = list(methode = "bop_power_efftox", A0 = .5, SeuilP = NA),
-  # "tBOP a=.5 s=.1_tox" = list(methode = "bop_power_test_tox", A0 = .5, SeuilP = .1),
-  # "tBOP a=.5 s=.5_tox" = list(methode = "bop_power_test_tox", A0 = .5, SeuilP = .5),
-  # "tBOP a=.5 s=.1_efftox" = list(methode = "bop_power_test_efftox", A0 = .5, SeuilP = .1),
-  # "tBOP a=.5 s=.5_efftox" = list(methode = "bop_power_test_efftox", A0 = .5, SeuilP = .5),
+  "tBOP a=.5 s=.1_tox" = list(methode = "bop_power_test_tox", A0 = .5, SeuilP = .1),
+  "tBOP a=.5 s=.5_tox" = list(methode = "bop_power_test_tox", A0 = .5, SeuilP = .5),
+  "tBOP a=.5 s=.1_efftox" = list(methode = "bop_power_test_efftox", A0 = .5, SeuilP = .1),
+  "tBOP a=.5 s=.5_efftox" = list(methode = "bop_power_test_efftox", A0 = .5, SeuilP = .5),
   "hBOP_tox" = list(methode = "hier_tox", A0 = NA, SeuilP = NA),
   "hBOP_efftox" = list(methode = "hier_efftox", A0 = NA, SeuilP = NA),
   "cbhmBOP_tox" = list(methode = "cbhm_tox", A0 = NA, SeuilP = NA),
   "cbhmBOP_efftox" = list(methode = "cbhm_efftox", A0 = NA, SeuilP = NA),
-  # "exnexBOP_tox" = list(methode = "exnex_tox", A0 = NA, SeuilP = NA),
-  # "exnexBOP_efftox" = list(methode = "exnex_efftox", A0 = NA, SeuilP = NA),
+  "exnexBOP_tox" = list(methode = "exnex_tox", A0 = NA, SeuilP = NA),
+  "exnexBOP_efftox" = list(methode = "exnex_efftox", A0 = NA, SeuilP = NA),
   "bop_log1_tox" = list(methode = "bop_log1_tox", A0 = NA, SeuilP = NA),
   "bop_log2_tox" = list(methode = "bop_log2_tox", A0 = NA, SeuilP = NA),
-  # "bop_log5_tox" = list(methode = "bop_log5_tox", A0 = NA, SeuilP = NA),
-  # "bop_log6_tox" = list(methode = "bop_log6_tox", A0 = NA, SeuilP = NA),
+  "bop_log5_tox" = list(methode = "bop_log5_tox", A0 = NA, SeuilP = NA),
+  "bop_log6_tox" = list(methode = "bop_log6_tox", A0 = NA, SeuilP = NA),
   "bop_log1_efftox" = list(methode = "bop_log1_efftox", A0 = NA, SeuilP = NA),
   "bop_log2_efftox" = list(methode = "bop_log2_efftox", A0 = NA, SeuilP = NA),
-  # "bop_log5_efftox" = list(methode = "bop_log5_efftox", A0 = NA, SeuilP = NA),
-  # "bop_log6_efftox" = list(methode = "bop_log6_efftox", A0 = NA, SeuilP = NA),
+  "bop_log5_efftox" = list(methode = "bop_log5_efftox", A0 = NA, SeuilP = NA),
+  "bop_log6_efftox" = list(methode = "bop_log6_efftox", A0 = NA, SeuilP = NA),
   "mBOP" = list(methode = "bop", efftox = 1, tox = 1, A0 = NA, SeuilP = NA)
 )
 NomMethodes <- names(Methodes)
 
 # Simulations
-cl <- makeCluster(20)
+cl <- makeCluster(24)
 registerDoParallel(cl)
 
 cat("----\nSimulations à 3 bras\n----\n\n", file = "~/simu_priors/log.txt", append = TRUE)
 
-# for (m in c(1)) {
-for (m in seq_len(ceiling(length(Methodes) / 2))) {
+# for (m in seq_len(ceiling(length(Methodes) / 2))) {
+for (m in c(1)) {
   
   # Load 
   if (2 * m <= length(Methodes)) {
@@ -187,7 +187,7 @@ for (m in seq_len(ceiling(length(Methodes) / 2))) {
                               }
   
   # Save results
-  save(ResT, file = paste0("~/simu_priors/resultats_priors_20241205_", m, ".RData"))
+  save(ResT, file = paste0("~/simu_priors/resultats_priors_20241007_", m, ".RData"))
        
 }
 
