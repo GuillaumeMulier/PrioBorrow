@@ -344,8 +344,6 @@ $$
 ## BOP2 en analysant la toxicité par un modèle logistique : "bop_log1/2/3/4/5/6"
 
 J'ai juste fait un modèle logistique simple avec comme seule covariable la dose.
-Conformément à ce qui est écrit par Neuenschwander, la dose est remplacée par le ratio entre la dose du bras et la dose de référence (ici la dose 1).
-Les doses sont donc des ratios 1, 2 et 3.
 
 J'ai testé plusieurs versions du modèle logistique :
 
@@ -392,28 +390,12 @@ Seuls les modèles 1 et 2 ont été réalisés.
 Les modèles 4 et 6 avec 3 paramètres donnent des résultats similaires au mBOP.
 Les modèles 5 donne comme le modèle 2 et le modèle 3 presque comme le modèle 1. 
 
-## BOP en utilisant un modèle logistique à 2 paramètres et un squelette de CRM : "bop_crm"
+## BOP en utilisant le modèle logistique à 1 paramètre de la CRM : "crm_bop a=..."
 
-On reprend ici le même modèle que le modèle "bop_log1", mais au lieu de remplacer la dose par le ratio avec la dose de référence, on applique la transformation de la CRM pour faire un squelette avec la fonction logistique.
+Le modèle logistique à 1 paramètre se fait en fixant l'intercept du modèle $a_0$.
+Lorsqu'on voulait estimer 2 paramètres, j'ai mis a=NA qui signifie qu'on aura affaire à un modèle logistique à 2 paramètres.
 
-$$
-\text{Skel}_i = \frac{ln(\frac{\pi_i}{1-\pi_i})-\alpha}{\beta}
-$$
-
-avec Skel$_i$ le squelette pour la dose $i$, $p_i$ la probabilité anticipée d'efficacité/toxicité à la dose $i$, $\alpha$ l'intercept de la régression logisitique (3 dans notre cas car le plus courant) et $\beta$ le logOR de la relation (1 pris ici car le plus courant).
-
-Nous avons exploré 3 différents squelettes :
-
-- le squelette principal : efficacité et toxicité vont de $H_0$ à $H_1$. Efficacité = (0.30, 0.40, 0.50) et toxicité = (0.30, 0.35, 0.40)
-- un squelette optimiste : forte efficacité et faible toxicité. Efficacité = (0.50, 0.55, 0.60) et toxicité = (0.25, 0.27, 0.30)
-- un squelette pessimiste : faible efficacité et forte toxicité. Efficacité = (0.25, 0.27, 0.30) et toxicité = (0.30, 0.35, 0.40)
-
-<!-- ## BOP en utilisant le modèle logistique à 1 paramètre de la CRM : "crm_bop a=..." -->
-
-<!-- Le modèle logistique à 1 paramètre se fait en fixant l'intercept du modèle $a_0$. -->
-<!-- Lorsqu'on voulait estimer 2 paramètres, j'ai mis a=NA qui signifie qu'on aura affaire à un modèle logistique à 2 paramètres. -->
-
-<!-- Par rapport aux modèles logistiques précédants, les doses données dans le modèle ne sont pas les doses administrées, mais obtenue par le squelette qui est la transformation inverse du modèle appliquée aux probabilités de toxicité a priori à chaque niveau de dose. -->
+Par rapport aux modèles logistiques précédants, les doses données dans le modèle ne sont pas les doses administrées, mais obtenue par le squelette qui est la transformation inverse du modèle appliquée aux probabilités de toxicité a priori à chaque niveau de dose.
 
 
 

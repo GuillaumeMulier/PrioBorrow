@@ -58,7 +58,9 @@ CompiledModelsTox <- list(
   "log3_tox" = CompilModLog_tox(mu_coef = .5),
   "log4_tox" = CompilModLog_tox(SecondCov = TRUE),
   "log5_tox" = CompilModLog_tox(PentePos = TRUE, SecondCov = TRUE),
-  "log6_tox" = CompilModLog_tox(SecondCov = TRUE)
+  "log6_tox" = CompilModLog_tox(SecondCov = TRUE),
+  "crm_fixed_tox" = CompilModLogCrm_tox(fixed_intercept = TRUE),
+  "crm_unfixed_tox" = CompilModLogCrm_tox(fixed_intercept = FALSE)
 )
 cat("----\nCompiling efficacy/toxicity STAN\n----\n\n", file = "~/simu_priors/log.txt", append = TRUE)
 CompiledModelsEffTox <- list(
@@ -70,13 +72,24 @@ CompiledModelsEffTox <- list(
   "log3_efftox" = CompilModLog_efftox(mu_coef_eff = .5, mu_coef_tox = .5),
   "log4_efftox" = CompilModLog_efftox(SecondCov_eff = TRUE, SecondCov_tox = TRUE),
   "log5_efftox" = CompilModLog_efftox(PentePos_eff = TRUE, SecondCov_eff = TRUE, PentePos_tox = TRUE, SecondCov_tox = TRUE),
-  "log6_efftox" = CompilModLog_efftox(SecondCov_eff = TRUE, SecondCov_tox = TRUE)
+  "log6_efftox" = CompilModLog_efftox(SecondCov_eff = TRUE, SecondCov_tox = TRUE),
+  "crm_fixed_efftox" = CompilModLogCrm_efftox(fixed_intercept = TRUE),
+  "crm_unfixed_efftox" = CompilModLogCrm_efftox(fixed_intercept = FALSE)
 )
-
 
 # Parameters for CBHM
 CBHM_eff <- CalibrateCBHM(NPts = rep(sum(AnaEff), NBras), Q0 = sum(PN[c(1, 2)]), Q1 = sum(PA[c(1, 2)]))
 CBHM_tox <- CalibrateCBHM(NPts = rep(sum(AnaTox), NBras), Q0 = sum(PN[c(1, 3)]), Q1 = sum(PA[c(1, 3)]))
+
+# Skeletons for CRM
+SkelToxPPal <- MakeSkeleton(c(.3, .35, .4), A0 = 3, B0 = 1, MTD = NA, Delta = NULL)
+SkelToxFaible <- MakeSkeleton(c(.25, .27, .3), A0 = 3, B0 = 1, MTD = NA, Delta = NULL)
+SkelToxForte <- MakeSkeleton(c(.3, .35, .4), A0 = 3, B0 = 1, MTD = NA, Delta = NULL)
+SkelToxDel <- MakeSkeleton(c(.3, .35, .4), A0 = 3, B0 = 1, MTD = 3, Delta = .1) # http://www.columbia.edu/~yc632/pub/crmcal.pdf
+SkelEffPpal <- MakeSkeleton(c(.3, .4, .5), A0 = 3, B0 = 1, MTD = 3, Delta = NULL)
+SkelEffFaible <- MakeSkeleton(c(.25, .27, .3), A0 = 3, B0 = 1, MTD = NA, Delta = NULL)
+SkelEffForte <- MakeSkeleton(c(.5, .55, .6), A0 = 3, B0 = 1, MTD = NA, Delta = NULL)
+SkelEffDel <- MakeSkeleton(c(.3, .4, .5), A0 = 3, B0 = 1, MTD = 3, Delta = .15)
 
 # Seuil
 if (FALSE) {
@@ -114,7 +127,22 @@ Methodes <- list(
   "bop_log2_efftox" = list(methode = "bop_log2_efftox", A0 = NA, SeuilP = NA),
   # "bop_log5_efftox" = list(methode = "bop_log5_efftox", A0 = NA, SeuilP = NA),
   # "bop_log6_efftox" = list(methode = "bop_log6_efftox", A0 = NA, SeuilP = NA),
-  "mBOP" = list(methode = "bop", efftox = 1, tox = 1, A0 = NA, SeuilP = NA)
+  "mBOP" = list(methode = "bop", efftox = 1, tox = 1, A0 = NA, SeuilP = NA),
+  # After tests on 3 scenarios, crm_unfixed is the most promising and thus we decided to explore it on different skeletons on all scenarios
+  # "crmfixeda3_tox" = list(methode = "crm_tox", efftox = 1, tox = 1, A0 = 3, SeuilP = SkelTox),
+  # "crmunfixed_tox" = list(methode = "crm_tox", efftox = 1, tox = 1, A0 = NA, SeuilP = SkelTox),
+  # "crmfixeddela3_tox" = list(methode = "crm_tox", efftox = 0, tox = 1, A0 = 3, SeuilP = SkelToxDel),
+  # "crmunfixeddel_tox" = list(methode = "crm_tox", efftox = 0, tox = 1, A0 = NA, SeuilP = SkelToxDel),
+  # "crmfixeda3_efftox" = list(methode = "crm_efftox", efftox = 1, tox = 1, A0 = 3, SeuilP = list(SkelTox, SkelEff)),
+  # "crmunfixed_efftox" = list(methode = "crm_efftox", efftox = 1, tox = 1, A0 = NA, SeuilP = list(SkelTox, SkelEff)),
+  # "crmfixeddela3_efftox" = list(methode = "crm_efftox", efftox = 0, tox = 1, A0 = 3, SeuilP = list(SkelToxDel, SkelEffDel)),
+  # "crmunfixeddel_efftox" = list(methode = "crm_efftox", efftox = 0, tox = 1, A0 = NA, SeuilP = list(SkelToxDel, SkelEffDel))
+  "crmbopppal_tox" = list(methode = "crm_tox", efftox = 0, tox = 1, A0 = NA, SeuilP = SkelToxPPal),
+  "crmbopcons_tox" = list(methode = "crm_tox", efftox = 0, tox = 1, A0 = NA, SeuilP = SkelToxForte),
+  "crmbopopt_tox" = list(methode = "crm_tox", efftox = 0, tox = 1, A0 = NA, SeuilP = SkelToxFaible),
+  "crmbopppal_efftox" = list(methode = "crm_efftox", efftox = 1, tox = 1, A0 = NA, SeuilP = list(SkelToxPPal, SkelEffPpal)),
+  "crmbopcons_efftox" = list(methode = "crm_efftox", efftox = 1, tox = 1, A0 = NA, SeuilP = list(SkelToxForte, SkelEffFaible)),
+  "crmbopopt_efftox" = list(methode = "crm_efftox", efftox = 1, tox = 1, A0 = NA, SeuilP = list(SkelToxFaible, SkelEffForte))
 )
 NomMethodes <- names(Methodes)
 
@@ -122,30 +150,92 @@ NomMethodes <- names(Methodes)
 cl <- makeCluster(20)
 registerDoParallel(cl)
 
-cat("----\nSimulations à 3 bras\n----\n\n", file = "~/simu_priors/log.txt", append = TRUE)
-
-# for (m in c(1)) {
-for (m in seq_len(ceiling(length(Methodes) / 2))) {
+if (FALSE) {
+  cat("----\nSimulations à 3 bras\n----\n\n", file = "~/simu_priors/log.txt", append = TRUE)
   
-  # Load 
-  if (2 * m <= length(Methodes)) {
-    cat(paste0("----\n", NomMethodes[2 * m - 1], " et ", NomMethodes[2 * m], "\n----\n\n"), file = "~/simu_priors/log.txt", append = TRUE)
-  } else {
-    cat(paste0("----\n", NomMethodes[2 * m - 1], "\n----\n\n"), file = "~/simu_priors/log.txt", append = TRUE)
+  # for (m in c(1)) {
+  for (m in seq_len(ceiling(length(Methodes) / 2))) {
+    
+    # Load 
+    if (2 * m <= length(Methodes)) {
+      cat(paste0("----\n", NomMethodes[2 * m - 1], " et ", NomMethodes[2 * m], "\n----\n\n"), file = "~/simu_priors/log.txt", append = TRUE)
+    } else {
+      cat(paste0("----\n", NomMethodes[2 * m - 1], "\n----\n\n"), file = "~/simu_priors/log.txt", append = TRUE)
+    }
+    
+    # Parameters of the method
+    Params1 <- Methodes[[2 * m - 1]]
+    if (2 * m <= length(Methodes)) Params2 <- Methodes[[2 * m]]
+    
+    # Simulate the scenarios 
+    VecScenarios <- if (2 * m <= length(Methodes)) seq_len(2 * length(Scenarios)) else seq_along(Scenarios)
+    ResT <- foreach(i = VecScenarios,
+                    .packages = c("dplyr", "purrr", "rlang", "stringr", "rstan"),
+                    .export = c("%nin%", "Alpha", "AnaEff", "AnaTox", "CBHM_eff",
+                                "CBHM_tox", "gen_patients_multinom",
+                                "m", "Methodes", "NBras", "NomMethodes", "NomScenars", "NSimu",
+                                "opcharac", "PA", "Params1", "Params2", "PN", "real_essai_bayeslog_efftox",
+                                "real_essai_bayeslog_tox", "real_essai_bop", "real_essai_bop_borrow",
+                                "real_essai_bop_borrow_test_efftox", "real_essai_bop_borrow_test_tox",
+                                "real_essai_bop_power_efftox", "real_essai_bop_power_test_efftox",
+                                "real_essai_bop_power_test_tox", "real_essai_bop_power_tox",
+                                "real_essai_bop_seq_efftox", "real_essai_bop_seq_tox", "real_essai_modcbhm_efftox",
+                                "real_essai_modcbhm_tox", "real_essai_modexnex_efftox", "real_essai_modexnex_tox",
+                                "real_essai_modhier_efftox", "real_essai_modhier_tox",
+                                "Scenarios", "SeuilBOP", "summarise_decision", "summarise_detect",
+                                "summarise_ttt", "SkelToxPPal", "SkelToxFaible", "SkelToxForte", 
+                                "SkelEffPpal", "SkelEffFaible", "SkelEffForte")) %dopar% {
+                                  
+                                  NScenar <- i %% length(Scenarios)
+                                  if (NScenar == 0) NScenar <- length(Scenarios)
+                                  NumMethode <- if (i <= length(Scenarios)) 2 * m - 1 else 2 * m
+                                  Params <- if (i <= length(Scenarios)) Params1 else Params2
+                                  cat(paste0("Scénario n°", NScenar, "/", length(Scenarios), " : ", NomScenars[NScenar], " with ", NomMethodes[NumMethode], "\n"), file = "~/simu_priors/log.txt", append = TRUE)
+                                  
+                                  # Générer essais
+                                  tableau_essais <- gen_patients_multinom(NSimu, AnaEff, AnaTox,
+                                                                          multinom_ttt = Scenarios[[NScenar]],
+                                                                          rand_ratio = rep(1, NBras), seed = 121221)
+                                  
+                                  # Simuler le résultat
+                                  Resultat <- tryCatch(opcharac(ana_inter = AnaEff, ana_inter_tox = AnaTox,
+                                                                p_n = PN, p_a = PA,
+                                                                CPar = SeuilBOP[[1]][["C_"]], PPar = SeuilBOP[[1]][["gamma"]],
+                                                                methode = Params$methode,
+                                                                A0_tox = Params$A0, SeuilP_tox = Params$SeuilP,
+                                                                A0_eff = Params$A0, SeuilP_eff = Params$SeuilP,
+                                                                a_tox = CBHM_tox$a, b_tox = CBHM_tox$b,
+                                                                a_eff = CBHM_eff$a, b_eff = CBHM_eff$b,
+                                                                p_mix_tox = rep(.5, NBras), p_mix_eff = rep(.5, NBras),
+                                                                tableau_essais = tableau_essais),
+                                                       error = function(e) list(paste0(e)))
+                                  Resultat <- append(Resultat,
+                                                     values = list(data.frame(methode = NomMethodes[NumMethode], scenar = NomScenars[NScenar])),
+                                                     after = 2)
+                                  return(Resultat)
+                                  
+                                }
+    
+    # Save results
+    save(ResT, file = paste0("~/simu_priors/resultats_priors_20241205_", m, ".RData"))
+    
   }
   
-  # Parameters of the method
-  Params1 <- Methodes[[2 * m - 1]]
-  if (2 * m <= length(Methodes)) Params2 <- Methodes[[2 * m]]
-  
-  # Simulate the scenarios 
-  VecScenarios <- if (2 * m <= length(Methodes)) seq_len(2 * length(Scenarios)) else seq_along(Scenarios)
-  ResT <- foreach(i = VecScenarios,
+}
+
+if (TRUE) {
+  # Additional simulations for logistic regression with crm skeleton
+  cat("----\nSimulations à 3 bras avec squelette CRM\n----\n\n", file = "~/simu_priors/log.txt", append = TRUE)
+  VecScenars <- seq_along(Scenarios)
+  VecMethodes <- c("crmppal_tox", "crmcons_tox", "crmopt_tox", "crmppal_efftox", "crmcons_efftox", "crmopt_efftox")
+  GrilleSimu <- expand.grid(sc = VecScenars, meth = VecMethodes)
+  GrilleSimu$meth <- as.character(GrilleSimu$meth)
+  ResT <- foreach(i = seq_len(nrow(GrilleSimu)),
                   .packages = c("dplyr", "purrr", "rlang", "stringr", "rstan"),
                   .export = c("%nin%", "Alpha", "AnaEff", "AnaTox", "CBHM_eff",
                               "CBHM_tox", "gen_patients_multinom",
-                              "m", "Methodes", "NBras", "NomMethodes", "NomScenars", "NSimu",
-                              "opcharac", "PA", "Params1", "Params2", "PN", "real_essai_bayeslog_efftox",
+                              "Methodes", "NBras", "NomMethodes", "NomScenars", "NSimu",
+                              "opcharac", "PA", "PN", "real_essai_bayeslog_efftox",
                               "real_essai_bayeslog_tox", "real_essai_bop", "real_essai_bop_borrow",
                               "real_essai_bop_borrow_test_efftox", "real_essai_bop_borrow_test_tox",
                               "real_essai_bop_power_efftox", "real_essai_bop_power_test_efftox",
@@ -154,13 +244,11 @@ for (m in seq_len(ceiling(length(Methodes) / 2))) {
                               "real_essai_modcbhm_tox", "real_essai_modexnex_efftox", "real_essai_modexnex_tox",
                               "real_essai_modhier_efftox", "real_essai_modhier_tox",
                               "Scenarios", "SeuilBOP", "summarise_decision", "summarise_detect",
-                              "summarise_ttt")) %dopar% {
+                              "summarise_ttt", "SkelToxPpal", "SkelToxF", "SkelEff", "SkelEffDel")) %dopar% {
                                 
-                                NScenar <- i %% length(Scenarios)
-                                if (NScenar == 0) NScenar <- length(Scenarios)
-                                NumMethode <- if (i <= length(Scenarios)) 2 * m - 1 else 2 * m
-                                Params <- if (i <= length(Scenarios)) Params1 else Params2
-                                cat(paste0("Scénario n°", NScenar, "/", length(Scenarios), " : ", NomScenars[NScenar], " with ", NomMethodes[NumMethode], "\n"), file = "~/simu_priors/log.txt", append = TRUE)
+                                NScenar <- GrilleSimu$sc[i]
+                                Params <- Methodes[[GrilleSimu$meth[i]]]
+                                cat(paste0("Scénario n°", NScenar, "/", nrow(GrilleSimu), " : ", NomScenars[NScenar], " with ", GrilleSimu$meth[i], "\n"), file = "~/simu_priors/log.txt", append = TRUE)
                                 
                                 # Générer essais
                                 tableau_essais <- gen_patients_multinom(NSimu, AnaEff, AnaTox,
@@ -169,26 +257,25 @@ for (m in seq_len(ceiling(length(Methodes) / 2))) {
                                 
                                 # Simuler le résultat
                                 Resultat <- tryCatch(opcharac(ana_inter = AnaEff, ana_inter_tox = AnaTox,
-                                                     p_n = PN, p_a = PA,
-                                                     CPar = SeuilBOP[[1]][["C_"]], PPar = SeuilBOP[[1]][["gamma"]],
-                                                     methode = Params$methode,
-                                                     A0_tox = Params$A0, SeuilP_tox = Params$SeuilP,
-                                                     A0_eff = Params$A0, SeuilP_eff = Params$SeuilP,
-                                                     a_tox = CBHM_tox$a, b_tox = CBHM_tox$b,
-                                                     a_eff = CBHM_eff$a, b_eff = CBHM_eff$b,
-                                                     p_mix_tox = rep(.5, NBras), p_mix_eff = rep(.5, NBras),
-                                                     tableau_essais = tableau_essais),
+                                                              p_n = PN, p_a = PA,
+                                                              CPar = SeuilBOP[[1]][["C_"]], PPar = SeuilBOP[[1]][["gamma"]],
+                                                              methode = Params$methode,
+                                                              A0_tox = Params$A0, SeuilP_tox = Params$SeuilP,
+                                                              A0_eff = Params$A0, SeuilP_eff = Params$SeuilP,
+                                                              a_tox = CBHM_tox$a, b_tox = CBHM_tox$b,
+                                                              a_eff = CBHM_eff$a, b_eff = CBHM_eff$b,
+                                                              p_mix_tox = rep(.5, NBras), p_mix_eff = rep(.5, NBras),
+                                                              tableau_essais = tableau_essais),
                                                      error = function(e) list(paste0(e)))
                                 Resultat <- append(Resultat,
-                                                   values = list(data.frame(methode = NomMethodes[NumMethode], scenar = NomScenars[NScenar])),
+                                                   values = list(data.frame(methode = GrilleSimu$meth[i], scenar = NomScenars[NScenar])),
                                                    after = 2)
                                 return(Resultat)
                                 
                               }
   
   # Save results
-  save(ResT, file = paste0("~/simu_priors/resultats_priors_20241205_", m, ".RData"))
-       
+  save(ResT, file = paste0("~/simu_priors/resultats_priors_crm_20250110.RData"))
 }
 
 stopCluster(cl)
