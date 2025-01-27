@@ -1,7 +1,7 @@
 # -------------------------------------------------------------------- #
 # Script de simulation test pour l'inclusion de borrowing dans le BOP2 #
 # Auteur : G. Mulier                                                   #
-# Créé le 21/05/2024, modifié le 05/12/2024                            #
+# Créé le 21/05/2024, modifié le 27/01/2025                            #
 # -------------------------------------------------------------------- #
 
 # devtools::load_all("~/pkgs/multibrasBOP2/")
@@ -60,7 +60,8 @@ CompiledModelsTox <- list(
   "log5_tox" = CompilModLog_tox(PentePos = TRUE, SecondCov = TRUE),
   "log6_tox" = CompilModLog_tox(SecondCov = TRUE),
   "crm_fixed_tox" = CompilModLogCrm_tox(fixed_intercept = TRUE),
-  "crm_unfixed_tox" = CompilModLogCrm_tox(fixed_intercept = FALSE)
+  "crm_unfixed_tox" = CompilModLogCrm_tox(fixed_intercept = FALSE),
+  "crmpow_tox" = CompilModPowCrm_tox()
 )
 cat("----\nCompiling efficacy/toxicity STAN\n----\n\n", file = "~/simu_priors/log.txt", append = TRUE)
 CompiledModelsEffTox <- list(
@@ -74,7 +75,8 @@ CompiledModelsEffTox <- list(
   "log5_efftox" = CompilModLog_efftox(PentePos_eff = TRUE, SecondCov_eff = TRUE, PentePos_tox = TRUE, SecondCov_tox = TRUE),
   "log6_efftox" = CompilModLog_efftox(SecondCov_eff = TRUE, SecondCov_tox = TRUE),
   "crm_fixed_efftox" = CompilModLogCrm_efftox(fixed_intercept = TRUE),
-  "crm_unfixed_efftox" = CompilModLogCrm_efftox(fixed_intercept = FALSE)
+  "crm_unfixed_efftox" = CompilModLogCrm_efftox(fixed_intercept = FALSE),
+  "crmpow_efftox" = CompilModPowCrm_efftox()
 )
 
 # Parameters for CBHM
@@ -82,7 +84,8 @@ CBHM_eff <- CalibrateCBHM(NPts = rep(sum(AnaEff), NBras), Q0 = sum(PN[c(1, 2)]),
 CBHM_tox <- CalibrateCBHM(NPts = rep(sum(AnaTox), NBras), Q0 = sum(PN[c(1, 3)]), Q1 = sum(PA[c(1, 3)]))
 
 # Skeletons for CRM
-SkelToxPPal <- MakeSkeleton(c(.3, .35, .4), A0 = 3, B0 = 1, MTD = NA, Delta = NULL)
+## Logistic link function
+SkelToxPpal <- MakeSkeleton(c(.3, .35, .4), A0 = 3, B0 = 1, MTD = NA, Delta = NULL)
 SkelToxFaible <- MakeSkeleton(c(.25, .27, .3), A0 = 3, B0 = 1, MTD = NA, Delta = NULL)
 SkelToxForte <- MakeSkeleton(c(.3, .35, .4), A0 = 3, B0 = 1, MTD = NA, Delta = NULL)
 SkelToxDel <- MakeSkeleton(c(.3, .35, .4), A0 = 3, B0 = 1, MTD = 3, Delta = .1) # http://www.columbia.edu/~yc632/pub/crmcal.pdf
@@ -90,6 +93,19 @@ SkelEffPpal <- MakeSkeleton(c(.3, .4, .5), A0 = 3, B0 = 1, MTD = 3, Delta = NULL
 SkelEffFaible <- MakeSkeleton(c(.25, .27, .3), A0 = 3, B0 = 1, MTD = NA, Delta = NULL)
 SkelEffForte <- MakeSkeleton(c(.5, .55, .6), A0 = 3, B0 = 1, MTD = NA, Delta = NULL)
 SkelEffDel <- MakeSkeleton(c(.3, .4, .5), A0 = 3, B0 = 1, MTD = 3, Delta = .15)
+## Power link function
+SkelToxPpalPow <- MakeSkeleton(c(.3, .35, .4), B0 = 0, Model = "power")
+SkelToxFaiblePow <- MakeSkeleton(c(.2, .25, .3), B0 = 0, Model = "power")
+SkelToxFortePow <- MakeSkeleton(c(.4, .45, .5), B0 = 0, Model = "power")
+SkelEffPpalPow <- MakeSkeleton(c(.3, .4, .5), B0 = 0, Model = "power")
+SkelEffFaiblePow <- MakeSkeleton(c(.2, .25, .3), B0 = 0, Model = "power")
+SkelEffFortePow <- MakeSkeleton(c(.5, .55, .6), B0 = 0, Model = "power")
+SkelToxPpalPow2 <- MakeSkeleton(c(.3, .35, .4), B0 = 1, Model = "power")
+SkelToxFaiblePow2 <- MakeSkeleton(c(.2, .25, .3), B0 = 1, Model = "power")
+SkelToxFortePow2 <- MakeSkeleton(c(.4, .45, .5), B0 = 1, Model = "power")
+SkelEffPpalPow2 <- MakeSkeleton(c(.3, .4, .5), B0 = 1, Model = "power")
+SkelEffFaiblePow2 <- MakeSkeleton(c(.2, .25, .3), B0 = 1, Model = "power")
+SkelEffFortePow2 <- MakeSkeleton(c(.5, .55, .6), B0 = 1, Model = "power")
 
 # Seuil
 if (FALSE) {
@@ -137,17 +153,29 @@ Methodes <- list(
   # "crmunfixed_efftox" = list(methode = "crm_efftox", efftox = 1, tox = 1, A0 = NA, SeuilP = list(SkelTox, SkelEff)),
   # "crmfixeddela3_efftox" = list(methode = "crm_efftox", efftox = 0, tox = 1, A0 = 3, SeuilP = list(SkelToxDel, SkelEffDel)),
   # "crmunfixeddel_efftox" = list(methode = "crm_efftox", efftox = 0, tox = 1, A0 = NA, SeuilP = list(SkelToxDel, SkelEffDel))
-  "crmbopppal_tox" = list(methode = "crm_tox", efftox = 0, tox = 1, A0 = NA, SeuilP = SkelToxPPal),
+  "crmbopppal_tox" = list(methode = "crm_tox", efftox = 0, tox = 1, A0 = NA, SeuilP = SkelToxPpal),
   "crmbopcons_tox" = list(methode = "crm_tox", efftox = 0, tox = 1, A0 = NA, SeuilP = SkelToxForte),
   "crmbopopt_tox" = list(methode = "crm_tox", efftox = 0, tox = 1, A0 = NA, SeuilP = SkelToxFaible),
-  "crmbopppal_efftox" = list(methode = "crm_efftox", efftox = 1, tox = 1, A0 = NA, SeuilP = list(SkelToxPPal, SkelEffPpal)),
+  "crmbopppal_efftox" = list(methode = "crm_efftox", efftox = 1, tox = 1, A0 = NA, SeuilP = list(SkelToxPpal, SkelEffPpal)),
   "crmbopcons_efftox" = list(methode = "crm_efftox", efftox = 1, tox = 1, A0 = NA, SeuilP = list(SkelToxForte, SkelEffFaible)),
-  "crmbopopt_efftox" = list(methode = "crm_efftox", efftox = 1, tox = 1, A0 = NA, SeuilP = list(SkelToxFaible, SkelEffForte))
+  "crmbopopt_efftox" = list(methode = "crm_efftox", efftox = 1, tox = 1, A0 = NA, SeuilP = list(SkelToxFaible, SkelEffForte)),
+  "crmpowbopppal_tox" = list(methode = "crmpow_tox", efftox = 0, tox = 1, A0 = NA, SeuilP = SkelToxPpalPow),
+  "crmpowbopcons_tox" = list(methode = "crmpow_tox", efftox = 0, tox = 1, A0 = NA, SeuilP = SkelToxFortePow),
+  "crmpowbopopt_tox" = list(methode = "crmpow_tox", efftox = 0, tox = 1, A0 = NA, SeuilP = SkelToxFaiblePow),
+  "crmpowbopppal_efftox" = list(methode = "crmpow_efftox", efftox = 1, tox = 1, A0 = NA, SeuilP = list(SkelToxPpalPow, SkelEffPpalPow)),
+  "crmpowbopcons_efftox" = list(methode = "crmpow_efftox", efftox = 1, tox = 1, A0 = NA, SeuilP = list(SkelToxFortePow, SkelEffFaiblePow)),
+  "crmpowbopopt_efftox" = list(methode = "crmpow_efftox", efftox = 1, tox = 1, A0 = NA, SeuilP = list(SkelToxFaiblePow, SkelEffFortePow)),
+  "crmpowbopppal2_tox" = list(methode = "crmpow_tox", efftox = 0, tox = 1, A0 = NA, SeuilP = SkelToxPpalPow2),
+  "crmpowbopcons2_tox" = list(methode = "crmpow_tox", efftox = 0, tox = 1, A0 = NA, SeuilP = SkelToxFortePow2),
+  "crmpowbopopt2_tox" = list(methode = "crmpow_tox", efftox = 0, tox = 1, A0 = NA, SeuilP = SkelToxFaiblePow2),
+  "crmpowbopppal2_efftox" = list(methode = "crmpow_efftox", efftox = 1, tox = 1, A0 = NA, SeuilP = list(SkelToxPpalPow2, SkelEffPpalPow2)),
+  "crmpowbopcons2_efftox" = list(methode = "crmpow_efftox", efftox = 1, tox = 1, A0 = NA, SeuilP = list(SkelToxFortePow2, SkelEffFaiblePow2)),
+  "crmpowbopopt2_efftox" = list(methode = "crmpow_efftox", efftox = 1, tox = 1, A0 = NA, SeuilP = list(SkelToxFaiblePow2, SkelEffFortePow2))
 )
 NomMethodes <- names(Methodes)
 
 # Simulations
-cl <- makeCluster(20)
+cl <- makeCluster(10)
 registerDoParallel(cl)
 
 if (FALSE) {
@@ -183,7 +211,7 @@ if (FALSE) {
                                 "real_essai_modcbhm_tox", "real_essai_modexnex_efftox", "real_essai_modexnex_tox",
                                 "real_essai_modhier_efftox", "real_essai_modhier_tox",
                                 "Scenarios", "SeuilBOP", "summarise_decision", "summarise_detect",
-                                "summarise_ttt", "SkelToxPPal", "SkelToxFaible", "SkelToxForte", 
+                                "summarise_ttt", "SkelToxPpal", "SkelToxFaible", "SkelToxForte", 
                                 "SkelEffPpal", "SkelEffFaible", "SkelEffForte")) %dopar% {
                                   
                                   NScenar <- i %% length(Scenarios)
@@ -227,7 +255,8 @@ if (TRUE) {
   # Additional simulations for logistic regression with crm skeleton
   cat("----\nSimulations à 3 bras avec squelette CRM\n----\n\n", file = "~/simu_priors/log.txt", append = TRUE)
   VecScenars <- seq_along(Scenarios)
-  VecMethodes <- c("crmppal_tox", "crmcons_tox", "crmopt_tox", "crmppal_efftox", "crmcons_efftox", "crmopt_efftox")
+  VecMethodes <- c("crmpowbopppal_tox", "crmpowbopcons_tox", "crmpowbopopt_tox", "crmpowbopppal_efftox", "crmpowbopcons_efftox", "crmpowbopopt_efftox",
+                   "crmpowbopppal2_tox", "crmpowbopcons2_tox", "crmpowbopopt2_tox", "crmpowbopppal2_efftox", "crmpowbopcons2_efftox", "crmpowbopopt2_efftox")
   GrilleSimu <- expand.grid(sc = VecScenars, meth = VecMethodes)
   GrilleSimu$meth <- as.character(GrilleSimu$meth)
   ResT <- foreach(i = seq_len(nrow(GrilleSimu)),
@@ -244,11 +273,14 @@ if (TRUE) {
                               "real_essai_modcbhm_tox", "real_essai_modexnex_efftox", "real_essai_modexnex_tox",
                               "real_essai_modhier_efftox", "real_essai_modhier_tox",
                               "Scenarios", "SeuilBOP", "summarise_decision", "summarise_detect",
-                              "summarise_ttt", "SkelToxPpal", "SkelToxF", "SkelEff", "SkelEffDel")) %dopar% {
+                              "summarise_ttt", "SkelToxPpal", "SkelToxFaible", "SkelToxForte", 
+                              "SkelEffPpal", "SkelEffFaible", "SkelEffForte", "SkelToxPpalPow", "SkelToxFaiblePow",
+                              "SkelToxFortePow", "SkelEffPpalPow", "SkelEffFaiblePow", "SkelEffFortePow", "SkelToxPpalPow2", "SkelToxFaiblePow2",
+                              "SkelToxFortePow2", "SkelEffPpalPow2", "SkelEffFaiblePow2", "SkelEffFortePow2")) %dopar% {
                                 
                                 NScenar <- GrilleSimu$sc[i]
                                 Params <- Methodes[[GrilleSimu$meth[i]]]
-                                cat(paste0("Scénario n°", NScenar, "/", nrow(GrilleSimu), " : ", NomScenars[NScenar], " with ", GrilleSimu$meth[i], "\n"), file = "~/simu_priors/log.txt", append = TRUE)
+                                cat(paste0("Scénario n°", NScenar + (i %/% length(Scenarios)) * length(Scenarios), "/", nrow(GrilleSimu), " : ", NomScenars[NScenar], " with ", GrilleSimu$meth[i], " (", Params$methode, ")\n"), file = "~/simu_priors/log.txt", append = TRUE)
                                 
                                 # Générer essais
                                 tableau_essais <- gen_patients_multinom(NSimu, AnaEff, AnaTox,
@@ -275,7 +307,7 @@ if (TRUE) {
                               }
   
   # Save results
-  save(ResT, file = paste0("~/simu_priors/resultats_priors_crm_20250110.RData"))
+  save(ResT, file = paste0("~/simu_priors/resultats_priors_crm_20250127.RData"))
 }
 
 stopCluster(cl)

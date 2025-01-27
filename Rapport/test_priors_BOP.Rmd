@@ -60,16 +60,16 @@ CaracEssais <- separate(CaracEssais, methode, c("methode", "cible"), "_")
 CaracEssais$larg_ic_eff <- CaracEssais$icsup_eff - CaracEssais$icinf_eff
 CaracEssais$larg_ic_tox <- CaracEssais$icsup_tox - CaracEssais$icinf_tox
 
-load(here("Data/Simu20241205/resultats_priors_crm_20241231_.RData"))
+load(here("Data/Simu20241205/resultats_priors_crm_20250110.RData"))
 CaracGlobalesCrm <- do.call("rbind", lapply(ResT, \(x) cbind(x[[3]], x[[1]])))
 CaracGlobalesCrm <- separate(CaracGlobalesCrm, methode, c("methode", "cible"), "_")
 CaracBrasCrm <- do.call("rbind", lapply(ResT, \(x) cbind(x[[3]], x[[2]])))
 CaracBrasCrm <- separate(CaracBrasCrm, methode, c("methode", "cible"), "_")
 CaracEssaisCrm <- do.call("rbind", lapply(ResT, \(x) cbind(x[[3]], x[[4]])))
 CaracEssaisCrm <- separate(CaracEssaisCrm, methode, c("methode", "cible"), "_")
-CaracGlobalesCrm <- bind_rows(CaracGlobalesCrm, CaracGlobales %>% filter(scenar %in% c("Sc1", "Sc3", "Sc5"), methode %in% c("mBOP", "boplog1")))
-CaracBrasCrm <- bind_rows(CaracBrasCrm, CaracBras %>% filter(scenar %in% c("Sc1", "Sc3", "Sc5"), methode %in% c("mBOP", "boplog1")))
-CaracEssaisCrm <- bind_rows(CaracEssaisCrm, CaracEssais %>% filter(scenar %in% c("Sc1", "Sc3", "Sc5"), methode %in% c("mBOP", "boplog1")))
+CaracGlobalesCrm <- bind_rows(CaracGlobalesCrm, CaracGlobales %>% filter(methode %in% c("mBOP", "boplog1")))
+CaracBrasCrm <- bind_rows(CaracBrasCrm, CaracBras %>% filter(methode %in% c("mBOP", "boplog1")))
+CaracEssaisCrm <- bind_rows(CaracEssaisCrm, CaracEssais %>% filter(methode %in% c("mBOP", "boplog1")))
 ```
 
 
@@ -114,7 +114,7 @@ Résultat :
 
 - 79 doublons sur le DOI, 47 sur le PMID et 1 retrouvé avec les distances de mots
 
-Au final, on aurait 634 articles à examiner sur le titre (environ 200 abstracts de conférence aussi).
+Puis on retire 205 abstracts de conférences et il reste 427 articles à screener (sur le vieil export).
 
 ## Grille de lecture
 
@@ -178,6 +178,7 @@ Exclusion criteria :
 - conference abstracts
 - review
 - opinion paper
+- clinical trial that do not evaluate cancer treatment
 
 <b>Condition or domain being studied</b>
 
@@ -215,10 +216,7 @@ Describe the designs used and corresponding analysis of randomized phase II dose
 
 <b>Data extraction (selection and coding)</b>
 
-After removing duplicates from the research, at least 2 researchers (2 are fixed but maybe a 3^rd^ might join the review) will independently screen all articles on title and abstract to select articles that will be read entirely.
-Full text will be retrieved and 2 independant researchers will assess if these articles fit the review and extract informations through a standardized form.
-Disagreement will be resolved by consensus with a third reviewer.
-A summary of the extracted data is available below:
+After removing duplicates from the research and conference abstracts, 3 researchers will independently screen all articles on title and abstract to select articles that will be read entirely, with disagreement resolved by consensus. Full text will be retrieved and at least 3 independant researchers (a master student might join the project for reviewing of full text articles) will assess if these articles fit the review and extract informations through a standardized form. Disagreement will be resolved by consensus with a third reviewer. A summary of the extracted data is available below:
 
 - Article general informations: title, authors, journal, year of publication
 - Type of trial: phase, comparative or not, controlled, before or after autorization of drug
@@ -1011,13 +1009,13 @@ Le modèle avec squelette avec estimation de l'intercept, on est voisin de mBOP 
 
 ```{r, fig.cap = "Estimation de l'efficacité et de la toxicité pour les modèles logistiques avec squelette de CRM dans le scénario 1", fig.width = 12, fig.height = 10}
 (CaracEssaisCrm %>% 
-  filter(scenar %in% c("Sc1")) %>% 
+  filter(scenar %in% c("Sc7")) %>% 
   ggplot(aes(methode, est_eff, fill = cible)) +
   geom_boxplot() +
    facet_wrap(vars(ttt)) +
    labs(x = "Schéma", y = "Efficacité")) /
   (CaracEssaisCrm %>% 
-  filter(scenar %in% c("Sc1")) %>% 
+  filter(scenar %in% c("Sc7")) %>% 
   ggplot(aes(methode, est_tox, fill = cible)) +
   geom_boxplot() +
    facet_wrap(vars(ttt)) +
@@ -1051,7 +1049,7 @@ Il y a le schéma avec intercept fixé et utilisation du &Delta; qui perd en pui
 
 ```{r, fig.cap = "Puissance dans les bras du scénario 3"}
 CaracBrasCrm %>% 
-  filter(scenar %in% c("Sc3")) %>% 
+  filter(scenar %in% c("Sc7")) %>% 
   ggplot(aes(rejet_h0, methode, color = cible)) +
   geom_point(position = position_dodge(width = .5), size = 2) +
   labs(x = "Puissance", y = NULL, color = "Variante") +

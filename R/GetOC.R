@@ -1976,23 +1976,28 @@ real_essai_bayeslog_efftox <- function(data, analyses, CPar, PPar, ana_eff_cum, 
 
 ## Logistic regression with CRM skeleton ----
 
-MakeSkeleton <- function(Probas, A0 = 3, B0 = 1, MTD, Delta = NULL) {
-  if (is.null(Delta)) {
-    return(-(log((1 - Probas) / Probas) + A0) / B0)
-  } else {
-    DoseLogit <- numeric(length(Probas))
-    DoseLogit[MTD] <- (log(Probas[MTD] / (1 - Probas[MTD])) - A0) / B0
-    if (MTD > 1) {
-      for(i in rev(seq_len(MTD)[-1])) {
-        DoseLogit[i - 1] <- (log((Probas[MTD] - Delta) / (1 - (Probas[MTD] - Delta))) - A0) * DoseLogit[i] / (log((Probas[MTD] + Delta) / (1 - (Probas[MTD] + Delta))) - A0)
+MakeSkeleton <- function(Probas, A0 = 3, B0 = 1, MTD, Delta = NULL, Model = "logistic") {
+  Model <- match.arg(Model, c("logistic", "power"))
+  if (Model == "logistic") {
+    if (is.null(Delta)) {
+      return(-(log((1 - Probas) / Probas) + A0) / B0)
+    } else {
+      DoseLogit <- numeric(length(Probas))
+      DoseLogit[MTD] <- (log(Probas[MTD] / (1 - Probas[MTD])) - A0) / B0
+      if (MTD > 1) {
+        for(i in rev(seq_len(MTD)[-1])) {
+          DoseLogit[i - 1] <- (log((Probas[MTD] - Delta) / (1 - (Probas[MTD] - Delta))) - A0) * DoseLogit[i] / (log((Probas[MTD] + Delta) / (1 - (Probas[MTD] + Delta))) - A0)
+        }
       }
-    }
-    if (MTD < length(Probas)) {
-      for (i in seq(MTD, length(Probas) - 1)) {
-        DoseLogit[i + 1] <- (log((Probas[MTD] + Delta) / (1 - (Probas[MTD] + Delta))) - A0) * DoseLogit[i] / (log((Probas[MTD] - Delta) / (1 - (Probas[MTD] - Delta))) - A0)
+      if (MTD < length(Probas)) {
+        for (i in seq(MTD, length(Probas) - 1)) {
+          DoseLogit[i + 1] <- (log((Probas[MTD] + Delta) / (1 - (Probas[MTD] + Delta))) - A0) * DoseLogit[i] / (log((Probas[MTD] - Delta) / (1 - (Probas[MTD] - Delta))) - A0)
+        }
       }
+      return(DoseLogit)
     }
-    return(DoseLogit)
+  } else if (Model == "power") {
+    return(Probas ** (exp(-B0)))
   }
 }
 
@@ -2054,9 +2059,34 @@ CompilModLogCrm_tox <- function(mu_inter = 0, sigma_inter = 5, mu_coef = 0, sigm
   ModeleLog <- gsub("%sigma_coef%", sigma_coef, ModeleLog)
   return(stan_model(model_code = ModeleLog))
 }
+CompilModPowCrm_tox <- function(mu_coef = 0, sigma_coef = 5, PentePos = FALSE) {
+  ModelePow <- "
+  data {
+    int<lower=0> N;
+    vector[N] x;
+    int<lower=0,upper=1> y[N];
+  }
+  parameters {
+    real beta;
+  }
+  model {
+    // Priors
+    beta ~ normal(%mu_coef%, %sigma_coef%); 
+    // Likelihood
+    y ~ bernoulli(pow(x, exp(beta)));
+  }
+"
+  if (PentePos) {
+    ModelePow <- gsub("real beta", "real<lower = 0> beta", ModelePow)
+  } 
+  ModelePow <- gsub("%mu_coef%", mu_coef, ModelePow)
+  ModelePow <- gsub("%sigma_coef%", sigma_coef, ModelePow)
+  return(stan_model(model_code = ModelePow))
+}
 
 real_essai_bayeslogcrm_tox <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, 
-                                       phi_eff, phi_tox, prior_eff, skeleton_tox, fixed_intercept, A0) {
+                                       phi_eff, phi_tox, prior_eff, skeleton_tox, fixed_intercept, A0, 
+                                       power_mod = FALSE) {
   
   data$arret_eff <- data$arret_tox <- NA_integer_
   data$dose <- as.numeric(gsub("^ttt(\\d+)$", "\\1", data$ttt)) 
@@ -2091,17 +2121,24 @@ real_essai_bayeslogcrm_tox <- function(data, analyses, CPar, PPar, ana_eff_cum, 
     data$icsup_eff[data$nb_ana == i] <- qbeta(.975, prior_eff + n_eff, 1 - prior_eff + Nb_pts - n_eff)
     # MCMC pour la proba a posteriori seulement si nécessaire (gain de temps)
     if ((i != 1 && any(data$arret_tox[data$nb_ana == (i - 1)] == 0 & data$arret_eff[data$nb_ana == (i - 1)] == 0)) | (i == 1)) {
-      if (fixed_intercept) {
-        DonneesTox <- list(N = sum(n_pts_bras),
-                           y = rep(rep(0:1, length(doses_ttt)), unlist(lapply(seq_along(n_pts_bras), \(x) c(n_pts_bras[x] - n_tox[x], n_tox[x])))),
-                           x = rep(doses_ttt, n_pts_bras),
-                           alpha = A0)
-        Modele <- "crm_fixed_tox"
+      if (!power_mod) {
+        if (fixed_intercept) {
+          DonneesTox <- list(N = sum(n_pts_bras),
+                             y = rep(rep(0:1, length(doses_ttt)), unlist(lapply(seq_along(n_pts_bras), \(x) c(n_pts_bras[x] - n_tox[x], n_tox[x])))),
+                             x = rep(doses_ttt, n_pts_bras),
+                             alpha = A0)
+          Modele <- "crm_fixed_tox"
+        } else {
+          DonneesTox <- list(N = sum(n_pts_bras),
+                             y = rep(rep(0:1, length(doses_ttt)), unlist(lapply(seq_along(n_pts_bras), \(x) c(n_pts_bras[x] - n_tox[x], n_tox[x])))),
+                             x = rep(doses_ttt, n_pts_bras))
+          Modele <- "crm_unfixed_tox"
+        }
       } else {
         DonneesTox <- list(N = sum(n_pts_bras),
                            y = rep(rep(0:1, length(doses_ttt)), unlist(lapply(seq_along(n_pts_bras), \(x) c(n_pts_bras[x] - n_tox[x], n_tox[x])))),
                            x = rep(doses_ttt, n_pts_bras))
-        Modele <- "crm_unfixed_tox"
+        Modele <- "crmpow_tox"
       }
       SampledTox <- sampling(CompiledModelsTox[[Modele]], 
                              data = DonneesTox,         
@@ -2115,10 +2152,14 @@ real_essai_bayeslogcrm_tox <- function(data, analyses, CPar, PPar, ana_eff_cum, 
                              seed = 121221)
       # print(SampledTox)
       DistPost <- rstan::extract(SampledTox)
-      if (fixed_intercept) {
-        PPred <- lapply(doses_ttt, \(x) 1 / (1 + exp(-1 * (A0 + x * DistPost$beta))))
+      if (!power_mod) {
+        if (fixed_intercept) {
+          PPred <- lapply(doses_ttt, \(x) 1 / (1 + exp(-1 * (A0 + x * DistPost$beta))))
+        } else {
+          PPred <- lapply(doses_ttt, \(x) 1 / (1 + exp(-1 * (DistPost$alpha + x * DistPost$beta))))
+        }
       } else {
-        PPred <- lapply(doses_ttt, \(x) 1 / (1 + exp(-1 * (DistPost$alpha + x * DistPost$beta))))
+        PPred <- lapply(doses_ttt, \(x) x ** exp(DistPost$beta))
       }
       PPTox <- vapply(PPred, \(distrib) {mean(distrib > phi_tox)}, double(1))
       data$est_tox[data$nb_ana == i] <- vapply(PPred, mean, double(1))
@@ -2231,9 +2272,45 @@ CompilModLogCrm_efftox <- function(mu_inter_tox = 0, sigma_inter_tox = 5, mu_coe
   ModeleLog <- gsub("%sigma_coef_eff%", sigma_coef_eff, ModeleLog)
   return(stan_model(model_code = ModeleLog))
 }
+CompilModPowCrm_efftox <- function(mu_coef_tox = 0, sigma_coef_tox = 5, PentePos_tox = FALSE,
+                                   mu_coef_eff = 0, sigma_coef_eff = 5, PentePos_eff = FALSE) {
+  ModelePow <- "
+  data {
+    int<lower=0> N;
+    vector[N] x_eff;
+    vector[N] x_tox;
+    int<lower=0,upper=1> y_eff[N];
+    int<lower=0,upper=1> y_tox[N];
+  }
+  parameters {
+    real beta_eff;
+    real beta_tox;
+  }
+  model {
+    // Priors
+    beta_tox ~ normal(%mu_coef_tox%, %sigma_coef_tox%); 
+    beta_eff ~ normal(%mu_coef_eff%, %sigma_coef_eff%); 
+    // Likelihood
+    y_tox ~ bernoulli(pow(x_tox, exp(beta_tox)));
+    y_eff ~ bernoulli(pow(x_eff, exp(beta_eff)));
+  }
+"
+  if (PentePos_tox) {
+    ModelePow <- gsub("real beta_tox", "real<lower = 0> beta_tox", ModelePow)
+  } 
+  if (PentePos_eff) {
+    ModelePow <- gsub("real beta_eff", "real<lower = 0> beta_eff", ModelePow)
+  } 
+  ModelePow <- gsub("%mu_coef_tox%", mu_coef_tox, ModelePow)
+  ModelePow <- gsub("%sigma_coef_tox%", sigma_coef_tox, ModelePow)
+  ModelePow <- gsub("%mu_coef_eff%", mu_coef_eff, ModelePow)
+  ModelePow <- gsub("%sigma_coef_eff%", sigma_coef_eff, ModelePow)
+  return(stan_model(model_code = ModelePow))
+}
 
 real_essai_bayeslogcrm_efftox <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, 
-                                          phi_eff, phi_tox, prior_eff, skeleton_tox, skeleton_eff, fixed_intercept, A0) {
+                                          phi_eff, phi_tox, prior_eff, skeleton_tox, skeleton_eff, fixed_intercept, A0,
+                                          power_mod = FALSE) {
   
   data$arret_eff <- data$arret_tox <- NA_integer_
   data$dose <- as.numeric(gsub("^ttt(\\d+)$", "\\1", data$ttt)) 
@@ -2261,22 +2338,31 @@ real_essai_bayeslogcrm_efftox <- function(data, analyses, CPar, PPar, ana_eff_cu
     }
     # MCMC pour la proba a posteriori seulement si nécessaire (gain de temps)
     if ((i != 1 && any(data$arret_tox[data$nb_ana == (i - 1)] == 0 & data$arret_eff[data$nb_ana == (i - 1)] == 0)) | (i == 1)) {
-      if (fixed_intercept) {
-        DonneesEffTox <- list(N = sum(n_pts_bras),
-                              y_tox = rep(rep(0:1, length(dosestox_ttt)), unlist(lapply(seq_along(n_pts_bras), \(x) c(n_pts_bras[x] - n_tox[x], n_tox[x])))),
-                              y_eff = rep(rep(0:1, length(doseseff_ttt)), unlist(lapply(seq_along(n_pts_bras), \(x) c(n_pts_bras[x] - n_eff[x], n_eff[x])))),
-                              x_tox = rep(dosestox_ttt, n_pts_bras),
-                              x_eff = rep(doseseff_ttt, n_pts_bras),
-                              alpha_eff = A0,
-                              alpha_tox = A0)
-        Modele <- "crm_fixed_efftox"
+      if (!power_mod) {
+        if (fixed_intercept) {
+          DonneesEffTox <- list(N = sum(n_pts_bras),
+                                y_tox = rep(rep(0:1, length(dosestox_ttt)), unlist(lapply(seq_along(n_pts_bras), \(x) c(n_pts_bras[x] - n_tox[x], n_tox[x])))),
+                                y_eff = rep(rep(0:1, length(doseseff_ttt)), unlist(lapply(seq_along(n_pts_bras), \(x) c(n_pts_bras[x] - n_eff[x], n_eff[x])))),
+                                x_tox = rep(dosestox_ttt, n_pts_bras),
+                                x_eff = rep(doseseff_ttt, n_pts_bras),
+                                alpha_eff = A0,
+                                alpha_tox = A0)
+          Modele <- "crm_fixed_efftox"
+        } else {
+          DonneesEffTox <- list(N = sum(n_pts_bras),
+                                y_tox = rep(rep(0:1, length(dosestox_ttt)), unlist(lapply(seq_along(n_pts_bras), \(x) c(n_pts_bras[x] - n_tox[x], n_tox[x])))),
+                                y_eff = rep(rep(0:1, length(doseseff_ttt)), unlist(lapply(seq_along(n_pts_bras), \(x) c(n_pts_bras[x] - n_eff[x], n_eff[x])))),
+                                x_tox = rep(dosestox_ttt, n_pts_bras),
+                                x_eff = rep(doseseff_ttt, n_pts_bras))
+          Modele <- "crm_unfixed_efftox"
+        }
       } else {
         DonneesEffTox <- list(N = sum(n_pts_bras),
                               y_tox = rep(rep(0:1, length(dosestox_ttt)), unlist(lapply(seq_along(n_pts_bras), \(x) c(n_pts_bras[x] - n_tox[x], n_tox[x])))),
                               y_eff = rep(rep(0:1, length(doseseff_ttt)), unlist(lapply(seq_along(n_pts_bras), \(x) c(n_pts_bras[x] - n_eff[x], n_eff[x])))),
                               x_tox = rep(dosestox_ttt, n_pts_bras),
                               x_eff = rep(doseseff_ttt, n_pts_bras))
-        Modele <- "crm_unfixed_efftox"
+        Modele <- "crmpow_efftox"
       }
       SampledEffTox <- sampling(CompiledModelsEffTox[[Modele]], 
                                 data = DonneesEffTox,         
@@ -2289,12 +2375,17 @@ real_essai_bayeslogcrm_efftox <- function(data, analyses, CPar, PPar, ana_eff_cu
                                 control = list(stepsize = .3, adapt_delta = .95, max_treedepth = 15),
                                 seed = 121221)
       DistPost <- rstan::extract(SampledEffTox)
-      if (fixed_intercept) {
-        PPredTox <- lapply(dosestox_ttt, \(x) 1 / (1 + exp(-1 * (A0 + x * DistPost$beta_tox))))
-        PPredEff <- lapply(doseseff_ttt, \(x) 1 / (1 + exp(-1 * (A0 + x * DistPost$beta_eff))))
+      if (!power_mod) {
+        if (fixed_intercept) {
+          PPredTox <- lapply(dosestox_ttt, \(x) 1 / (1 + exp(-1 * (A0 + x * DistPost$beta_tox))))
+          PPredEff <- lapply(doseseff_ttt, \(x) 1 / (1 + exp(-1 * (A0 + x * DistPost$beta_eff))))
+        } else {
+          PPredTox <- lapply(dosestox_ttt, \(x) 1 / (1 + exp(-1 * (DistPost$alpha_tox + x * DistPost$beta_tox))))
+          PPredEff <- lapply(doseseff_ttt, \(x) 1 / (1 + exp(-1 * (DistPost$alpha_eff + x * DistPost$beta_eff))))
+        }
       } else {
-        PPredTox <- lapply(dosestox_ttt, \(x) 1 / (1 + exp(-1 * (DistPost$alpha_tox + x * DistPost$beta_tox))))
-        PPredEff <- lapply(doseseff_ttt, \(x) 1 / (1 + exp(-1 * (DistPost$alpha_eff + x * DistPost$beta_eff))))
+        PPredTox <- lapply(dosestox_ttt, \(x) x ** exp(DistPost$beta_tox))
+        PPredEff <- lapply(doseseff_ttt, \(x) x ** exp(DistPost$beta_eff))
       }
       PPTox <- vapply(PPredTox, \(distrib) {mean(distrib > phi_tox)}, double(1))
       data$est_tox[data$nb_ana == i] <- vapply(PPredTox, mean, double(1))
@@ -2349,7 +2440,7 @@ opcharac <- function(ana_inter,
                                  "hier_tox", "hier_efftox", "cbhm_tox", "cbhm_efftox", "exnex_tox", "exnex_efftox",
                                  "bop_log1_tox", "bop_log2_tox", "bop_log3_tox", "bop_log4_tox", "bop_log5_tox", "bop_log6_tox",
                                  "bop_log1_efftox", "bop_log2_efftox", "bop_log3_efftox", "bop_log4_efftox", "bop_log5_efftox", "bop_log6_efftox",
-                                 "crm_tox", "crm_efftox"),
+                                 "crm_tox", "crm_efftox", "crmpow_tox", "crmpow_efftox"),
                      A0_tox = 0, SeuilP_tox = .2, A0_eff = 0, SeuilP_eff = .2, 
                      a_tox, b_tox, a_eff, b_eff,
                      p_mix_tox, p_mix_eff,
@@ -2461,8 +2552,10 @@ opcharac <- function(ana_inter,
         real_essai_bayeslogcrm_tox(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, phi_eff, phi_tox, prior_eff, SeuilP_tox, !is.na(A0_tox), A0_tox)
       } else if (methode == "crm_efftox") {
         real_essai_bayeslogcrm_efftox(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, phi_eff, phi_tox, prior_eff, SeuilP_tox[[1]], SeuilP_tox[[2]], !is.na(A0_tox), A0_tox)
-      }
-      
+      } else if (methode == "crmpow_tox") {
+        real_essai_bayeslogcrm_tox(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, phi_eff, phi_tox, prior_eff, SeuilP_tox, !is.na(A0_tox), A0_tox, TRUE)
+      } else if (methode == "crmpow_efftox")
+        real_essai_bayeslogcrm_efftox(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, phi_eff, phi_tox, prior_eff, SeuilP_tox[[1]], SeuilP_tox[[2]], !is.na(A0_tox), A0_tox, TRUE)
     }
   )
   
