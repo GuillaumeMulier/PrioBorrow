@@ -994,7 +994,7 @@ CompilBHM_efftox <- function(moy_mu_eff = 0, moy_sig_eff = 0, moy_p_eff = 0, moy
     sigma_tox ~ normal(%moy_sig_tox%, %sigma_sig_tox%);
     sigma_eff ~ normal(%moy_sig_eff%, %sigma_sig_eff%);
     mu_tox  ~ normal(%moy_mu_tox%, %sigma_mu_tox%);
-    mu_eff  ~ normal(%moy_mu_eff%, %sigma_sig_eff%);
+    mu_eff  ~ normal(%moy_mu_eff%, %sigma_mu_eff%);
   
     for (i in 1:Nb) {
       p_raw_tox[i] ~ normal(%moy_p_tox%, %sigma_p_tox%);
@@ -2073,7 +2073,7 @@ CompilModPowCrm_tox <- function(mu_coef = 0, sigma_coef = 5, PentePos = FALSE) {
     // Priors
     beta ~ normal(%mu_coef%, %sigma_coef%); 
     // Likelihood
-    y ~ bernoulli(pow(x, exp(beta)));
+    y ~ bernoulli(exp(log(x) * exp(beta))); // For some reason on server function pow doesn't work with vectors so little tricks with exp
   }
 "
   if (PentePos) {
@@ -2291,8 +2291,8 @@ CompilModPowCrm_efftox <- function(mu_coef_tox = 0, sigma_coef_tox = 5, PentePos
     beta_tox ~ normal(%mu_coef_tox%, %sigma_coef_tox%); 
     beta_eff ~ normal(%mu_coef_eff%, %sigma_coef_eff%); 
     // Likelihood
-    y_tox ~ bernoulli(pow(x_tox, exp(beta_tox)));
-    y_eff ~ bernoulli(pow(x_eff, exp(beta_eff)));
+    y_tox ~ bernoulli(exp(log(x_tox) * exp(beta_tox)));
+    y_eff ~ bernoulli(exp(log(x_eff) * exp(beta_eff)));
   }
 "
   if (PentePos_tox) {
@@ -2610,7 +2610,7 @@ opcharac <- function(ana_inter,
         left_join(summarise_ttt(tableau_essais, ttt, tot_eff), by = "ttt") %>%
         left_join(summarise_ttt(tableau_essais, ttt, tot_pat - tot_notox, tot_tox), by = "ttt")
     ),
-    essais = tableau_essais[, c("n_simu", "ttt", "nb_ana", "est_eff", "icinf_eff", "icsup_eff", "est_tox", "icinf_tox", "icsup_tox")]
+    essais = tableau_essais[, c("n_simu", "ttt", "nb_ana", "est_eff", "icinf_eff", "icsup_eff", "est_tox", "icinf_tox", "icsup_tox", "decision", "decision_eff", "decision_tox")]
   ))
   
 }
