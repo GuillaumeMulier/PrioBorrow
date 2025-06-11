@@ -86,7 +86,7 @@ Graphes <- CaracBras %>%
     } else {
       LimiteSup <- 1
     }
-    ggplot(Sc, aes(rejet_h0, methode, color = ttt)) +
+    ggplot(Sc, aes(rejet_h0, methode, color = ttt, shape = ttt)) +
       geom_point(position = position_dodge2(width = .2), size = 2) +
       facet_wrap(vars(scenar), scales = "free_x") +
       coord_cartesian(xlim = c(0, LimiteSup)) +
@@ -94,7 +94,7 @@ Graphes <- CaracBras %>%
       scale_color_discrete(type = c("darkred", "steelblue", "darkgreen")) +
       labs(y = NULL, x = "Proportion of conclusion to promising dose", color = "Dose")
   })
-wrap_plots(Graphes, guides = "collect")
+wrap_plots(Graphes, guides = "collect", axes = "collect")
 ggsave(wrap_plots(Graphes, guides = "collect"), filename = "Figures/rejet_bras_sc1234.png", device = "png", height = 7, width = 10)
 
 Graphes <- CaracBras %>% 

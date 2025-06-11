@@ -283,13 +283,7 @@ gen_patients_multinom <- function(n_sim,
       dplyr::mutate(tot_eff = efftox + effnotox,
                     tot_notox = effnotox + noeffnotox)
     
-  } else if (methode == 4) {
-    
-    liste_patients <- GenPts(n_sim, anas_inters[[1]], matrix(unlist(proba), ncol = 4, byrow = TRUE), seed)
-    liste_patients <- as.data.frame(liste_patients)
-    colnames(liste_patients) <- c("ttt", "n_sim", "nb_ana", "tot_pat", "efftox", "effnotox", "noefftox", "noeffnotox", "tot_eff", "tot_notox")
-    
-  }
+  } 
   
   return(liste_patients)
   
@@ -297,6 +291,127 @@ gen_patients_multinom <- function(n_sim,
 
 
 # Analyse trials data ----
+
+## Simon 2 stage design + Ivanova monitoring of toxicity ----
+
+# Compute the operating characteristics of a Simon design with fixed r1, n1, r and n
+# Loop over possible values to determine optimal and minimax design
+alpha_puiss_simon <- function(r1, n1, r, n, pu, pa) {
+  
+  alpha1 <- pbinom(r1, n1, pu)
+  alpha2 <- sum(map_dbl(seq(r1 + 1, min(n1, r)), ~ dbinom(.x, n1, pu) * pbinom(r - .x, n - n1, pu)))
+  alpha <- 1 - (alpha1 + alpha2)
+  
+  puissance1 <- pbinom(r1, n1, pa)
+  puissance2 <- sum(map_dbl(seq(r1 + 1, min(n1, r)), ~ dbinom(.x, n1, pa) * pbinom(r - .x, n - n1, pa)))
+  puissance <- 1 - (puissance1 + puissance2)
+  
+  EN_p0 <- n1 + (1 - alpha1) * (n - n1)
+  
+  return(c("r1" = r1, "n1" = n1, "r" = r, "n" = n, "pu" = pu, "pa" = pa, "alpha" = alpha, "puissance" = puissance, "EN_p0" = EN_p0, "PET_po" = alpha1))
+  
+}
+
+# Stopping rules for toxicity with Ivanova's design for monitoring toxicity
+regle_arret <- function(prior, ana_inter, seuil, critere) {
+  
+  map_dfr(
+    .x = ana_inter,
+    .f = function(x) {
+      vec_x <- seq_len(x + 1) - 1
+      proba <- map_dbl(vec_x, ~ 1 - pbeta(seuil, prior[1] + .x, prior[2] + x - .x))
+      proba <- proba <= critere
+      return(c(n = x, tox_max = sum(proba) - 1))
+    }
+  )
+  
+}
+
+# Results of all simulated trials stored in liste_essai (generated with package multibrasBOP2)
+simu_simon <- function(p_n, p_a,
+                       tableau_essais, 
+                       CaracSeuilSimon,
+                       CaracSeuilIva) {
+  
+  # Stopping rules for Simon's design
+  tab_eff <- data.frame(
+    nb_ana = 1:2,
+    tot_pat = c(CaracSeuilSimon[["n1"]], CaracSeuilSimon[["n"]]),
+    seuil_eff = c(CaracSeuilSimon[["r1"]], CaracSeuilSimon[["r"]])
+  )
+  
+  # Stopping rules for Ivanova's design
+  tab_tox <- data.frame(
+    nb_ana = 1:2,
+    tot_pat = c(CaracSeuilIva[["n1"]], CaracSeuilIva[["n"]]),
+    seuil_tox = c(CaracSeuilIva[["t1"]], CaracSeuilIva[["t"]])
+  )
+  
+  # Apply decision rules to the simulated trials
+  ## 2 analyses because of Simon's design
+  tableau_essais <- left_join(tableau_essais, tab_eff, by = c("nb_ana", "tot_pat")) %>% 
+    left_join(tab_tox, by = c("nb_ana", "tot_pat")) %>% 
+    mutate(tot_tox = tot_pat - tot_notox,
+           decision = case_when((nb_ana != 2) & tot_eff > seuil_eff & tot_tox <= seuil_tox ~ "Continue",
+                                       (nb_ana == 2) & tot_eff > seuil_eff & tot_tox <= seuil_tox ~ "Accept the treatment",
+                                       (nb_ana != 2) & (tot_eff <= seuil_eff | tot_tox > seuil_tox) ~ "Early stopping",
+                                       (nb_ana == 2) & (tot_eff <= seuil_eff | tot_tox > seuil_tox) ~ "Stopping"),
+           decision_eff = case_when((nb_ana != 2) & tot_eff > seuil_eff ~ "Continue",
+                                           (nb_ana == 2) & tot_eff > seuil_eff ~ "Accept the treatment",
+                                           (nb_ana != 2) & tot_eff <= seuil_eff ~ "Early stopping (futility)",
+                                           (nb_ana == 2) & tot_eff <= seuil_eff ~ "Stopping (futility)"),
+           decision_tox = case_when((nb_ana != 2) & tot_tox <= seuil_tox ~ "Continue",
+                                           (nb_ana == 2) & tot_tox <= seuil_tox ~ "Accept the treatment",
+                                           (nb_ana != 2) & tot_tox > seuil_tox ~ "Early stopping (toxicity)",
+                                           (nb_ana == 2) & tot_tox > seuil_tox ~ "Stopping (toxicity)")) %>%
+    filter(decision != "Continue") %>%
+    arrange(n_simu, ttt, nb_ana) %>%
+    slice(1, .by = c(n_simu, ttt)) %>%
+    ungroup()
+  tableau_essais <- bind_cols(tableau_essais, map2_dfr(tableau_essais$tot_eff, tableau_essais$tot_pat, \(x, n) {
+    Test <- binom.test(x, n) # Clopper-pearson confidence interval for efficacy
+    return(c("est_eff" = as.numeric(Test$estimate), "icinf_eff" = Test$conf.int[1], "icsup_eff" = Test$conf.int[2]))
+  }))
+  tableau_essais <- bind_cols(tableau_essais, map2_dfr(tableau_essais$tot_tox, tableau_essais$tot_pat, \(x, n) {
+    ParAlpha <- CaracSeuilIva[["a"]] + x
+    ParBeta <- CaracSeuilIva[["b"]] + n - x
+    Estimation <- ParAlpha / (ParAlpha + ParBeta)
+    IcInf <- qbeta(.025, ParAlpha, ParBeta)
+    IcSup <- qbeta(.975, ParAlpha, ParBeta)
+    return(c("est_tox" = Estimation, "icinf_tox" = IcInf, "icsup_tox" = IcSup)) # Beta credibility interval for Ivanova's design
+  }))
+  
+  return(list(
+    carac_globales = data.frame(
+      p_n = paste0("(", paste(p_n, collapse = "/"), ")"),
+      p_a = paste0("(", paste(p_a, collapse = "/"), ")"),
+      nb_essais = length(unique(tableau_essais$n_simu)),
+      rejet_glob = tableau_essais %>%
+        group_by(n_simu) %>%
+        summarise(
+          rejet_glob = sum(decision == "Accept the treatment") > 0,
+          .groups = "drop"
+        ) %>%
+        summarise(rejet_glob = mean(rejet_glob)) %>%
+        pull(rejet_glob)
+    ),
+    carac_bras = data.frame(
+      summarise_decision(tableau_essais, ttt, decision, "Accept the treatment", rejet_h0) %>%
+        left_join(summarise_decision(tableau_essais, ttt, decision, "Early stopping", arret_precoce), by = "ttt") %>%
+        left_join(summarise_detect(tableau_essais, ttt, decision, "Stopping|stopping", arret), by = "ttt") %>%
+        left_join(summarise_decision(tableau_essais, ttt, decision_eff, "Early stopping (futility)", arret_precoce_fut), by = "ttt") %>%
+        left_join(summarise_decision(tableau_essais, ttt, decision_tox, "Early stopping (toxicity)", arret_precoce_tox), by = "ttt") %>%
+        left_join(summarise_detect(tableau_essais, ttt, decision_eff, "futility", arret_fut), by = "ttt") %>%
+        left_join(summarise_detect(tableau_essais, ttt, decision_tox, "toxicity", arret_tox), by = "ttt") %>%
+        left_join(summarise_ttt(tableau_essais, ttt, tot_pat), by = "ttt") %>%
+        left_join(summarise_ttt(tableau_essais, ttt, tot_eff), by = "ttt") %>%
+        left_join(summarise_ttt(tableau_essais, ttt, tot_tox), by = "ttt")
+    ),
+    essais = tableau_essais[, c("n_simu", "ttt", "nb_ana", "est_eff", "icinf_eff", "icsup_eff", "est_tox", "icinf_tox", "icsup_tox", "decision", "decision_eff", "decision_tox")]
+  ))
+  
+}
+
 
 ## Multi-arm BOP ----
 

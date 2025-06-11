@@ -11,7 +11,7 @@ library(tidyverse)
 library(patchwork)
 library(ggtext)
 
-theme_set(theme_light(base_size = 18) +
+theme_set(theme_light(base_size = 22) +
             theme(axis.text.x = element_markdown()))
 
 
