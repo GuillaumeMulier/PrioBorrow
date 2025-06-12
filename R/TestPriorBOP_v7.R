@@ -17,8 +17,8 @@ library(parallel)
 library(foreach)
 library(doParallel)
 library(rstan)
-# source("~/R/GetOC.R")
-source("R/GetOC.R")
+source("~/R/GetOC.R")
+# source("R/GetOC.R")
 
 # Stan models ----
 
