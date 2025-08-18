@@ -26,6 +26,7 @@ library(rlang)
 library(flextable)
 library(readxl)
 library(patchwork)
+library(ggtext)
 
 theme_set(theme_light(base_size = 14) +
             theme(strip.background = element_rect(fill = "white", color = "black", size = 1.2),
@@ -142,22 +143,70 @@ CaracEssaisPriors$larg_ic_eff <- CaracEssaisPriors$icsup_eff - CaracEssaisPriors
 CaracEssaisPriors$larg_ic_tox <- CaracEssaisPriors$icsup_tox - CaracEssaisPriors$icinf_tox
 
 ## Modèle logistique en fonction de log(d/d*)
-CaracGlobalesLog <- list()
-CaracBrasLog <- list()
-CaracEssaisLog <- list()
+CaracGlobalesLogit <- list()
+CaracBrasLogit <- list()
+CaracEssaisLogit <- list()
 walk(1:2, \(fich_num) {
-  Fichiers <- paste0("Data/SimuSensi20250611/resultats_priorslog_20250611_", 1:2, ".RData")
+  Fichiers <- paste0("Data/SimuLogistique20250611/resultats_priorslog_20250611_", 1:2, ".RData")
   fichier_temp <- Fichiers[fich_num]
   load(here(fichier_temp), envir = current_env())
-  assign("CaracGlobalesLog", append(CaracGlobalesLog, list(do.call("rbind", lapply(ResT, \(x) cbind(x[[3]], x[[1]]))))), global_env())
-  assign("CaracBrasLog", append(CaracBrasLog, list(do.call("rbind", lapply(ResT, \(x) cbind(x[[3]], x[[2]]))))), global_env())
-  assign("CaracEssaisLog", append(CaracEssaisLog, list(do.call("rbind", lapply(ResT, \(x) cbind(x[[3]], x[[4]]))))), global_env())
+  assign("CaracGlobalesLogit", append(CaracGlobalesLogit, list(do.call("rbind", lapply(ResT, \(x) cbind(x[[3]], x[[1]]))))), global_env())
+  assign("CaracBrasLogit", append(CaracBrasLogit, list(do.call("rbind", lapply(ResT, \(x) cbind(x[[3]], x[[2]]))))), global_env())
+  assign("CaracEssaisLogit", append(CaracEssaisLogit, list(do.call("rbind", lapply(ResT, \(x) cbind(x[[3]], x[[4]]))))), global_env())
 })
-CaracGlobalesLog <- do.call("rbind", CaracGlobalesLog)
-CaracBrasLog <- do.call("rbind", CaracBrasLog)
-CaracEssaisLog <- do.call("rbind", CaracEssaisLog)
-CaracEssaisLog$larg_ic_eff <- CaracEssaisLog$icsup_eff - CaracEssaisLog$icinf_eff
-CaracEssaisLog$larg_ic_tox <- CaracEssaisLog$icsup_tox - CaracEssaisLog$icinf_tox
+CaracGlobalesLogit <- do.call("rbind", CaracGlobalesLogit)
+CaracGlobalesLogit$methode[CaracGlobalesLogit$methode == "mBOP"] <- "mBOP_both"
+CaracGlobalesLogit$methode[CaracGlobalesLogit$methode == "Simon+Iva"] <- "Simon+Iva_both"
+CaracGlobalesLogit <- separate(CaracGlobalesLogit, methode, c("methode", "cible"), "_")
+CaracBrasLogit <- do.call("rbind", CaracBrasLogit)
+CaracBrasLogit$methode[CaracBrasLogit$methode == "mBOP"] <- "mBOP_both"
+CaracBrasLogit$methode[CaracBrasLogit$methode == "Simon+Iva"] <- "Simon+Iva_both"
+CaracBrasLogit <- separate(CaracBrasLogit, methode, c("methode", "cible"), "_")
+CaracEssaisLogit <- do.call("rbind", CaracEssaisLogit)
+CaracEssaisLogit$methode[CaracEssaisLogit$methode == "mBOP"] <- "mBOP_both"
+CaracEssaisLogit$methode[CaracEssaisLogit$methode == "Simon+Iva"] <- "Simon+Iva_both"
+CaracEssaisLogit <- separate(CaracEssaisLogit, methode, c("methode", "cible"), "_")
+CaracEssaisLogit$larg_ic_eff <- CaracEssaisLogit$icsup_eff - CaracEssaisLogit$icinf_eff
+CaracEssaisLogit$larg_ic_tox <- CaracEssaisLogit$icsup_tox - CaracEssaisLogit$icinf_tox
+CaracGlobalesLogit$n_bras <- "3 arms"
+CaracBrasLogit$n_bras <- "3 arms"
+CaracEssaisLogit$n_bras <- "3 arms"
+CaracGlobalesLogit$methode <- paste0("ver", CaracGlobalesLogit$methode)
+CaracBrasLogit$methode <- paste0("ver", CaracBrasLogit$methode)
+CaracEssaisLogit$methode <- paste0("ver", CaracEssaisLogit$methode)
+CaracGlobalesLogit <- bind_rows(CaracGlobalesLogit, CaracGlobales %>% filter(methode %in% c("log1BOP", "log2BOP")))
+CaracBrasLogit <- bind_rows(CaracBrasLogit, CaracBras %>% filter(methode %in% c("log1BOP", "log2BOP")))
+CaracEssaisLogit <- bind_rows(CaracEssaisLogit, CaracEssais %>% filter(methode %in% c("log1BOP", "log2BOP")))
+
+# CRM-like models
+CaracGlobalesCrm <- list()
+CaracBrasCrm <- list()
+CaracEssaisCrm <- list()
+walk(1:3, \(fich_num) {
+  Fichiers <- paste0("Data/SimuSensi20250611/resultats_priorssenscrm_20250611_", 1:3, ".RData")
+  fichier_temp <- Fichiers[fich_num]
+  load(here(fichier_temp), envir = current_env())
+  assign("CaracGlobalesCrm", append(CaracGlobalesCrm, list(do.call("rbind", lapply(ResT, \(x) cbind(x[[3]], x[[1]]))))), global_env())
+  assign("CaracBrasCrm", append(CaracBrasCrm, list(do.call("rbind", lapply(ResT, \(x) cbind(x[[3]], x[[2]]))))), global_env())
+  assign("CaracEssaisCrm", append(CaracEssaisCrm, list(do.call("rbind", lapply(ResT, \(x) cbind(x[[3]], x[[4]]))))), global_env())
+})
+CaracGlobalesCrm <- do.call("rbind", CaracGlobalesCrm)
+CaracGlobalesCrm$methode[CaracGlobalesCrm$methode == "mBOP"] <- "mBOP_both"
+CaracGlobalesCrm$methode[CaracGlobalesCrm$methode == "Simon+Iva"] <- "Simon+Iva_both"
+CaracGlobalesCrm <- separate(CaracGlobalesCrm, methode, c("methode", "cible"), "_")
+CaracBrasCrm <- do.call("rbind", CaracBrasCrm)
+CaracBrasCrm$methode[CaracBrasCrm$methode == "mBOP"] <- "mBOP_both"
+CaracBrasCrm$methode[CaracBrasCrm$methode == "Simon+Iva"] <- "Simon+Iva_both"
+CaracBrasCrm <- separate(CaracBrasCrm, methode, c("methode", "cible"), "_")
+CaracEssaisCrm <- do.call("rbind", CaracEssaisCrm)
+CaracEssaisCrm$methode[CaracEssaisCrm$methode == "mBOP"] <- "mBOP_both"
+CaracEssaisCrm$methode[CaracEssaisCrm$methode == "Simon+Iva"] <- "Simon+Iva_both"
+CaracEssaisCrm <- separate(CaracEssaisCrm, methode, c("methode", "cible"), "_")
+CaracEssaisCrm$larg_ic_eff <- CaracEssaisCrm$icsup_eff - CaracEssaisCrm$icinf_eff
+CaracEssaisCrm$larg_ic_tox <- CaracEssaisCrm$icsup_tox - CaracEssaisCrm$icinf_tox
+CaracGlobalesCrm$n_bras <- "3 arms"
+CaracBrasCrm$n_bras <- "3 arms"
+CaracEssaisCrm$n_bras <- "3 arms"
 ```
 
 
@@ -1501,913 +1550,226 @@ Par ailleurs, ce schéma augmente encore plus les faux positifs en augmentant le
 
 Donner des priors trop informatifs peut entraîner un risque accru de faux positifs.
 
-```{r}
-knitr::knit_exit()
-```
 
+# Variation de la régression logistique bayésienne
 
-# Supplément : les autres caractéristiques opérationnelles
+En fait, j'ai mal lu Neuenschwander, et il proposait d'utiliser $log(\frac{d}{d^*})$ alors que j'ai pris $\frac{d}{d^*}$.
+En pratique, je pense que cela va peu changer car on va passer de 1/2/3 à 0/0.69/1.10.
 
-## Le nombre moyen de patients
+J'ai refait tourner les scénarios pour pouvoir comparer les résultats.
 
-```{r}
-CaracBrasSup <- CaracBras %>%
-  bind_rows(CaracBras %>% filter(methode %in% "mBOP") %>% mutate(cible = "tox")) %>%
-  mutate(cible = ifelse(cible == "both", "efftox", cible))
-```
-
-
-```{r, fig.width = 10, fig.height = 16}
-CaracBrasSup %>%
-  mutate(scenar = factor(scenar, levels = paste0("Sc", 1:10))) %>%
-  ggplot(aes(x = tot_pat, y = methode, fill = ttt)) +
-  annotate("ribbon", x = c(-Inf, Inf), ymin = 4.5, ymax = 5.5, fill = "darkgrey", alpha = .6) +
-  geom_col(position = position_dodge(width = 1)) +
-  facet_grid(scenar ~ cible)
-```
-
-La zone grisée correspond à mBOP pour faciliter les comparaisons.
-
-seqBOP a l'air très comparable à mBOP de façon assez surprenante.
-
-Le power prior a plus de patients recrutés en moyenne.
-
-Le hBOP, recrute moins de patients sous H0 globale, mais sinon a tendance à recruter plus de patients que mBOP.
-
-Pour le CBHM, on recrute encore moins de patients que hBOP sous l'hypothèse nulle globale, et a un nombre de patients comparable ou un peu moins élevé que mBOP.
-
-Enfin, pour les modèles logistiques, pour l'hypothèse nulle globale, ils ont moins de patients que mBOP, mais bop_log2 recrute moins de patients dans les bras extrêmes.
-Pour les autres scénarios, on a des résultats environ comparables à mBOP, et bop_log2 a des effectifs moins élevés pour les bras extrêmes.
-
-
-
-## Estimation de l'efficacité
+**FWER et puissance (partage pour efficacité et toxicité) :**
 
 ```{r}
-Scenarios <- list(
+CaracGlobalesLogit %>% 
+  filter(cible == "efftox", scenar %in% paste0("Sc", 1:4)) %>% 
+  select(methode, scenar, rejet_glob) %>% 
+  mutate(rejet_glob = sprintf("%.2f%%", 100 * rejet_glob),
+         scenar = paste0(scenar, ifelse(scenar %in% c("Sc1", "Sc2"), " (FWER)", " (Puissance)"))) %>% 
+  pivot_wider(names_from = scenar, values_from = rejet_glob) %>% 
+  mutate(methode = factor(methode, levels = c("log1BOP", "verlog1BOP", "log2BOP", "verlog2BOP"))) %>% 
+  arrange(methode) %>% 
+  flextable() %>% 
+  theme_box() %>% 
+  autofit()
+```
+
+On voit donc des résultats très proches sur le FWER et la puissance dans les 4 scénarios étudiés.
+
+```{r, fig.cap = "Proportion de conclusion à un traitement efficace et non toxique dans les scénarios 1 à 4"}
+Graphes <- CaracBrasLogit %>% 
+  filter(cible %in% c("efftox", "both"), scenar %in% c("Sc1", "Sc2", "Sc3", "Sc4")) %>% 
+  mutate(ttt = gsub("ttt", "D", ttt),
+         scenar = factor(scenar, levels = c("Sc1", "Sc2", "Sc3", "Sc4")),
+         methode = factor(methode, levels = rev(c("log1BOP", "verlog1BOP", "log2BOP", "verlog2BOP")))) %>% 
+  split(.$scenar) %>% 
+  map(\(Sc) {
+    if (Sc$scenar[1] %in% c("Sc1", "Sc2")) {
+      LimiteSup <- .05
+    } else {
+      LimiteSup <- 1
+    }
+    ggplot(Sc, aes(rejet_h0, methode, color = ttt, shape = ttt)) +
+      geom_point(position = position_dodge2(width = .2), size = 4) +
+      facet_wrap(vars(scenar), scales = "free_x") +
+      coord_cartesian(xlim = c(0, LimiteSup)) +
+      scale_x_continuous(labels = scales::percent_format()) +
+      scale_color_discrete(type = c("darkred", "steelblue", "orange")) +
+      labs(y = NULL, x = "Proportion of conclusion to promising dose", color = "Dose", shape = "Dose") +
+      theme_light(base_size = 15) +
+      theme(strip.background = element_rect(fill = "white", color = "black", size = 1.6),
+            strip.text = element_text(face = "bold", color = "black"))
+  })
+wrap_plots(Graphes, guides = "collect", axes = "collect_y", axis_titles = "collect")
+```
+
+Au niveau des caractéristiques dans les différents bras, on a des résultats très proches, mais avec quelques différences sur les bras extrêmes : dose 1 et 3.
+
+```{r, fig.cap = "Proportion de conclusion à un traitement efficace et non toxique dans les scénarios 5 à 8"}
+Graphes <- CaracBrasLogit %>% 
+  filter(cible %in% c("efftox", "both"), scenar %in% c("Sc5", "Sc6", "Sc7", "Sc8")) %>% 
+  mutate(ttt = gsub("ttt", "D", ttt),
+         scenar = factor(scenar, levels = c("Sc5", "Sc6", "Sc7", "Sc8")),
+         methode = factor(methode, levels = rev(c("log1BOP", "verlog1BOP", "log2BOP", "verlog2BOP")))) %>% 
+  split(.$scenar) %>% 
+  map(\(Sc) {
+    if (Sc$scenar[1] %in% c("Sc1", "Sc2")) {
+      LimiteSup <- .05
+    } else {
+      LimiteSup <- 1
+    }
+    ggplot(Sc, aes(rejet_h0, methode, color = ttt, shape = ttt)) +
+      geom_point(position = position_dodge2(width = .2), size = 4) +
+      facet_wrap(vars(scenar), scales = "free_x") +
+      coord_cartesian(xlim = c(0, LimiteSup)) +
+      scale_x_continuous(labels = scales::percent_format()) +
+      scale_color_discrete(type = c("darkred", "steelblue", "orange")) +
+      labs(y = NULL, x = "Proportion of conclusion to promising dose", color = "Dose", shape = "Dose") +
+      theme_light(base_size = 15) +
+      theme(strip.background = element_rect(fill = "white", color = "black", size = 1.6),
+            strip.text = element_text(face = "bold", color = "black"))
+  })
+wrap_plots(Graphes, guides = "collect", axes = "collect_y", axis_titles = "collect")
+```
+
+Dans le scénario 5 où la 1^ère^ dose est futile et la 3^ème^ est toxique, la nouvelle régression logistique augmente un peu le risque de faux positif pour la dose 3 et le diminue un peu pour la dose 1.
+Par contre, on diminue la proportion de vrai positifs dans la dose 2.
+Le scénario 6 montre les mêmes résultats que le scénario 5.
+
+Dans le scénario 7, on retrouve l'augmentation des faux positifs avec la regression logistique sur le log dans la dose 3, et la diminution de la proportion de conclustion à une dose prometteuse dans la dose 2.
+
+Le scénario 8 ne comporte aucune dose prometteuse. 
+On retrouve le même comportement : augmentation de la proportion de conclusion à une dose prometteuse pour la dose 3, et diminution pour les doses 1 et 2.
+
+```{r, fig.cap = "Proportion de conclusion à un traitement efficace et non toxique dans les scénarios I1 et I2"}
+Graphes <- CaracBrasLogit %>% 
+  filter(cible %in% c("efftox", "both"), scenar %in% c("ScI1", "ScI2")) %>% 
+  mutate(ttt = gsub("ttt", "D", ttt),
+         scenar = factor(scenar, levels = c("ScI1", "ScI2")),
+         methode = factor(methode, levels = rev(c("log1BOP", "verlog1BOP", "log2BOP", "verlog2BOP")))) %>% 
+  split(.$scenar) %>% 
+  map(\(Sc) {
+    if (Sc$scenar[1] %in% c("Sc1", "Sc2")) {
+      LimiteSup <- .05
+    } else {
+      LimiteSup <- 1
+    }
+    ggplot(Sc, aes(rejet_h0, methode, color = ttt, shape = ttt)) +
+      geom_point(position = position_dodge2(width = .2), size = 4) +
+      facet_wrap(vars(scenar), scales = "free_x") +
+      coord_cartesian(xlim = c(0, LimiteSup)) +
+      scale_x_continuous(labels = scales::percent_format()) +
+      scale_color_discrete(type = c("darkred", "steelblue", "orange")) +
+      labs(y = NULL, x = "Proportion of conclusion to promising dose", color = "Dose", shape = "Dose") +
+      theme_light(base_size = 15) +
+      theme(strip.background = element_rect(fill = "white", color = "black", size = 1.6),
+            strip.text = element_text(face = "bold", color = "black"))
+  })
+wrap_plots(Graphes, guides = "collect", axes = "collect_y", axis_titles = "collect")
+```
+
+Globalement on retrouve cette fois encore le même comportement.
+La modification de mettre $log\frac{d}{d^*}$ a l'air donc de profiter aux scénarios avec un dose futile.
+
+On peut regarder dans ces 2 scénarios en plus, le pourcentage de sélection correcte et les estimations d'efficacité et de toxicité.
+
+**Pourcentage de sélection correcte (doses 2 et 3 pour scénario I1 et 1 et 2 pour scénario I2) dans les scénarios de l'Ibrutinib**
+
+```{r}
+CaracEssaisLogit %>% 
+  filter(cible != "tox", scenar %in% c("ScI1", "ScI2")) %>% 
+  group_by(scenar, methode, n_simu) %>% 
+  summarise(choix = ifelse(all(decision != "Accept the treatment"), "", paste(ttt[decision == "Accept the treatment"], collapse = "-")), .groups = "drop") %>% 
+  mutate(verite = ifelse(scenar == "ScI1", "ttt2-ttt3", "ttt1-ttt2"),
+         final = as.numeric(verite == choix)) %>% 
+  count(scenar, methode, final) %>% 
+  mutate(pct = sprintf("%.1f%%", 100 * n / sum(n)), .by = c(scenar, methode)) %>% 
+  filter(final == 1) %>% 
+  complete(scenar, methode, fill = list(pct = "0.0%%")) %>% 
+  select(methode, scenar, pct) %>% 
+  pivot_wider(names_from = "scenar", values_from = "pct") %>% 
+  mutate(methode = factor(methode, levels = c("log1BOP", "verlog1BOP", "log2BOP", "verlog2BOP"))) %>% 
+  arrange(methode) %>% 
+  flextable() %>% 
+  theme_box() %>% 
+  autofit()
+```
+
+On retombe sur l'intuition qu'on avait avec la figure sur les proportions de conclusion à une dose prometteuse : la modification ("ver...") est bénéfique dans le cas où on est dans un problème de futilité.
+
+```{r, fig.height = 10}
+ListeScenars <- list(
   Sc1  = list(ttt1 = c(0.15, 0.15, 0.25, 0.45), ttt2 = c(0.15, 0.15, 0.25, 0.45), ttt3 = c(0.15, 0.15, 0.25, 0.45)),
   Sc2  = list(ttt1 = c(0.13, 0.12, 0.27, 0.48), ttt2 = c(0.15, 0.13, 0.27, 0.45), ttt3 = c(0.16, 0.14, 0.29, 0.41)),
   Sc3  = list(ttt1 = c(0.20, 0.30, 0.10, 0.40), ttt2 = c(0.20, 0.30, 0.10, 0.40), ttt3 = c(0.20, 0.30, 0.10, 0.40)),
   Sc4  = list(ttt1 = c(0.15, 0.35, 0.10, 0.40), ttt2 = c(0.17, 0.35, 0.11, 0.37), ttt3 = c(0.19, 0.36, 0.11, 0.34)),
-  Sc5  = list(ttt1 = c(0.10, 0.20, 0.15, 0.55), ttt2 = c(0.20, 0.30, 0.10, 0.40), ttt3 = c(0.19, 0.36, 0.11, 0.34)),
-  Sc6  = list(ttt1 = c(0.15, 0.35, 0.10, 0.40), ttt2 = c(0.18, 0.34, 0.12, 0.36), ttt3 = c(0.25, 0.30, 0.15, 0.30)),
-  Sc7  = list(ttt1 = c(0.11, 0.19, 0.17, 0.53), ttt2 = c(0.20, 0.30, 0.10, 0.40), ttt3 = c(0.25, 0.30, 0.15, 0.30)),
-  Sc8  = list(ttt1 = c(0.14, 0.26, 0.14, 0.46), ttt2 = c(0.20, 0.30, 0.10, 0.40), ttt3 = c(0.25, 0.30, 0.15, 0.30)),
-  Sc9  = list(ttt1 = c(0.18, 0.32, 0.12, 0.38), ttt2 = c(0.22, 0.28, 0.15, 0.35), ttt3 = c(0.23, 0.27, 0.17, 0.33)),
-  Sc10 = list(ttt1 = c(0.12, 0.18, 0.18, 0.52), ttt2 = c(0.17, 0.23, 0.18, 0.42), ttt3 = c(0.23, 0.27, 0.17, 0.33))
+  Sc5  = list(ttt1 = c(0.11, 0.19, 0.17, 0.53), ttt2 = c(0.20, 0.30, 0.10, 0.40), ttt3 = c(0.25, 0.30, 0.15, 0.30)),
+  Sc6  = list(ttt1 = c(0.14, 0.26, 0.14, 0.46), ttt2 = c(0.20, 0.30, 0.10, 0.40), ttt3 = c(0.25, 0.30, 0.15, 0.30)),
+  Sc7  = list(ttt1 = c(0.18, 0.32, 0.12, 0.38), ttt2 = c(0.22, 0.28, 0.15, 0.35), ttt3 = c(0.23, 0.27, 0.17, 0.33)),
+  Sc8  = list(ttt1 = c(0.12, 0.18, 0.18, 0.52), ttt2 = c(0.17, 0.23, 0.18, 0.42), ttt3 = c(0.23, 0.27, 0.17, 0.33)),
+  ScI1 = list(ttt1 = c(0.10, 0.20, 0.15, 0.55), ttt2 = c(0.20, 0.30, 0.10, 0.40), ttt3 = c(0.19, 0.36, 0.11, 0.34)),
+  ScI2 = list(ttt1 = c(0.15, 0.35, 0.10, 0.40), ttt2 = c(0.18, 0.34, 0.12, 0.36), ttt3 = c(0.25, 0.30, 0.15, 0.30))
 )
-TabScenars <- do.call("rbind", lapply(names(Scenarios), \(nom_scenar) {
-  do.call("rbind", lapply(names(Scenarios[[nom_scenar]]), \(nom_bras) {
-    VecProba <- Scenarios[[nom_scenar]][[nom_bras]]
-    data.frame("scenar" = nom_scenar, "ttt" = nom_bras, "eff_true" = VecProba[1] + VecProba[2], "tox_true" = VecProba[1] + VecProba[3])
+NomsScenars <- c(
+  "Sc1"  = "Sc1 : Global Null",
+  "Sc2"  = "Sc2 : Global Null increasing",
+  "Sc3"  = "Sc3 : Global Alternative",
+  "Sc4"  = "Sc4 : Global Alternative increasing",
+  "ScI1" = "ScI1 : 1st dosis futile",
+  "ScI2" = "ScI2 : 3rd dosis toxic",
+  "Sc5"  = "Sc5 : 1st dosis futile and 3rd dosis toxic",
+  "Sc6"  = "Sc6 : 3rd dosis toxic and 1st dosis intermediate",
+  "Sc7"  = "Sc7 : 2nd dosis intermediate and 3rd dosis toxic",
+  "Sc8"  = "Sc8 : No promising dosis"
+)
+TabScenars <- do.call("rbind", lapply(names(ListeScenars), \(nom_scenar) {
+  do.call("rbind", lapply(names(ListeScenars[[nom_scenar]]), \(nom_bras) {
+    VecProba <- ListeScenars[[nom_scenar]][[nom_bras]]
+    data.frame("scenar" = nom_scenar, "ttt" = nom_bras, "eff_true" = VecProba[1] + VecProba[2], "tox_true" = VecProba[1] + VecProba[3]) %>% 
+      mutate(ttt = gsub("^ttt", "D", ttt))
   }))
 }))
-CaracEssaisSup <- CaracEssais %>%
-  bind_rows(CaracEssais %>% filter(methode %in% "mBOP") %>% mutate(cible = "tox")) %>%
-  mutate(cible = ifelse(cible == "both", "efftox", cible))
-CaracEssaisCrmSup <- CaracEssaisCrm %>%
-  bind_rows(CaracEssaisCrm %>% filter(methode %in% "mBOP") %>% mutate(cible = "tox")) %>%
-  mutate(cible = ifelse(cible == "both", "efftox", cible))
+Graphe <- ((CaracEssaisLogit %>% 
+              filter(cible != "tox", scenar %in% c("ScI1", "ScI2")) %>% 
+              mutate(ttt = gsub("^ttt", "D", ttt),
+                     methode = factor(methode, levels = c("log1BOP", "verlog1BOP", "log2BOP", "verlog2BOP"))) %>% 
+              ggplot(aes(y = est_eff, x = methode, fill = methode)) +
+              geom_boxplot(alpha = .6) +
+              geom_hline(data = TabScenars %>% filter(scenar %in% c("ScI1", "ScI2")), aes(yintercept = eff_true), 
+                         color = "darkred", linetype = "solid", linewidth = .7) +
+              facet_grid(scenar ~ ttt) +
+              scale_fill_discrete(type = c("#0f3d9b", "#08a448", "#7846ab", "#c33215", "#dd790e", "#11caa6", "#07772e")) + 
+              theme_light(base_size = 13) +
+              scale_y_continuous(labels = scales::percent_format()) +
+              theme(legend.position = "none",
+                    strip.background = element_rect(fill = "white", color = "black", size = 1.2),
+                    strip.text = element_text(face = "bold", color = "black", size = 12),
+                    axis.text.x = element_markdown(angle = 45, hjust = 1)) +
+              labs(x = NULL, y = "Efficacy")) /
+             (CaracEssaisLogit %>% 
+                filter(cible != "tox", scenar %in% c("ScI1", "ScI2")) %>% 
+                mutate(ttt = gsub("^ttt", "D", ttt),
+                       methode = factor(methode, levels = c("log1BOP", "verlog1BOP", "log2BOP", "verlog2BOP"))) %>% 
+                ggplot(aes(y = est_tox, x = methode, fill = methode)) +
+                geom_boxplot(alpha = .6) +
+                geom_hline(data = TabScenars %>% filter(scenar %in% c("ScI1", "ScI2")), aes(yintercept = tox_true), 
+                           color = "darkred", linetype = "solid", linewidth = .7) +
+                facet_grid(scenar ~ ttt) +
+                scale_fill_discrete(type = c("#0f3d9b", "#08a448", "#7846ab", "#c33215", "#dd790e", "#11caa6", "#07772e")) + 
+                theme_light(base_size = 13) +
+                scale_y_continuous(labels = scales::percent_format()) +
+                theme(legend.position = "none",
+                      strip.background = element_rect(fill = "white", color = "black", size = 1.2),
+                      strip.text = element_text(face = "bold", color = "black", size = 12),
+                      axis.text.x = element_markdown(angle = 45, hjust = 1)) +
+                labs(x = NULL, y = "Toxicity"))) +
+  plot_annotation(tag_levels = "A")
+plot(Graphe)
 ```
 
+Au niveau des estimations de l'efficacité, globalement la modification pour le log a l'air de s'en sortir mieux.
 
-```{r, fig.width = 12, fig.height = 20}
-left_join(CaracEssaisSup, TabScenars, by = join_by(scenar, ttt)) %>%
-  group_by(scenar, ttt, methode, cible) %>%
-  summarise(biais_eff = mean(est_eff - eff_true), .groups = "drop") %>%
-  ggplot(aes(biais_eff, methode, fill = ttt)) +
-  annotate("ribbon", x = c(-Inf, Inf), ymin = 4.5, ymax = 5.5, fill = "darkgrey", alpha = .6) +
-  geom_hline(yintercept = seq(1.5, 10.5), linetype = "dashed", color = "darkgrey", linewidth = 1) +
-  geom_col(position = position_dodge(width = 1)) +
-  facet_grid(scenar ~ cible) +
-  scale_x_continuous(labels = scales::percent_format()) +
-  labs(x = "Biais dans l'estimation de l'efficacité")
-```
-
-Sur le côté droit, comme on n'applique le modèle qu'à la toxicité, on ne voit pas grand chose.
-Globalement, on sous-estime la valeur d'efficacité, ce qui est attendu car on peut s'arrêter pour futilité, ce qui biaise l'estimation vers le bas.
-
-Sur le côté gauche, ce qui saute aux yeux c'est que le modèle log2 est très biaisé, probablement provoqué par la contrainte d'une relation croissante avec la dose.
-On a souvent une surestimation de l'efficacité dans les doses élevées et sous-estimée pour les doses faibles.
-
-seqBOP donne environ la même estimation que mBOP ou un peu plus conservateur.
-
-Les power priors peuvent donner des biais dans les 2 sens selon le scénario.
-
-Le modèle hiérarchique, en ramenant l'estimation vers la moyenne commune aux 3 bras, peut donner des biais dans les 2 sens (surestimation pour les faibles doses et sous-estimation pour les fortes doses), dans un ordre de grandeur qui est comparable à mBOP.
-
-Le CBHM n'a presque pas de biais.
-
-Le modèle logistique 1 donne des résultats biaisés dans le sens sous-estimation de l'efficacité lorsque les OR ne sont pas proportionnels.
-
-```{r, fig.width = 12, fig.height = 20}
-CaracEssaisSup %>%
-  mutate(larg_ic = icsup_eff - icinf_eff) %>%
-  group_by(scenar, ttt, methode, cible) %>%
-  summarise(moy = mean(larg_ic),
-            perc5 = quantile(larg_ic, probs = .05),
-            perc2_5 = quantile(larg_ic, probs = .025),
-            perc95 = quantile(larg_ic, probs = .95),
-            perc97_5 = quantile(larg_ic, probs = .975),
-            .groups = "drop") %>%
-  ggplot(aes(y = methode, color = ttt)) +
-  annotate("ribbon", x = c(-Inf, Inf), ymin = 4.5, ymax = 5.5, fill = "darkgrey", alpha = .6) +
-  geom_hline(yintercept = seq(1.5, 10.5), linetype = "dashed", color = "darkgrey", linewidth = 1) +
-  geom_point(aes(x = moy), position = position_dodge(width = 1)) +
-  geom_segment(aes(x = perc2_5, xend = perc97_5), position = position_dodge(width = 1)) +
-  facet_grid(scenar ~ cible) +
-  scale_x_continuous(labels = scales::percent_format()) +
-  labs(x = "Largeur de l'IC de l'efficacité", caption = "Le point est la moyenne et le trait va du 2.5ème percentile au 97.5ème percentile dans les 5000 essais simulés")
-```
-
-On se concentre encore sur le panel de gauche.
-
-Pour seqBOP, l'IC est un peu moins large pour les doses faibles, ce qui coincide avec le partage d'information des bras à une dose supérieure qui serait non efficace, sauf pour le scénario 2 car peu de bras qui sont étiquetés non efficaces.
-Les power priors sont moins larges que mBOP.
-Parmi les 2 modèles bayésiens hiérarchiques, le hBOP donne les IC les plus étroits, et CBHM se rapproche de mBOP.
-Les modèles logistiques ont les IC les plus étroits, surtout dans le bras intermédiaire.
-
-
-## Estimation de la toxicité
-
-
-```{r, fig.width = 12, fig.height = 20}
-left_join(CaracEssaisSup, TabScenars, by = join_by(scenar, ttt)) %>%
-  group_by(scenar, ttt, methode, cible) %>%
-  summarise(biais_tox = mean(est_tox - tox_true), .groups = "drop") %>%
-  ggplot(aes(biais_tox, methode, fill = ttt)) +
-  annotate("ribbon", x = c(-Inf, Inf), ymin = 4.5, ymax = 5.5, fill = "darkgrey", alpha = .6) +
-  geom_hline(yintercept = seq(1.5, 10.5), linetype = "dashed", color = "darkgrey", linewidth = 1) +
-  geom_col(position = position_dodge(width = 1)) +
-  facet_grid(scenar ~ cible) +
-  scale_x_continuous(labels = scales::percent_format()) +
-  labs(x = "Biais dans l'estimation de la toxicité")
-```
-
-Pour la toxicité, on a tendance à être biaisé vers une surrestimation de la toxicité de manière générale, ce qui va dans le sens de l'analyse : comme on arrête les bras trop toxiques, il y a des chances qu'on sélectionne des moments/des bras qui sont plus toxiques pour leur dernière analyse.
-
-Les 2 panels sont comparables.
-
-On remarque d'emblée qu'il y a des gros biais pour boplog2 avec une surestimation de la toxicité pour la dose la plus élevée, et une sous-estimation pour la dose la plus faible.
-C'est certainement dû à la contrainte d'une relation positive avec la dose.
-seqBOP, tout comme pour l'efficacité est plus conservateur.
-Pour le power prior, on peut être biaisé dans les 2 sens selon le scénario.
-Parmi les modèles hiérarchiques, cette fois-ci, il ne semble pas y avoir de résultat biaisé vers une sous-estimation, mais selon les scénarios c'est peut-être possible.
-Le modèle hBOP est celui qui donne le moins de biais, et CBHM surestime plus la toxicité.
-
-```{r, fig.width = 12, fig.height = 20}
-CaracEssaisSup %>%
-  mutate(larg_ic = icsup_tox - icinf_tox) %>%
-  group_by(scenar, ttt, methode, cible) %>%
-  summarise(moy = mean(larg_ic),
-            perc5 = quantile(larg_ic, probs = .05),
-            perc2_5 = quantile(larg_ic, probs = .025),
-            perc95 = quantile(larg_ic, probs = .95),
-            perc97_5 = quantile(larg_ic, probs = .975),
-            .groups = "drop") %>%
-  ggplot(aes(y = methode, color = ttt)) +
-  annotate("ribbon", x = c(-Inf, Inf), ymin = 7.5, ymax = 8.5, fill = "darkgrey", alpha = .6) +
-  geom_hline(yintercept = seq(1.5, 10.5), linetype = "dashed", color = "darkgrey", linewidth = 1) +
-  geom_point(aes(x = moy), position = position_dodge(width = 1)) +
-  geom_segment(aes(x = perc2_5, xend = perc97_5), position = position_dodge(width = 1)) +
-  facet_grid(scenar ~ cible) +
-  scale_x_continuous(labels = scales::percent_format()) +
-  labs(x = "Largeur de l'IC de la toxicité", caption = "Le point est la moyenne et le trait va du 2.5ème percentile au 97.5ème percentile dans les 5000 essais simulés")
-```
-
-Mêmes conclusions sur les IC que pour l'efficacité.
-
-## Modèle logistique en utilisant des squelettes de CRM
-
-Pour ces modèles, la dose (1, 2, 3) est remplacé par le squelette de la CRM.
-Pour la toxicité, les toxicités a priori pour les 3 doses sont (0.30; 0.35; 0.40) avec une MTD à 0.40 donc à la dose 3.
-Puis pour obtenir le squelette, on applique la fonction logistique avec pour intercept 3 et pour pente 1 (a priori par défaut dans la CRM) : $f(x)=\frac{Ln(\frac{x}{1-x})-3}{1}$ pour obtenir le squelette correspondant.
-En ce qui concerne la calibration du squelette, l'article de Shing Lee (**Lee SM, Ying Kuen Cheung. Model calibration in the continual reassessment method. Clin Trials. 2009 Jun;6(3):227-38.**) proposait d'utiliser un intervalle $\delta$ qui représenterait la zone où la MTD pourrait se retrouver de façon acceptable pour calibrer le squelette.
-Malheureusement, je n'arrive pas à retrouver les mêmes résultats que ceux de son article mais des valeurs un peu plus élevées avec des pourcentages de sélection correcte bien plus faibles.
-J'ai trouvé une [présentation de Ken Cheung](http://www.columbia.edu/~yc632/pub/crmcal.pdf) qui préconise de prendre comme approximation $0.25\times MTD$ donc j'ai tenté avec $\delta=0.1$.
-Concernant la variance calibrée, je n'ai pas compris comment ils faisaient donc je n'ai pas implémenté.
-
-Pour l'efficacité, le raisonnement est pareil avec des efficacités pour les 3 doses a priori de (0.30; 0.40; 0.50) et une "MTD" à 0.50.
-Je ne sais pas s'il faut l'appliquer à l'efficacité car c'est renversé comme problème.
-
-Dans le modèle, il y a donc les modèles sans la mention "delta" qui sont fait avec le squelette calculé sans le $\delta$ et les version avec mention "delta" qui utilisent le squelette calculé avec le paramètre $\delta$ pour le calibrer.
-Ensuite, il y a les modèles "fixed" pour lesquels j'ai fixé l'intercept de la régression logistique à 3 (article de Sylvie qui est souvent cité par les gens mais je trouve que le 3 est plutôt un résultat de simulations dans ses hypothèses et qu'elle préconise plutôt de voir par simulation quelle valeur conviendrait le mieux) ; et les modèles "unfixed" pour lesquels l'intercept est estimé.
-
-```{r, fig.cap = "FWER pour le scénario 1"}
-CaracGlobalesCrm %>%
-  filter(scenar %in% c("Sc1")) %>%
-  ggplot(aes(rejet_glob, methode, color = cible)) +
-  geom_point(position = position_dodge(width = .5), size = 2) +
-  labs(x = "FWER", y = NULL, color = "Variante") +
-  scale_color_discrete(type = c("black", "steelblue", "coral"), labels = c("Pas de partage", "Eff+Tox", "Tox")) +
-  expand_limits(x = 0)
-
-```
-
-Le modèle avec squelette avec estimation de l'intercept, on est voisin de mBOP en termes de FWER, par contre pour l'intercept fixé à 3, on a inflation du FWER pour le modèle avec application du modèle logistique bayésien sur la toxicité.
-
-```{r, fig.cap = "Estimation de l'efficacité et de la toxicité pour les modèles logistiques avec squelette de CRM dans le scénario 1", fig.width = 12, fig.height = 10}
-(CaracEssaisCrm %>%
-  filter(scenar %in% c("Sc7")) %>%
-  ggplot(aes(methode, est_eff, fill = cible)) +
-  geom_boxplot() +
-   facet_wrap(vars(ttt)) +
-   labs(x = "Schéma", y = "Efficacité")) /
-  (CaracEssaisCrm %>%
-  filter(scenar %in% c("Sc7")) %>%
-  ggplot(aes(methode, est_tox, fill = cible)) +
-  geom_boxplot() +
-   facet_wrap(vars(ttt)) +
-   labs(x = "Schéma", y = "Toxicité")) &
-  theme(axis.text.x = element_text(angle = 90))
-
-```
-
-On peut voir dans les estimations par bras les raisons de cette augmentation du FWER.
-
-Pour le schéma avec intercept fixé et squelette trouvé avec un &Delta;, l'intercept fixé de 3 donne visiblement une sous-estimation de la toxicité dans le bras 1 et une surestimation de la toxicité dans le bras 3.
-Idem pour l'efficacité.
-
-Et pour le schéma fixé sans &Delta;, la tendance est la même mais beaucoup moins prononcée.
-
-Pour les schémas avec estimation de l'intercept, les résultats sont similaires avec bop_log1, avec peut-être une moins grande variabilité de l'estimation de la toxicité pour le schéma sans utiliser &Delta; dans le squelette.
-
-```{r, fig.cap = "Puissance pour le scénario 3"}
-CaracGlobalesCrm %>%
-  filter(scenar %in% c("Sc3")) %>%
-  ggplot(aes(rejet_glob, methode, color = cible)) +
-  geom_point(position = position_dodge(width = .5), size = 2) +
-  labs(x = "Puissance", y = NULL, color = "Variante") +
-  scale_color_discrete(type = c("black", "steelblue", "coral"), labels = c("Pas de partage", "Eff+Tox", "Tox")) +
-  expand_limits(x = 0)
-
-```
-
-Les chiffres globaux sont hauts, mais on a l'impression que la puissance est équivalente avec les squelettes de CRM.
-Il y a le schéma avec intercept fixé et utilisation du &Delta; qui perd en puissance, sûrement dû à la sous-estimation de l'efficacité dans le bras 1.
-
-```{r, fig.cap = "Puissance dans les bras du scénario 3"}
-CaracBrasCrm %>%
-  filter(scenar %in% c("Sc7")) %>%
-  ggplot(aes(rejet_h0, methode, color = cible)) +
-  geom_point(position = position_dodge(width = .5), size = 2) +
-  labs(x = "Puissance", y = NULL, color = "Variante") +
-  scale_color_discrete(type = c("black", "steelblue", "coral"), labels = c("Pas de partage", "Eff+Tox", "Tox")) +
-  expand_limits(x = 0) +
-  facet_wrap(vars(ttt))
-```
-
-Le schéma avec intercept fixé et usage du &Delta; fait pire que mBOP dans tous les bras sauf pour le bras 1 en n'appliquant le modèle que sur la toxicité.
-Sans utiliser le &Delta; mais en fixant l'intercept, on a un gain de puissance sauf dans le bras 1.
-
-Pour les schémas à 2 paramètres, en utilisant &Delta; on a des résultats similaires à bop_log1, et sans &Delta; on a un petit gain de puissance dans les bras.
-
-```{r, fig.cap = "Pourcentage de conclusion à un traitement prometteur dans les bras du scénario 5"}
-CaracBrasCrm %>%
-  filter(scenar %in% c("Sc5")) %>%
-  ggplot(aes(rejet_h0, methode, color = cible)) +
-  geom_point(position = position_dodge(width = .5), size = 2) +
-  labs(x = "Puissance", y = NULL, color = "Variante") +
-  scale_color_discrete(type = c("black", "steelblue", "coral"), labels = c("Pas de partage", "Eff+Tox", "Tox")) +
-  expand_limits(x = 0) +
-  facet_wrap(vars(ttt))
-```
-
-Le schéma avec intercept fixé et usage du &Delta; perd énormément en puissance et n'est pas à recommender.
-
-Si on n'utilise pas le &Delta;, on a un léger gain de puissance par rapport à bop_log1, mais on augmente beaucoup les faux positifs dans le bras 1 quand on utilise le modèle pour efficacité et toxicité.
-
-On retrouve que le modèle à 2 paramètres et usage de &Delta; fait environ comme bop_log1, et le schéma fixé sans &Delta; augmente la puissance, mais augmente un peu plus le risque de faux positifs dans le bras 1.
-
-```{r, fig.width = 8, fig.height = 12}
-bind_rows(CaracBrasCrm %>% filter(methode == "mBOP") %>% mutate(cible = "efftox"), CaracBrasCrm %>% mutate(cible = ifelse(methode == "mBOP", "tox", cible))) %>%
-  mutate(scenar = factor(scenar, levels = paste0("Sc", c(1, 3, 5)))) %>%
-  ggplot(aes(x = tot_pat, y = methode, fill = ttt)) +
-  annotate("ribbon", x = c(-Inf, Inf), ymin = 5.5, ymax = 6.5, fill = "darkgrey", alpha = .6) +
-  geom_col(position = position_dodge(width = 1)) +
-  facet_grid(scenar ~ cible)
-```
-
-Globalement, les scénarios avec intercept non fixé ont l'air de faire environ comme bop_log1 en terms de nombre de patients.
-
-```{r, fig.width = 8, fig.height = 12}
-left_join(CaracEssaisCrmSup, TabScenars, by = join_by(scenar, ttt)) %>%
-  group_by(scenar, ttt, methode, cible) %>%
-  summarise(biais_eff = mean(est_eff - eff_true), .groups = "drop") %>%
-  ggplot(aes(biais_eff, methode, fill = ttt)) +
-  annotate("ribbon", x = c(-Inf, Inf), ymin = 5.5, ymax = 6.5, fill = "darkgrey", alpha = .6) +
-  geom_hline(yintercept = seq(1.5, 10.5), linetype = "dashed", color = "darkgrey", linewidth = 1) +
-  geom_col(position = position_dodge(width = 1)) +
-  facet_grid(scenar ~ cible) +
-  scale_x_continuous(labels = scales::percent_format()) +
-  labs(x = "Biais dans l'estimation de l'efficacité")
-```
-
-```{r, fig.width = 8, fig.height = 12}
-left_join(CaracEssaisCrmSup, TabScenars, by = join_by(scenar, ttt)) %>%
-  group_by(scenar, ttt, methode, cible) %>%
-  summarise(biais_tox = mean(est_tox - tox_true), .groups = "drop") %>%
-  ggplot(aes(biais_tox, methode, fill = ttt)) +
-  annotate("ribbon", x = c(-Inf, Inf), ymin = 5.5, ymax = 6.5, fill = "darkgrey", alpha = .6) +
-  geom_hline(yintercept = seq(1.5, 10.5), linetype = "dashed", color = "darkgrey", linewidth = 1) +
-  geom_col(position = position_dodge(width = 1)) +
-  facet_grid(scenar ~ cible) +
-  scale_x_continuous(labels = scales::percent_format()) +
-  labs(x = "Biais dans l'estimation de la toxicité")
-```
-
-Les modèles sans intercept fixés sont un peu moins biaisés que bop_log1.
-
-Le modèle crmunfixed a l'air d'un bon candidat.
-
-```{r}
-knitr::knit_exit()
-```
-
-
-# Exploration des priors
-
-## Explicitation des priors
-
-**Pour le BHM et CBHM :**
-
-Les priors choisi en principal sont : 
-
-- $\mu_\text{eff}\sim N(logit(0.3), 2.5²) / \sigma_\text{eff}\sim Half-N(1)$ 
-- $\mu_\text{tox}\sim N(logit(0.4), 2.5²) / \sigma_\text{tox}\sim Half-N(1)$
-
-En ce qui concerne l'efficacité, cela donne un intervalle de crédibilité de la moyenne à 95% de [0.00-0.98], et pour la toxicité de [0.00-0.99].
-Ils sont pessimistes (centrés sur H0).
-La variance de 2.5² a été choisie car si on centre la loi normale sur 0, cela donne un prior de Jeffreys.
-Pour l'hyperprior de variance, cela fait un intervalle de crédibilité à 95% de [0.03-2.24] ce qui avait été donné dans l'article de Neuenschwander pour le modèle ExNex comme étant relativement conservateur au niveau du partage d'information.
-
-Pour les changements de centre des priors, j'ai testé optimiste (centré sur H1) et un mix des 2 (centré sur 50%, donc optimiste en efficacité et pessimiste en toxicité).
-
-Concernant les variances, j'ai pris :
-
-- 10² car c'est ce qui est utilisé dans l'article de Berry du BHM.
-En fixant le centre de la distribution sous H0, on obtient un intervalle de crédibilité à 95% pour l'efficacité et la toxicité de [0.00-1.00]
-- 2.5² expliqué ci-dessus
-- 1.94² pour l'efficacité et 1.78² pour la toxicité résultant de l'article de Neuenscwhander pour le ExNex comme étant un prior équivalent à une observation.
-Cela donne un intervalle de crédibilité à 95% pour l'efficacité de [0.01-0.95] et pour la toxicité de [0.02-0.96].
-
-Et pour l'hyperprior de variance, en analyse principale j'ai pris 1 comme pour le ExNex, et j'ai testé 5 et 0.5 en plus.
-
-- H-N(5) -> IC95% = [0.16-11.21]
-- H-N(0.5) -> IC95% = [0.02-1.12] (cité comme "still fairly weak" dans l'article ExNex)
-
-**Pour la régression logistique :**
-
-Pour l'analyse principale, j'ai pris $\alpha_\text{eff}\sim N(logit(0.3)=-0.87, 1²) / \alpha_\text{tox}\sim N(logit(0.4)=-0.41, 1²)$ et $\beta_\text{eff}\sim N(0.42, 1²) / \beta_\text{tox}\sim N(0.22, 1²)$.
-Pour les coefficients $\alpha$, ils ont centrés sur H0 pour la dose 1 avec un intervalle de crédibilité à 95% pour l'efficacité de [0.06-0.75] et pour la toxicité de [0.09-0.83].
-Et pour les coefficients, cela donne pour l'efficacité OR = 1.52 [0.21-10.80] et pour la toxicité OR = 1.25 [0.18-8.85].
-Cela représente pour moi des valeurs plausibles.
-
-Pour la variation sur l'intercept :
-
-- centré sur 50% sigma = 2.5 : prior de Jeffreys pour efficacité et toxicité à dose 1
-- Centré sur H0, sigma = 2.5 : efficacité = 0.3 [0.00-0.98] / toxicité = 0.4 [0.00-0.99]
-- Centré sur H1, sigma = 2.5 : efficacité = 0.5 [0.01-0.99] / toxicité = 0.3 [0.00-0.98]
-- Centré sur H1, sigma = 1 : efficacité = 0.5 [0.12-0.88] / toxicité = 0.3 [0.06-0.75]
-
-Pour la variation de la pente (logOR) :
-
-- OR = 1.52/1.25 avec sigma = 2.5 : OReff = 1.52 [0.01-204.37] / ORtox = 1.25 [0.00-167.32]
-- OR = 7.4 avec sigma = 1 : OR = 7.39 [1.04-52.46]
-- OR = 1 avec sigma = 1 : OR = 1.00 [0.14-7.10]
-- OR = 1 avec sigma = 2.5 : OR = 1.00 [0.01-134.28]
-
-
-## Impact des priors
-
-### BHM et CBHM
-
-#### Centre des priors
-
-Pour ici, on fixe l'écart-type des priors pour les moyenne à 2.5 et l'hyperprior de variance à 1 pour le BHM.
-On regarde d'abord si les centres influent : soit centrés sur H0, soit sur H1, soit sur 50% d'efficacité/toxicité.
-
-Pour les scénarios 1 et 2 :
-
-```{r}
-CaracGlobalesPriors %>% 
-  filter(scenar %in% paste0("Sc", 1:2), methode %in% c("hBOP", "cbhmBOP")) %>% 
-  mutate(inform = case_when(inform == "noninf" ~ "sig=10",
-                            inform == "peuinf" ~ "sig=2.5",
-                            inform == "inf" ~ "sig=exnex")) %>% 
-  filter(inform == "sig=2.5", hypervar_coef == "var1" | hypervar_coef == "NA") %>% 
-  ggplot(aes(x = rejet_glob, y = scenar, color = centre)) +
-  geom_point(position = position_dodge2(width = .2)) +
-  scale_color_discrete(type = c("black", "steelblue", "coral"), labels = c("0.5", "H0", "H1")) +
-  expand_limits(x = 0) +
-  facet_wrap(vars(methode)) +
-  labs(y = "Scénario", x = "FWER", color = "Centre des priors")
-```
-
-Sur ces scénarios sous H0, on a globalement des résultats conservés.
-On augmente légèrement le FWER, mais on reste bien en-dessous des 10% préspécifiés.
-
-Pour les scénarios 3 et 4 :
-
-```{r}
-CaracGlobalesPriors %>% 
-  filter(scenar %in% paste0("Sc", 3:4), methode %in% c("hBOP", "cbhmBOP")) %>% 
-  mutate(inform = case_when(inform == "noninf" ~ "sig=10",
-                            inform == "peuinf" ~ "sig=2.5",
-                            inform == "inf" ~ "sig=exnex")) %>% 
-  filter(inform == "sig=2.5", hypervar_coef == "var1" | hypervar_coef == "NA") %>% 
-  ggplot(aes(x = rejet_glob, y = scenar, color = centre)) +
-  geom_point(position = position_dodge2(width = .2)) +
-  scale_color_discrete(type = c("black", "steelblue", "coral"), labels = c("0.5", "H0", "H1")) +
-  expand_limits(x = 0) +
-  facet_wrap(vars(methode)) +
-  labs(y = "Scénario", x = "Puissance", color = "Centre des priors")
-```
-
-Pour la puissance, on ne voit pas grand chose car on est presque à 100%.
-Ci-dessous, les résultats par bras.
-
-```{r}
-CaracBrasPriors %>% 
-  filter(scenar %in% paste0("Sc", 3:4), methode %in% c("hBOP", "cbhmBOP")) %>% 
-  mutate(inform = case_when(inform == "noninf" ~ "sig=10",
-                            inform == "peuinf" ~ "sig=2.5",
-                            inform == "inf" ~ "sig=exnex")) %>% 
-  filter(inform == "sig=2.5", hypervar_coef == "var1" | hypervar_coef == "NA") %>% 
-  ggplot(aes(x = rejet_h0, y = scenar, color = centre)) +
-  geom_point(position = position_dodge2(width = .2)) +
-  scale_color_discrete(type = c("black", "steelblue", "coral"), labels = c("0.5", "H0", "H1")) +
-  expand_limits(x = 0) +
-  facet_grid(ttt ~ methode) +
-  labs(y = "Scénario", x = "Puissance", color = "Centre des priors")
-```
-
-On retrouve peu de différences selon le prior choisi.
-
-Pour les scénarios 5 et 6 (ceux de l'ibrutinib) :
-
-```{r}
-CaracBrasPriors %>% 
-  filter(scenar %in% paste0("Sc", 5:6), methode %in% c("hBOP", "cbhmBOP")) %>% 
-  mutate(inform = case_when(inform == "noninf" ~ "sig=10",
-                            inform == "peuinf" ~ "sig=2.5",
-                            inform == "inf" ~ "sig=exnex")) %>% 
-  filter(inform == "sig=2.5", hypervar_coef == "var1" | hypervar_coef == "NA") %>% 
-  ggplot(aes(x = rejet_h0, y = scenar, color = centre)) +
-  geom_point(position = position_dodge2(width = .2)) +
-  scale_color_discrete(type = c("black", "steelblue", "coral"), labels = c("0.5", "H0", "H1")) +
-  expand_limits(x = 0) +
-  facet_grid(ttt ~ methode) +
-  labs(y = "Scénario", x = "Puissance", color = "Centre des priors")
-```
-
-Dans le cas du CBHM, il n'y a pas beaucoup d'influence.
-Dans le cas du BHM, dans le cas du scénario 5 où il faut arrêter le bras 1, les priors plus optimistes sur l'efficacité donnent une très légère augmentation du risque de faux positifs (+3%).
-
-En somme, l'influence des priors est assez limitée, et nous avons pris un prior pessimiste qui garde environ la même puissance mais n'augmente pas le risque de faux positifs.
-
-#### Variance du prior de la moyenne
-
-Pour ici, on fixe la moyenne des priors pour les moyennes à la valeur sous H0 et l'hyperprior de variance à 1 pour le BHM.
-On regarde d'abord si les variances des priors pour les moyennes influent : soit 10², soit 2.5², soit ce qui est calculé dans l'article de Neuenschwander pour le EXNEX : une variance pour l'information d'un essai de 1 patient (1.94² pour l'efficacité et 1.78² pour la toxicité).
-
-Pour les scénarios 1 et 2 :
-
-```{r}
-CaracGlobalesPriors %>% 
-  filter(scenar %in% paste0("Sc", 1:2), methode %in% c("hBOP", "cbhmBOP")) %>% 
-  mutate(inform = case_when(inform == "noninf" ~ "sig=10",
-                            inform == "peuinf" ~ "sig=2.5",
-                            inform == "inf" ~ "sig=exnex")) %>% 
-  filter(centre == "h0", hypervar_coef == "var1" | hypervar_coef == "NA") %>% 
-  ggplot(aes(x = rejet_glob, y = scenar, color = inform)) +
-  geom_point(position = position_dodge2(width = .2)) +
-  scale_color_discrete(type = c("black", "steelblue", "coral")) +
-  expand_limits(x = 0) +
-  facet_wrap(vars(methode)) +
-  labs(y = "Scénario", x = "FWER", color = "ETypes des priors")
-```
-
-Sur ces scénarios sous H0, on a globalement des résultats conservés.
-On augmente légèrement le FWER pour le CBHM avec des priors moins informatifs, mais on reste bien en-dessous des 10% préspécifiés.
-
-Pour les scénarios 3 et 4 :
-
-```{r}
-CaracGlobalesPriors %>% 
-  filter(scenar %in% paste0("Sc", 3:4), methode %in% c("hBOP", "cbhmBOP")) %>% 
-  mutate(inform = case_when(inform == "noninf" ~ "sig=10",
-                            inform == "peuinf" ~ "sig=2.5",
-                            inform == "inf" ~ "sig=exnex")) %>% 
-  filter(centre == "h0", hypervar_coef == "var1" | hypervar_coef == "NA") %>% 
-  ggplot(aes(x = rejet_glob, y = scenar, color = inform)) +
-  geom_point(position = position_dodge2(width = .2)) +
-  scale_color_discrete(type = c("black", "steelblue", "coral")) +
-  expand_limits(x = 0) +
-  facet_wrap(vars(methode)) +
-  labs(y = "Scénario", x = "Puissance", color = "ETypes des priors")
-```
-
-Pour la puissance, on ne voit pas grand chose car on est presque à 100%.
-Ci-dessous, les résultats par bras.
-
-```{r}
-CaracBrasPriors %>% 
-  filter(scenar %in% paste0("Sc", 3:4), methode %in% c("hBOP", "cbhmBOP")) %>% 
-  mutate(inform = case_when(inform == "noninf" ~ "sig=10",
-                            inform == "peuinf" ~ "sig=2.5",
-                            inform == "inf" ~ "sig=exnex")) %>% 
-  filter(centre == "h0", hypervar_coef == "var1" | hypervar_coef == "NA") %>% 
-  ggplot(aes(x = rejet_h0, y = scenar, color = inform)) +
-  geom_point(position = position_dodge2(width = .2)) +
-  scale_color_discrete(type = c("black", "steelblue", "coral")) +
-  expand_limits(x = 0) +
-  facet_grid(ttt ~ methode) +
-  labs(y = "Scénario", x = "Puissance", color = "ETypes des priors")
-```
-
-On retrouve peu de différences selon le prior choisi.
-
-Pour les scénarios 5 et 6 (ceux de l'ibrutinib) :
-
-```{r}
-CaracBrasPriors %>% 
-  filter(scenar %in% paste0("Sc", 5:6), methode %in% c("hBOP", "cbhmBOP")) %>% 
-  mutate(inform = case_when(inform == "noninf" ~ "sig=10",
-                            inform == "peuinf" ~ "sig=2.5",
-                            inform == "inf" ~ "sig=exnex")) %>% 
-  filter(centre == "h0", hypervar_coef == "var1" | hypervar_coef == "NA") %>% 
-  ggplot(aes(x = rejet_h0, y = scenar, color = inform)) +
-  geom_point(position = position_dodge2(width = .2)) +
-  scale_color_discrete(type = c("black", "steelblue", "coral")) +
-  expand_limits(x = 0) +
-  facet_grid(ttt ~ methode) +
-  labs(y = "Scénario", x = "Puissance", color = "ETypes des priors")
-```
-
-Globalement, on retrouve peu d'influence de ce paramètre sur les résultats.
-
-Nous avons choisi l'écart-type de 2.5 car cela mime un prior de Jeffreys lorsqu'on est centré sur 0.5.
-
-
-#### Hyperprior de variance
-
-Uniquement pour le BHM, avec hyperprior de moyenne centré sur H0 et de variance 2.5².
-
-Pour les scénarios 1 et 2 :
-
-```{r}
-CaracGlobalesPriors %>% 
-  filter(scenar %in% paste0("Sc", 1:2), methode %in% c("hBOP")) %>% 
-  mutate(inform = case_when(inform == "noninf" ~ "sig=10",
-                            inform == "peuinf" ~ "sig=2.5",
-                            inform == "inf" ~ "sig=exnex"),
-         hypervar_coef = gsub("^var", "sig=", hypervar_coef),
-         hypervar_coef = gsub("p", "\\.", hypervar_coef)) %>% 
-  filter(centre == "h0", inform == "sig=2.5") %>% 
-  ggplot(aes(x = rejet_glob, y = scenar, color = hypervar_coef)) +
-  geom_point(position = position_dodge2(width = .2)) +
-  scale_color_discrete(type = c("black", "steelblue", "coral")) +
-  expand_limits(x = 0) +
-  labs(y = "Scénario", x = "FWER", color = "Hyperprior de variance")
-```
-
-Ce prior a plus d'impact sur les résultats avec une légère augmentation du FWER lorsqu'on augmente la variance du prior.
-
-Pour les scénarios 3 et 4 :
-
-```{r}
-CaracGlobalesPriors %>% 
-  filter(scenar %in% paste0("Sc", 3:4), methode %in% c("hBOP")) %>% 
-  mutate(inform = case_when(inform == "noninf" ~ "sig=10",
-                            inform == "peuinf" ~ "sig=2.5",
-                            inform == "inf" ~ "sig=exnex"),
-         hypervar_coef = gsub("^var", "sig=", hypervar_coef),
-         hypervar_coef = gsub("p", "\\.", hypervar_coef)) %>% 
-  filter(centre == "h0", inform == "sig=2.5") %>% 
-  ggplot(aes(x = rejet_glob, y = scenar, color = hypervar_coef)) +
-  geom_point(position = position_dodge2(width = .2)) +
-  scale_color_discrete(type = c("black", "steelblue", "coral")) +
-  expand_limits(x = 0) +
-  facet_wrap(vars(methode)) +
-  labs(y = "Scénario", x = "Puissance", color = "Hyperprior de variance")
-```
-
-Pour la puissance, on ne voit pas grand chose car on est presque à 100%.
-Ci-dessous, les résultats par bras.
-
-```{r}
-CaracBrasPriors %>% 
-  filter(scenar %in% paste0("Sc", 3:4), methode %in% c("hBOP")) %>% 
-  mutate(inform = case_when(inform == "noninf" ~ "sig=10",
-                            inform == "peuinf" ~ "sig=2.5",
-                            inform == "inf" ~ "sig=exnex"),
-         hypervar_coef = gsub("^var", "sig=", hypervar_coef),
-         hypervar_coef = gsub("p", "\\.", hypervar_coef)) %>% 
-  filter(centre == "h0", inform == "sig=2.5") %>% 
-  ggplot(aes(x = rejet_h0, y = scenar, color = hypervar_coef)) +
-  geom_point(position = position_dodge2(width = .2)) +
-  scale_color_discrete(type = c("black", "steelblue", "coral")) +
-  expand_limits(x = 0) +
-  facet_grid(ttt ~ methode) +
-  labs(y = "Scénario", x = "Puissance", color = "Hyperprior de variance")
-```
-
-On a une augmentation de la puissance en diminuant la variance de l'hyperprior.
-Après on est ici dans des scénarios homogènes entre les doses, donc c'est logique qu'en mettant moins de variabilité au début on colle mieux avec les données.
-
-Pour les scénarios 5 et 6 (ceux de l'ibrutinib) :
-
-```{r}
-CaracBrasPriors %>% 
-  filter(scenar %in% paste0("Sc", 5:6), methode %in% c("hBOP")) %>% 
-  mutate(inform = case_when(inform == "noninf" ~ "sig=10",
-                            inform == "peuinf" ~ "sig=2.5",
-                            inform == "inf" ~ "sig=exnex"),
-         hypervar_coef = gsub("^var", "sig=", hypervar_coef),
-         hypervar_coef = gsub("p", "\\.", hypervar_coef)) %>% 
-  filter(centre == "h0", inform == "sig=2.5") %>% 
-  ggplot(aes(x = rejet_h0, y = scenar, color = hypervar_coef)) +
-  geom_point(position = position_dodge2(width = .2)) +
-  scale_color_discrete(type = c("black", "steelblue", "coral")) +
-  expand_limits(x = 0) +
-  facet_wrap(vars(ttt)) +
-  labs(y = "Scénario", x = "% de conclusion à un ttt prometteur", color = "Hyperprior de variance")
-```
-
-Globalement, on retrouve un puissance légèrement plus grande avec un prior plus faible sur la variance, mais un plus grand taux de faux positifs.
-
-Le choix de 1 apparaît comme un compromis entre augmentation de la puissance et augmentation du risque de faux positifs.
-
-### Régression logistique bayésienne
-
-#### Prior de l'intercept
-
-Pour le prior du coefficient $\beta$, on a pris $\beta_\text{eff}\sim N(0.42, 1²) / \beta_\text{tox}\sim N(0.22, 1²)$
-
-Pour les scénarios 1 et 2 :
-
-```{r}
-CaracGlobalesPriors %>% 
-  filter(scenar %in% paste0("Sc", 1:2), methode %in% c("logBOP")) %>% 
-  filter(hypervar_coef == "crois", inform_coef == "inf") %>% 
-  mutate(centre = case_when(centre == "h0" ~ "Centré sur H0",
-                            centre == "h1" ~ "Centré sur H1",
-                            centre == "jef" ~ "Centré sur 50%",
-                            TRUE ~ NA_character_),
-         inform = ifelse(inform == "inf", "Sigma=1", "Sigma=2.5"),
-         concatener = paste0(centre, "/", inform)) %>% 
-  ggplot(aes(x = rejet_glob, y = scenar, color = concatener)) +
-  geom_point(position = position_dodge2(width = .2)) +
-  scale_color_discrete(type = c("black", "steelblue", "darkblue", "coral", "orange")) +
-  expand_limits(x = 0) +
-  labs(y = "Scénario", x = "FWER", color = "Prior de l'intercept")
-```
-
-Visiblement, un prior optimiste et plus informatif augmente le FWER, alors qu'un prior pessimiste et plus informatif (celui qui a été choisi) diminue légèrement le FWER.
-
-Pour les scénarios 3 et 4 :
-
-```{r}
-CaracGlobalesPriors %>% 
-  filter(scenar %in% paste0("Sc", 3:4), methode %in% c("logBOP")) %>% 
-  filter(hypervar_coef == "crois", inform_coef == "inf") %>% 
-  mutate(centre = case_when(centre == "h0" ~ "Centré sur H0",
-                            centre == "h1" ~ "Centré sur H1",
-                            centre == "jef" ~ "Centré sur 50%",
-                            TRUE ~ NA_character_),
-         inform = ifelse(inform == "inf", "Sigma=1", "Sigma=2.5"),
-         concatener = paste0(centre, "/", inform)) %>% 
-  ggplot(aes(x = rejet_glob, y = scenar, color = concatener)) +
-  geom_point(position = position_dodge2(width = .2)) +
-  scale_color_discrete(type = c("black", "steelblue", "darkblue", "coral", "orange")) +
-  expand_limits(x = 0) +
-  labs(y = "Scénario", x = "Puissance", color = "Prior de l'intercept")
-```
-
-On a l'impression que le prior optimiste et plus informatif augmente la puissance.
-Pour les autres priors, il y a l'air d'y avoir moins de différence ; peut-être le prior pessimiste et plus informatif qui a une puissance un peu plus faible.
-
-Ci-dessous les résultats par bras :
-
-```{r}
-CaracBrasPriors %>% 
-  filter(scenar %in% paste0("Sc", 3:4), methode %in% c("logBOP")) %>% 
-  filter(hypervar_coef == "crois", inform_coef == "inf") %>% 
-  mutate(centre = case_when(centre == "h0" ~ "Centré sur H0",
-                            centre == "h1" ~ "Centré sur H1",
-                            centre == "jef" ~ "Centré sur 50%",
-                            TRUE ~ NA_character_),
-         inform = ifelse(inform == "inf", "Sigma=1", "Sigma=2.5"),
-         concatener = paste0(centre, "/", inform)) %>% 
-  ggplot(aes(x = rejet_h0, y = scenar, color = concatener)) +
-  geom_point(position = position_dodge2(width = .2)) +
-  scale_color_discrete(type = c("black", "steelblue", "darkblue", "coral", "orange")) +
-  expand_limits(x = 0) +
-  facet_wrap(vars(ttt)) +
-  labs(y = "Scénario", x = "Puissance", color = "Prior de l'intercept")
-```
-
-Il n'y a pas bcp de différences, mais assez similaire aux conclusions sur le FWER.
-Par contre pour le bras 3, il semble que ce soit le prior pessimiste informatif qui ait la plus grand puissance.
-Mais c'est très proche.
-
-Pour les scénarios 5 et 6 (ceux de l'ibrutinib) :
-
-```{r}
-CaracBrasPriors %>% 
-  filter(scenar %in% paste0("Sc", 5:6), methode %in% c("logBOP")) %>% 
-  filter(hypervar_coef == "crois", inform_coef == "inf") %>% 
-  mutate(centre = case_when(centre == "h0" ~ "Centré sur H0",
-                            centre == "h1" ~ "Centré sur H1",
-                            centre == "jef" ~ "Centré sur 50%",
-                            TRUE ~ NA_character_),
-         inform = ifelse(inform == "inf", "Sigma=1", "Sigma=2.5"),
-         concatener = paste0(centre, "/", inform)) %>% 
-  ggplot(aes(x = rejet_h0, y = scenar, color = concatener)) +
-  geom_point(position = position_dodge2(width = .2)) +
-  scale_color_discrete(type = c("black", "steelblue", "darkblue", "coral", "orange")) +
-  expand_limits(x = 0) +
-  facet_wrap(vars(ttt)) +
-  labs(y = "Scénario", x = "% de conclusion à un ttt prometteur", color = "Prior de l'intercept")
-```
-
-On retrouve que le prior optimiste et informatif augmente le risque de faux positifs pour le bras 1, et à l'inverse, pour le bras 3, c'est le prior pessimiste et informatif qui augmente le risque de faux positifs.
-
-
-#### Prior de la pente
-
-Pour le prior du coefficient $\alpha$, on a pris le prior de Jeffreys : $N(0, 2.5^2)$.
-
-Pour les scénarios 1 et 2 :
-
-```{r}
-CaracGlobalesPriors %>% 
-  filter(scenar %in% paste0("Sc", 1:2), methode %in% c("logBOP")) %>% 
-  filter(centre == "jef", inform == "jef") %>% 
-  mutate(hypervar_coef = case_when(hypervar_coef == "crois" ~ "OR=1.52eff|1.25tox",
-                            hypervar_coef == "trescrois" ~ "OR=7.4",
-                            TRUE ~ NA_character_),
-         inform_coef = ifelse(inform_coef == "inf", "Sigma=1", "Sigma=2.5"),
-         concatener = paste0(hypervar_coef, "/", inform_coef)) %>% 
-  ggplot(aes(x = rejet_glob, y = scenar, color = concatener)) +
-  geom_point(position = position_dodge2(width = .2)) +
-  scale_color_discrete(type = c("black", "steelblue", "darkblue", "coral", "orange")) +
-  expand_limits(x = 0) +
-  labs(y = "Scénario", x = "FWER", color = "Prior de la pente")
-```
-
-Le prior le plus informatif donne un FWER plus faible qu'avec une variance sur le prior plus élevée.
-
-Pour les scénarios 3 et 4 :
-
-```{r}
-CaracGlobalesPriors %>% 
-  filter(scenar %in% paste0("Sc", 3:4), methode %in% c("logBOP")) %>% 
-  filter(centre == "jef", inform == "jef") %>% 
-  mutate(hypervar_coef = case_when(hypervar_coef == "crois" ~ "OR=1.52eff|1.25tox",
-                            hypervar_coef == "trescrois" ~ "OR=7.4",
-                            TRUE ~ NA_character_),
-         inform_coef = ifelse(inform_coef == "inf", "Sigma=1", "Sigma=2.5"),
-         concatener = paste0(hypervar_coef, "/", inform_coef)) %>% 
-  ggplot(aes(x = rejet_glob, y = scenar, color = concatener)) +
-  geom_point(position = position_dodge2(width = .2)) +
-  scale_color_discrete(type = c("black", "steelblue", "darkblue", "coral", "orange")) +
-  expand_limits(x = 0) +
-  labs(y = "Scénario", x = "Puissance", color = "Prior de l'intercept")
-```
-
-On ne voit pas grand-chose sur le rejet global.
-
-Ci-dessous les résultats par bras :
-
-```{r}
-CaracBrasPriors %>% 
-  filter(scenar %in% paste0("Sc", 3:4), methode %in% c("logBOP")) %>% 
-  filter(centre == "jef", inform == "jef") %>% 
-  mutate(hypervar_coef = case_when(hypervar_coef == "crois" ~ "OR=1.52eff|1.25tox",
-                            hypervar_coef == "trescrois" ~ "OR=7.4",
-                            TRUE ~ NA_character_),
-         inform_coef = ifelse(inform_coef == "inf", "Sigma=1", "Sigma=2.5"),
-         concatener = paste0(hypervar_coef, "/", inform_coef)) %>% 
-  ggplot(aes(x = rejet_h0, y = scenar, color = concatener)) +
-  geom_point(position = position_dodge2(width = .2)) +
-  scale_color_discrete(type = c("black", "steelblue", "darkblue", "coral", "orange")) +
-  expand_limits(x = 0) +
-  facet_wrap(vars(ttt)) +
-  labs(y = "Scénario", x = "Puissance", color = "Prior de l'intercept")
-```
-
-Le prior centré sur une plus grande pente montre une perte de puissance dans le bras 3, et pour le scénario 3 un gain de puissance pour le bras 1.
-
-Pour les scénarios 5 et 6 (ceux de l'ibrutinib) :
-
-```{r}
-CaracBrasPriors %>% 
-  filter(scenar %in% paste0("Sc", 5:6), methode %in% c("logBOP")) %>% 
-  filter(centre == "jef", inform == "jef") %>% 
-  mutate(hypervar_coef = case_when(hypervar_coef == "crois" ~ "OR=1.52eff|1.25tox",
-                            hypervar_coef == "trescrois" ~ "OR=7.4",
-                            TRUE ~ NA_character_),
-         inform_coef = ifelse(inform_coef == "inf", "Sigma=1", "Sigma=2.5"),
-         concatener = paste0(hypervar_coef, "/", inform_coef)) %>% 
-  ggplot(aes(x = rejet_h0, y = scenar, color = concatener)) +
-  geom_point(position = position_dodge2(width = .2)) +
-  scale_color_discrete(type = c("black", "steelblue", "darkblue", "coral", "orange")) +
-  expand_limits(x = 0) +
-  facet_wrap(vars(ttt)) +
-  labs(y = "Scénario", x = "% de conclusion à un ttt prometteur", color = "Prior de l'intercept")
-```
-
-On retrouve la combinaison des résultats précédents.
-
-J'ai aussi regardé en fixant l'intercept à une loi centrée sur H0 et informative (variance de 1).
-
-Pour les scénarios 1 et 2 :
-
-```{r}
-CaracGlobalesPriors %>% 
-  filter(scenar %in% paste0("Sc", 1:2), methode %in% c("logBOP")) %>% 
-  filter(centre == "h0", inform == "inf") %>% 
-  mutate(hypervar_coef = case_when(hypervar_coef == "crois" ~ "OR=1.52eff|1.25tox",
-                            hypervar_coef == "trescrois" ~ "OR=7.4",
-                            hypervar_coef == "jef" ~ "OR=1",
-                            TRUE ~ NA_character_),
-         inform_coef = ifelse(inform_coef == "inf", "Sigma=1", "Sigma=2.5"),
-         concatener = paste0(hypervar_coef, "/", inform_coef)) %>% 
-  ggplot(aes(x = rejet_glob, y = scenar, color = concatener)) +
-  geom_point(position = position_dodge2(width = .2)) +
-  scale_color_discrete(type = c("black", "steelblue", "darkblue", "coral", "orange")) +
-  expand_limits(x = 0) +
-  labs(y = "Scénario", x = "FWER", color = "Prior de la pente")
-```
-
-Pour les scénarios 3 et 4 :
-
-```{r}
-CaracGlobalesPriors %>% 
-  filter(scenar %in% paste0("Sc", 3:4), methode %in% c("logBOP")) %>% 
-  filter(centre == "h0", inform == "inf") %>% 
-  mutate(hypervar_coef = case_when(hypervar_coef == "crois" ~ "OR=1.52eff|1.25tox",
-                            hypervar_coef == "trescrois" ~ "OR=7.4",
-                            hypervar_coef == "jef" ~ "OR=1",
-                            TRUE ~ NA_character_),
-         inform_coef = ifelse(inform_coef == "inf", "Sigma=1", "Sigma=2.5"),
-         concatener = paste0(hypervar_coef, "/", inform_coef)) %>% 
-  ggplot(aes(x = rejet_glob, y = scenar, color = concatener)) +
-  geom_point(position = position_dodge2(width = .2)) +
-  scale_color_discrete(type = c("black", "steelblue", "darkblue", "coral", "orange")) +
-  expand_limits(x = 0) +
-  labs(y = "Scénario", x = "Puissance", color = "Prior de l'intercept")
-```
-
-Ci-dessous les résultats par bras :
-
-```{r}
-CaracBrasPriors %>% 
-  filter(scenar %in% paste0("Sc", 3:4), methode %in% c("logBOP")) %>% 
-  filter(centre == "h0", inform == "inf") %>% 
-  mutate(hypervar_coef = case_when(hypervar_coef == "crois" ~ "OR=1.52eff|1.25tox",
-                            hypervar_coef == "trescrois" ~ "OR=7.4",
-                            hypervar_coef == "jef" ~ "OR=1",
-                            TRUE ~ NA_character_),
-         inform_coef = ifelse(inform_coef == "inf", "Sigma=1", "Sigma=2.5"),
-         concatener = paste0(hypervar_coef, "/", inform_coef)) %>% 
-  ggplot(aes(x = rejet_h0, y = scenar, color = concatener)) +
-  geom_point(position = position_dodge2(width = .2)) +
-  scale_color_discrete(type = c("black", "steelblue", "darkblue", "coral", "orange")) +
-  expand_limits(x = 0) +
-  facet_wrap(vars(ttt)) +
-  labs(y = "Scénario", x = "Puissance", color = "Prior de l'intercept")
-```
-
-Pour les scénarios 5 et 6 (ceux de l'ibrutinib) :
-
-```{r}
-CaracBrasPriors %>% 
-  filter(scenar %in% paste0("Sc", 5:6), methode %in% c("logBOP")) %>% 
-  filter(centre == "h0", inform == "inf") %>% 
-  mutate(hypervar_coef = case_when(hypervar_coef == "crois" ~ "OR=1.52eff|1.25tox",
-                            hypervar_coef == "trescrois" ~ "OR=7.4",
-                            hypervar_coef == "jef" ~ "OR=1",
-                            TRUE ~ NA_character_),
-         inform_coef = ifelse(inform_coef == "inf", "Sigma=1", "Sigma=2.5"),
-         concatener = paste0(hypervar_coef, "/", inform_coef)) %>% 
-  ggplot(aes(x = rejet_h0, y = scenar, color = concatener)) +
-  geom_point(position = position_dodge2(width = .2)) +
-  scale_color_discrete(type = c("black", "steelblue", "darkblue", "coral", "orange")) +
-  expand_limits(x = 0) +
-  facet_wrap(vars(ttt)) +
-  labs(y = "Scénario", x = "% de conclusion à un ttt prometteur", color = "Prior de l'intercept")
-```
-
-On retrouve peu de différences entre les 3, et je pense que le choix d'un prior centré sur un OR de 1.52/1.25 avec une variance de 1 donne des intervalles de crédibilité vraisemblable et de bonnes propriétés du schéma.
-
-
-
-
-
-
+Pour la toxicité, cela semble être l'inverse.
 
 
 

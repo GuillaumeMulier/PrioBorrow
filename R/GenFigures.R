@@ -141,6 +141,38 @@ CaracEssaisCrm <- do.call("rbind", CaracEssaisCrm)
 CaracEssaisCrm$larg_ic_eff <- CaracEssaisCrm$icsup_eff - CaracEssaisCrm$icinf_eff
 CaracEssaisCrm$larg_ic_tox <- CaracEssaisCrm$icsup_tox - CaracEssaisCrm$icinf_tox
 
+CaracGlobalesLogit <- list()
+CaracBrasLogit <- list()
+CaracEssaisLogit <- list()
+walk(1:2, \(fich_num) {
+  Fichiers <- paste0("Data/SimuLogistique20250611/resultats_priorslog_20250611_", 1:2, ".RData")
+  fichier_temp <- Fichiers[fich_num]
+  load(fichier_temp, envir = current_env())
+  assign("CaracGlobalesLogit", append(CaracGlobalesLogit, list(do.call("rbind", lapply(ResT, \(x) cbind(x[[3]], x[[1]]))))), global_env())
+  assign("CaracBrasLogit", append(CaracBrasLogit, list(do.call("rbind", lapply(ResT, \(x) cbind(x[[3]], x[[2]]))))), global_env())
+  assign("CaracEssaisLogit", append(CaracEssaisLogit, list(do.call("rbind", lapply(ResT, \(x) cbind(x[[3]], x[[4]]))))), global_env())
+})
+CaracGlobalesLogit <- do.call("rbind", CaracGlobalesLogit)
+CaracGlobalesLogit$methode[CaracGlobalesLogit$methode == "mBOP"] <- "mBOP_both"
+CaracGlobalesLogit$methode[CaracGlobalesLogit$methode == "Simon+Iva"] <- "Simon+Iva_both"
+CaracGlobalesLogit <- separate(CaracGlobalesLogit, methode, c("methode", "cible"), "_")
+CaracBrasLogit <- do.call("rbind", CaracBrasLogit)
+CaracBrasLogit$methode[CaracBrasLogit$methode == "mBOP"] <- "mBOP_both"
+CaracBrasLogit$methode[CaracBrasLogit$methode == "Simon+Iva"] <- "Simon+Iva_both"
+CaracBrasLogit <- separate(CaracBrasLogit, methode, c("methode", "cible"), "_")
+CaracEssaisLogit <- do.call("rbind", CaracEssaisLogit)
+CaracEssaisLogit$methode[CaracEssaisLogit$methode == "mBOP"] <- "mBOP_both"
+CaracEssaisLogit$methode[CaracEssaisLogit$methode == "Simon+Iva"] <- "Simon+Iva_both"
+CaracEssaisLogit <- separate(CaracEssaisLogit, methode, c("methode", "cible"), "_")
+CaracEssaisLogit$larg_ic_eff <- CaracEssaisLogit$icsup_eff - CaracEssaisLogit$icinf_eff
+CaracEssaisLogit$larg_ic_tox <- CaracEssaisLogit$icsup_tox - CaracEssaisLogit$icinf_tox
+CaracGlobalesLogit$n_bras <- "3 arms"
+CaracBrasLogit$n_bras <- "3 arms"
+CaracEssaisLogit$n_bras <- "3 arms"
+CaracGlobalesLogit$methode <- paste0("ver", CaracGlobalesLogit$methode)
+CaracBrasLogit$methode <- paste0("ver", CaracBrasLogit$methode)
+CaracEssaisLogit$methode <- paste0("ver", CaracEssaisLogit$methode)
+
 
 # Scenarios ----
 
@@ -682,3 +714,93 @@ Graphe <- TabBrasCrm %>%
   scale_color_discrete(type = c("orange", "darkred", "darkblue")) + 
   labs(y = NULL, x = "Proportion of conclusion to promising dose", color = "Dose", shape = "Dose")
 ggsave(Graphe, filename = "Figures/resultbras_sensi_crm_v2.png", device = "png", height = 10, width = 12)
+
+
+# Sensitivity analysis : Logistic regression with log(d/d*) instead of just d/d* ----
+
+CaracGlobalesLogit <- bind_rows(CaracGlobalesLogit, CaracGlobales %>% filter(methode %in% c("log1BOP", "log2BOP")))
+CaracBrasLogit <- bind_rows(CaracBrasLogit, CaracBras %>% filter(methode %in% c("log1BOP", "log2BOP")))
+CaracEssaisLogit <- bind_rows(CaracEssaisLogit, CaracEssais %>% filter(methode %in% c("log1BOP", "log2BOP")))
+
+Graphes <- CaracBrasLogit %>% 
+  filter(cible %in% c("efftox", "both"), scenar %in% c("Sc1", "Sc2", "Sc3", "Sc4")) %>% 
+  mutate(ttt = gsub("ttt", "D", ttt),
+         scenar = factor(scenar, levels = c("Sc1", "Sc2", "Sc3", "Sc4")),
+         methode = factor(methode, levels = rev(c("log1BOP", "verlog1BOP", "log2BOP", "verlog2BOP")))) %>% 
+  split(.$scenar) %>% 
+  map(\(Sc) {
+    if (Sc$scenar[1] %in% c("Sc1", "Sc2")) {
+      LimiteSup <- .05
+    } else {
+      LimiteSup <- 1
+    }
+    ggplot(Sc, aes(rejet_h0, methode, color = ttt, shape = ttt)) +
+      geom_point(position = position_dodge2(width = .2), size = 4) +
+      facet_wrap(vars(scenar), scales = "free_x") +
+      coord_cartesian(xlim = c(0, LimiteSup)) +
+      scale_x_continuous(labels = scales::percent_format()) +
+      scale_color_discrete(type = c("darkred", "steelblue", "orange")) +
+      labs(y = NULL, x = "Proportion of conclusion to promising dose", color = "Dose", shape = "Dose") +
+      theme_light(base_size = 15) +
+      theme(strip.background = element_rect(fill = "white", color = "black", size = 1.6),
+            strip.text = element_text(face = "bold", color = "black"))
+  })
+wrap_plots(Graphes, guides = "collect", axes = "collect_y", axis_titles = "collect")
+ggsave(wrap_plots(Graphes, guides = "collect", axes = "collect_y", axis_titles = "collect"), filename = "Figures/rejet_bras_sc1234_veriflog.png", device = "png", 
+       height = 27.33 / 2, width = 40.99 / 2, units = "cm", dpi = 300)
+
+Graphes <- CaracBrasLogit %>% 
+  filter(cible %in% c("efftox", "both"), scenar %in% c("Sc5", "Sc6", "Sc7", "Sc8")) %>% 
+  mutate(ttt = gsub("ttt", "D", ttt),
+         scenar = factor(scenar, levels = c("Sc5", "Sc6", "Sc7", "Sc8")),
+         methode = factor(methode, levels = rev(c("log1BOP", "verlog1BOP", "log2BOP", "verlog2BOP")))) %>% 
+  split(.$scenar) %>% 
+  map(\(Sc) {
+    if (Sc$scenar[1] %in% c("Sc1", "Sc2")) {
+      LimiteSup <- .05
+    } else {
+      LimiteSup <- 1
+    }
+    ggplot(Sc, aes(rejet_h0, methode, color = ttt, shape = ttt)) +
+      geom_point(position = position_dodge2(width = .2), size = 4) +
+      facet_wrap(vars(scenar), scales = "free_x") +
+      coord_cartesian(xlim = c(0, LimiteSup)) +
+      scale_x_continuous(labels = scales::percent_format()) +
+      scale_color_discrete(type = c("darkred", "steelblue", "orange")) +
+      labs(y = NULL, x = "Proportion of conclusion to promising dose", color = "Dose", shape = "Dose") +
+      theme_light(base_size = 15) +
+      theme(strip.background = element_rect(fill = "white", color = "black", size = 1.6),
+            strip.text = element_text(face = "bold", color = "black"))
+  })
+wrap_plots(Graphes, guides = "collect", axes = "collect_y", axis_titles = "collect")
+ggsave(wrap_plots(Graphes, guides = "collect", axes = "collect_y", axis_titles = "collect"), filename = "Figures/rejet_bras_sc5678_veriflog.png", device = "png", 
+       height = 27.33 / 2, width = 40.99 / 2, units = "cm", dpi = 300)
+
+Graphes <- CaracBrasLogit %>% 
+  filter(cible %in% c("efftox", "both"), scenar %in% c("ScI1", "ScI2")) %>% 
+  mutate(ttt = gsub("ttt", "D", ttt),
+         scenar = factor(scenar, levels = c("ScI1", "ScI2")),
+         methode = factor(methode, levels = rev(c("log1BOP", "verlog1BOP", "log2BOP", "verlog2BOP")))) %>% 
+  split(.$scenar) %>% 
+  map(\(Sc) {
+    if (Sc$scenar[1] %in% c("Sc1", "Sc2")) {
+      LimiteSup <- .05
+    } else {
+      LimiteSup <- 1
+    }
+    ggplot(Sc, aes(rejet_h0, methode, color = ttt, shape = ttt)) +
+      geom_point(position = position_dodge2(width = .2), size = 4) +
+      facet_wrap(vars(scenar), scales = "free_x") +
+      coord_cartesian(xlim = c(0, LimiteSup)) +
+      scale_x_continuous(labels = scales::percent_format()) +
+      scale_color_discrete(type = c("darkred", "steelblue", "orange")) +
+      labs(y = NULL, x = "Proportion of conclusion to promising dose", color = "Dose", shape = "Dose") +
+      theme_light(base_size = 15) +
+      theme(strip.background = element_rect(fill = "white", color = "black", size = 1.6),
+            strip.text = element_text(face = "bold", color = "black"))
+  })
+wrap_plots(Graphes, guides = "collect", axes = "collect_y", axis_titles = "collect")
+ggsave(wrap_plots(Graphes, guides = "collect", axes = "collect_y", axis_titles = "collect"), filename = "Figures/rejet_bras_scibru_veriflog.png", device = "png", 
+       height = 27.33 / 2, width = 40.99 / 2, units = "cm", dpi = 300)
+
+
