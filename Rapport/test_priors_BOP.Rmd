@@ -140,6 +140,24 @@ CaracBrasPriors <- do.call("rbind", CaracBrasPriors)
 CaracEssaisPriors <- do.call("rbind", CaracEssaisPriors)
 CaracEssaisPriors$larg_ic_eff <- CaracEssaisPriors$icsup_eff - CaracEssaisPriors$icinf_eff
 CaracEssaisPriors$larg_ic_tox <- CaracEssaisPriors$icsup_tox - CaracEssaisPriors$icinf_tox
+
+## Modèle logistique en fonction de log(d/d*)
+CaracGlobalesLog <- list()
+CaracBrasLog <- list()
+CaracEssaisLog <- list()
+walk(1:2, \(fich_num) {
+  Fichiers <- paste0("Data/SimuSensi20250611/resultats_priorslog_20250611_", 1:2, ".RData")
+  fichier_temp <- Fichiers[fich_num]
+  load(here(fichier_temp), envir = current_env())
+  assign("CaracGlobalesLog", append(CaracGlobalesLog, list(do.call("rbind", lapply(ResT, \(x) cbind(x[[3]], x[[1]]))))), global_env())
+  assign("CaracBrasLog", append(CaracBrasLog, list(do.call("rbind", lapply(ResT, \(x) cbind(x[[3]], x[[2]]))))), global_env())
+  assign("CaracEssaisLog", append(CaracEssaisLog, list(do.call("rbind", lapply(ResT, \(x) cbind(x[[3]], x[[4]]))))), global_env())
+})
+CaracGlobalesLog <- do.call("rbind", CaracGlobalesLog)
+CaracBrasLog <- do.call("rbind", CaracBrasLog)
+CaracEssaisLog <- do.call("rbind", CaracEssaisLog)
+CaracEssaisLog$larg_ic_eff <- CaracEssaisLog$icsup_eff - CaracEssaisLog$icinf_eff
+CaracEssaisLog$larg_ic_tox <- CaracEssaisLog$icsup_tox - CaracEssaisLog$icinf_tox
 ```
 
 

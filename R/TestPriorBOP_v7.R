@@ -944,7 +944,7 @@ NomMethodes <- names(Methodes)
 cl <- makeCluster(16)
 registerDoParallel(cl)
 
-if (TRUE) {
+if (FALSE) {
   cat("----\nSensitivity analysis: CRM-like models\n----\n\n", file = "~/simu_priors/log.txt", append = TRUE)
   
   for (m in seq_len(ceiling(length(Methodes) / 4))) {
@@ -1027,6 +1027,174 @@ if (TRUE) {
   
 } else {
   cat("Decided not to do it (CRM sensibility). Continuing with next simulation scenarios...\n\n", file = "~/simu_priors/log.txt", append = TRUE)
+}
+
+stopCluster(cl)
+
+
+# Verification for logistic model: log(d/d*) instead of d/d* in model ----
+
+## Parameters for the simulation ----
+
+# Recompile stan models 
+cat("----\nCompiling efficacy/toxicity STAN\n----\n\n", file = "~/simu_priors/log.txt", append = TRUE)
+CompiledModelsEffTox <- list(
+  "hBOP_efftox" = CompilBHM_efftox(moy_mu_eff = log(.3 / .7), sigma_mu_eff = 2.5, moy_sig_eff = 0, sigma_sig_eff = 1,
+                                   moy_mu_tox = log(.4 / .6), sigma_mu_tox = 2.5, moy_sig_tox = 0, sigma_sig_tox = 1),
+  "cbhmBOP_efftox" = CompilCBHM_efftox(moy_mu_eff = log(.3 / .7), sigma_mu_eff = 2.5, 
+                                       moy_mu_tox = log(.4 / .6), sigma_mu_tox = 2.5),
+  "log1_efftox" = CompilModLog_efftox(mu_inter_eff = log(.3 / .7), sigma_inter_eff = 2.5, mu_coef_eff = 0.42, sigma_coef_eff = 2.5,
+                                      mu_inter_tox = log(.4 / .6), sigma_inter_tox = 2.5, mu_coef_tox = 0.22, sigma_coef_tox = 2.5),
+  "log2_efftox" = CompilModLog_efftox(mu_inter_eff = log(.3 / .7), sigma_inter_eff = 2.5, mu_coef_eff = 0.42, sigma_coef_eff = 2.5,
+                                      mu_inter_tox = log(.4 / .6), sigma_inter_tox = 2.5, mu_coef_tox = 0.22, sigma_coef_tox = 2.5,
+                                      PentePos_eff = TRUE, PentePos_tox = TRUE)
+)
+cat("----\nCompiling toxicity STAN\n----\n\n", file = "~/simu_priors/log.txt", append = TRUE)
+CompiledModelsTox <- list(
+  "hBOP_tox" = CompilBHM_tox(moy_mu = log(.4 / .6), sigma_mu = 2.5, moy_sig = 0, sigma_sig = 1),
+  "cbhmBOP_tox" = CompilCBHM_tox(moy_mu = log(.4 / .6), sigma_mu = 2.5),
+  "log1_tox" = CompilModLog_tox(mu_inter = log(.4 / .6), sigma_inter = 2.5, mu_coef = 0.22, sigma_coef = 2.5),
+  "log2_tox" = CompilModLog_tox(mu_inter = log(.4 / .6), sigma_inter = 2.5, mu_coef = 0.22, sigma_coef = 2.5, PentePos = TRUE)
+)
+
+Alpha <- .1
+NSimu <- 5000
+AnaEff <- rep(29, 2)
+AnaTox <- rep(29, 2)
+PN <- c(.15, .15, .25, .45)
+PA <- c(.2, .3, .1, .4)
+NBras <- 3
+
+# Scénarios
+Scenarios <- list(
+  "Sc1"  = list(ttt1 = c(0.15, 0.15, 0.25, 0.45), ttt2 = c(0.15, 0.15, 0.25, 0.45), ttt3 = c(0.15, 0.15, 0.25, 0.45)),
+  "Sc2"  = list(ttt1 = c(0.13, 0.12, 0.27, 0.48), ttt2 = c(0.15, 0.13, 0.27, 0.45), ttt3 = c(0.16, 0.14, 0.29, 0.41)),
+  "Sc3"  = list(ttt1 = c(0.20, 0.30, 0.10, 0.40), ttt2 = c(0.20, 0.30, 0.10, 0.40), ttt3 = c(0.20, 0.30, 0.10, 0.40)),
+  "Sc4"  = list(ttt1 = c(0.15, 0.35, 0.10, 0.40), ttt2 = c(0.17, 0.35, 0.11, 0.37), ttt3 = c(0.19, 0.36, 0.11, 0.34)),
+  "ScI1" = list(ttt1 = c(0.10, 0.20, 0.15, 0.55), ttt2 = c(0.20, 0.30, 0.10, 0.40), ttt3 = c(0.19, 0.36, 0.11, 0.34)),
+  "ScI2" = list(ttt1 = c(0.15, 0.35, 0.10, 0.40), ttt2 = c(0.18, 0.34, 0.12, 0.36), ttt3 = c(0.25, 0.30, 0.15, 0.30)),
+  "Sc5"  = list(ttt1 = c(0.11, 0.19, 0.17, 0.53), ttt2 = c(0.20, 0.30, 0.10, 0.40), ttt3 = c(0.25, 0.30, 0.15, 0.30)),
+  "Sc6"  = list(ttt1 = c(0.14, 0.26, 0.14, 0.46), ttt2 = c(0.20, 0.30, 0.10, 0.40), ttt3 = c(0.25, 0.30, 0.15, 0.30)),
+  "Sc7"  = list(ttt1 = c(0.18, 0.32, 0.12, 0.38), ttt2 = c(0.22, 0.28, 0.15, 0.35), ttt3 = c(0.23, 0.27, 0.17, 0.33)),
+  "Sc8"  = list(ttt1 = c(0.12, 0.18, 0.18, 0.52), ttt2 = c(0.17, 0.23, 0.18, 0.42), ttt3 = c(0.23, 0.27, 0.17, 0.33))
+)
+NomScenars <- names(Scenarios)
+
+# Seuil
+if (FALSE) {
+  SeuilBOP <- deter_cutoff(alpha = Alpha, 
+                           n_bras = NBras,
+                           nsim_oc = 10000,
+                           ana_inter = AnaEff, ana_inter_tox = AnaTox, 
+                           p_n = PN, p_a = PA,
+                           power_seq = seq(0, 1.5, .01), 
+                           seed = 121221, affich_mat = "No", methode = 4L)
+} else {
+  SeuilBOP <- list(c("C_" = .76, "gamma" = 1.31, "alpha_calc" = .0913, "puissance_calc" = .8064))
+}
+# The explored methods
+Methodes <- list(
+  "log1BOP_efftox" = list(methode = "bop_log1_efftox", A0 = NA, SeuilP = NA),
+  "log1BOP_tox" = list(methode = "bop_log1_tox", A0 = NA, SeuilP = NA),
+  "log2BOP_efftox" = list(methode = "bop_log2_efftox", A0 = NA, SeuilP = NA),
+  "log2BOP_tox" = list(methode = "bop_log2_tox", A0 = NA, SeuilP = NA)
+)
+NomMethodes <- names(Methodes)
+
+
+##  Simulations ----
+
+cl <- makeCluster(20)
+registerDoParallel(cl)
+
+if (TRUE) {
+  cat("----\nMain simulation: log dose\n----\n\n", file = "~/simu_priors/log.txt", append = TRUE)
+  
+  # for (m in seq_len(ceiling(length(Methodes) / 2))) {
+  # for (m in seq_len(length(Methodes))) {
+  for (m in 2) {
+    
+    # Load 
+    if (2 * m <= length(Methodes)) {
+      cat(paste0("----\n", NomMethodes[2 * m - 1], " and ", NomMethodes[2 * m], "\n----\n\n"), file = "~/simu_priors/log.txt", append = TRUE)
+    } else {
+      cat(paste0("----\n", NomMethodes[2 * m - 1], "\n----\n\n"), file = "~/simu_priors/log.txt", append = TRUE)
+    }
+    # cat(paste0("----\n", NomMethodes[m], "\n----\n\n"), file = "~/simu_priors/log.txt", append = TRUE)
+    
+    # Parameters of the method
+    Params1 <- Methodes[[2 * m - 1]]
+    if (2 * m <= length(Methodes)) Params2 <- Methodes[[2 * m]]
+    # Params1 <- Methodes[[m]]
+    
+    # Simulate the scenarios 
+    VecScenarios <- if (2 * m <= length(Methodes)) seq_len(2 * length(Scenarios)) else seq_along(Scenarios)
+    # VecScenarios <- seq_along(Scenarios)
+    ResT <- foreach(i = VecScenarios,
+                    .packages = c("dplyr", "purrr", "rlang", "stringr", "rstan"),
+                    .export = c("%nin%", "Alpha", "AnaEff", "AnaTox",
+                                "gen_patients_multinom",
+                                "m", "Methodes", "NBras", "NomMethodes", "NomScenars", "NSimu",
+                                "opcharac", "PA", "Params1", "PN", "real_essai_bayeslog_efftox",
+                                "real_essai_bayeslog_tox", "real_essai_bop", "real_essai_bop_borrow",
+                                "real_essai_bop_borrow_test_efftox", "real_essai_bop_borrow_test_tox",
+                                "real_essai_bop_power_efftox", "real_essai_bop_power_test_efftox",
+                                "real_essai_bop_power_test_tox", "real_essai_bop_power_tox",
+                                "real_essai_bop_seq_efftox", "real_essai_bop_seq_tox", "real_essai_modcbhm_efftox",
+                                "real_essai_modcbhm_tox", "real_essai_modexnex_efftox", "real_essai_modexnex_tox",
+                                "real_essai_modhier_efftox", "real_essai_modhier_tox", "simu_simon",
+                                "Scenarios", "SeuilBOP", "summarise_decision", "summarise_detect",
+                                "summarise_ttt")) %dopar% {
+                                  
+                                  NScenar <- i %% length(Scenarios)
+                                  if (NScenar == 0) NScenar <- length(Scenarios)
+                                  NumMethode <- if (i <= length(Scenarios)) 2 * m - 1 else 2 * m
+                                  Params <- if (i <= length(Scenarios)) Params1 else Params2
+                                  # NumMethode <- m
+                                  # NScenar <- i
+                                  # Params <- Params1
+                                  cat(paste0("Scenario n°", NScenar, "/", length(Scenarios), " : ", NomScenars[NScenar], " with ", NomMethodes[NumMethode], "\n"), file = "~/simu_priors/log.txt", append = TRUE)
+                                  
+                                  # Generate trials
+                                  tableau_essais <- gen_patients_multinom(NSimu, AnaEff, AnaTox,
+                                                                          multinom_ttt = Scenarios[[NScenar]],
+                                                                          rand_ratio = rep(1, NBras), seed = 121221)
+                                  
+                                  # Simulate the result with the different methods
+                                  if (Params$methode == "simoniva") {
+                                    Resultat <- simu_simon(p_n = PN, p_a = PA,
+                                                           tableau_essais = tableau_essais,
+                                                           CaracSeuilSimon = SeuilSimon,
+                                                           CaracSeuilIva = SeuilIva)
+                                  } else {
+                                    Resultat <- tryCatch(opcharac(ana_inter = AnaEff, ana_inter_tox = AnaTox,
+                                                                  p_n = PN, p_a = PA,
+                                                                  CPar = SeuilBOP[[1]][["C_"]], PPar = SeuilBOP[[1]][["gamma"]],
+                                                                  methode = Params$methode,
+                                                                  A0_tox = Params$A0, SeuilP_tox = Params$SeuilP,
+                                                                  A0_eff = Params$A0, SeuilP_eff = Params$SeuilP,
+                                                                  a_tox = CBHM_tox$a, b_tox = CBHM_tox$b,
+                                                                  a_eff = CBHM_eff$a, b_eff = CBHM_eff$b,
+                                                                  log_dose = TRUE,
+                                                                  p_mix_tox = rep(.5, NBras), p_mix_eff = rep(.5, NBras),
+                                                                  tableau_essais = tableau_essais),
+                                                         error = function(e) list(paste0(e)))
+                                  }
+                                  
+                                  Resultat <- append(Resultat,
+                                                     values = list(data.frame(methode = NomMethodes[NumMethode], scenar = NomScenars[NScenar])),
+                                                     after = 2)
+                                  return(Resultat)
+                                  
+                                }
+    
+    # Save results
+    save(ResT, file = paste0("~/simu_priors/resultats_priorslog_20250611_", m, ".RData"))
+    
+  }
+  
+} else {
+  cat("Decided not to do it (Log dose). Continuing with next simulation scenarios...\n\n", file = "~/simu_priors/log.txt", append = TRUE)
 }
 
 stopCluster(cl)

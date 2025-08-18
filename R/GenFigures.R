@@ -246,8 +246,8 @@ Graphes <- CaracBras %>%
             strip.text = element_text(face = "bold", color = "black"))
   })
 wrap_plots(Graphes, guides = "collect", axes = "collect_y", axis_titles = "collect")
-ggsave(wrap_plots(Graphes, guides = "collect", axes = "collect_y", axis_titles = "collect"), filename = "Figures/rejet_bras_sc1234_v2.png", device = "png", 
-       height = 130, width = 170, units = "mm", dpi = 300)
+ggsave(wrap_plots(Graphes, guides = "collect", axes = "collect_y", axis_titles = "collect"), filename = "Figures/rejet_bras_sc1234_vposter.png", device = "png", 
+       height = 27.33 / 2, width = 40.99 / 2, units = "cm", dpi = 300)
 
 
 # Figure 3 ----
@@ -681,4 +681,4 @@ Graphe <- TabBrasCrm %>%
   scale_x_continuous(labels = scales:: percent_format()) +
   scale_color_discrete(type = c("orange", "darkred", "darkblue")) + 
   labs(y = NULL, x = "Proportion of conclusion to promising dose", color = "Dose", shape = "Dose")
-ggsave(Graphe, filename = "Figures/resultbras_sensi_crm.png", device = "png", height = 10, width = 12)
+ggsave(Graphe, filename = "Figures/resultbras_sensi_crm_v2.png", device = "png", height = 10, width = 12)

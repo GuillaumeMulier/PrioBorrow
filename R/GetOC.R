@@ -1843,12 +1843,13 @@ CompilModLog_tox <- function(mu_inter = 0, sigma_inter = 5, mu_coef = 0, sigma_c
 }
 
 real_essai_bayeslog_tox <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, 
-                                    phi_eff, phi_tox, prior_eff, modele_log) {
+                                    phi_eff, phi_tox, prior_eff, modele_log, log_dose) {
   
   data$arret_eff <- data$arret_tox <- NA_integer_
   data$dose <- as.numeric(gsub("^ttt(\\d+)$", "\\1", data$ttt)) # Doses 1/2/3/... prises dans ces simulations
   # For the simulations we made the hypothesis of 3 doses with proportionality 1/2/3 so replacing the dose by 1/2/3 isn't changing anything in our case
   # But if it is not the case, one may adapt this manner to determine doses in simulations
+  if (log_dose) data$dose <- log(data$dose)
   data$est_eff <- data$icinf_eff <- data$icsup_eff <- NA_real_
   data$est_tox <- data$icinf_tox <- data$icsup_tox <- NA_real_
   for (i in seq_len(max(data$nb_ana))) {
@@ -1993,12 +1994,13 @@ CompilModLog_efftox <- function(mu_inter_tox = 0, sigma_inter_tox = 5, mu_coef_t
 }
 
 real_essai_bayeslog_efftox <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, 
-                                       phi_eff, phi_tox, prior_eff, modele_log) {
+                                       phi_eff, phi_tox, prior_eff, modele_log, log_dose) {
   
   data$arret_eff <- data$arret_tox <- NA_integer_
   data$dose <- as.numeric(gsub("^ttt(\\d+)$", "\\1", data$ttt)) # Doses 1/2/3/... prises dans ces simulations
   # For the simulations we made the hypothesis of 3 doses with proportionality 1/2/3 so replacing the dose by 1/2/3 isn't changing anything in our case
   # But if it is not the case, one may adapt this manner to determine doses in simulations
+  if (log_dose) data$dose <- log(data$dose)
   data$est_eff <- data$icinf_eff <- data$icsup_eff <- NA_real_
   data$est_tox <- data$icinf_tox <- data$icsup_tox <- NA_real_
   for (i in seq_len(max(data$nb_ana))) {
@@ -2558,7 +2560,7 @@ opcharac <- function(ana_inter,
                                  "crm_tox", "crm_efftox", "crmpow_tox", "crmpow_efftox"),
                      A0_tox = 0, SeuilP_tox = .2, A0_eff = 0, SeuilP_eff = .2, 
                      a_tox, b_tox, a_eff, b_eff,
-                     p_mix_tox, p_mix_eff,
+                     p_mix_tox, p_mix_eff, log_dose = FALSE,
                      tableau_essais = NULL) {
   
   
@@ -2657,11 +2659,11 @@ opcharac <- function(ana_inter,
         real_essai_modexnex_efftox(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, phi_eff, phi_tox, prior_eff, p_mix_eff, p_mix_tox)
       } else if (methode %in% c("bop_log1_tox", "bop_log2_tox", "bop_log3_tox", "bop_log4_tox", "bop_log5_tox", "bop_log6_tox")) {
         ModeleAPrendre <- gsub("^bop_log(\\d)_tox$", "\\1", methode)
-        tryCatch(real_essai_bayeslog_tox(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, phi_eff, phi_tox, prior_eff, ModeleAPrendre),
+        tryCatch(real_essai_bayeslog_tox(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, phi_eff, phi_tox, prior_eff, ModeleAPrendre, log_dose),
                  error = function(e) NULL)
       } else if (methode %in% c("bop_log1_efftox", "bop_log2_efftox", "bop_log3_efftox", "bop_log4_efftox", "bop_log5_efftox", "bop_log6_efftox")) {
         ModeleAPrendre <- gsub("^bop_log(\\d)_efftox$", "\\1", methode)
-        tryCatch(real_essai_bayeslog_efftox(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, phi_eff, phi_tox, prior_eff, ModeleAPrendre),
+        tryCatch(real_essai_bayeslog_efftox(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, phi_eff, phi_tox, prior_eff, ModeleAPrendre, log_dose),
                  error = function(e) NULL)
       } else if (methode == "crm_tox") {
         real_essai_bayeslogcrm_tox(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, phi_eff, phi_tox, prior_eff, SeuilP_tox, !is.na(A0_tox), A0_tox)
