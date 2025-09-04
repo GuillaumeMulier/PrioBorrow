@@ -1,8 +1,8 @@
-# ----------------------------------------------------------- #
-# Fonctions utilisées pour analyser les essais et les simuler #
-# Auteur : G. Mulier                                          #
-# Créé le 20/05/2024, modifié le 28/08/2024                   #
-# ----------------------------------------------------------- #
+# -------------------------------------------------------------------------------------------------- #
+# Functions used to generate data, analyzed simulated trials and summarize operating characteristics #
+# Autor : G. Mulier                                                                                  #
+# Creation the 20/05/2024, modified the 28/08/2024                                                   #
+# -------------------------------------------------------------------------------------------------- #
 
 
 # Helper functions ----
@@ -30,6 +30,19 @@ summarise_detect <- function(data, groupe, col_decision, char_decision, intitule
 
 # Generate trials ----
 
+# Function used to generate trials with counts of efficacy and toxicity at each interim analysis supplied
+# Forked from package https://github.com/GuillaumeMulier/multibrasBOP2
+# Arguments :
+## n_sim = number of simulated trials
+## ana_inter = supplementary number of patients at each analysis for efficacy relative to precedent analysis for efficacy
+## ana_inter_tox = same for toxicity (if NULL, assumed at the same time as efficacy)
+## rand_ratio = if control group, randomisation ratio (n_grp / n_cont)
+## multinom_cont = vector of length 4 (EffTox, EffNoTox, NoEffTox, NoEffNoTox) for multinomial distribution in control group
+## multinom_ttt = list of vectors as described in multinom_cont (1 for each treatment arm)
+## mat_beta_xi = matrix of 2 rows and 4 columns for contrasts for BOP2 design with first row for efficacy and second for non toxicity
+## seed = seed to replicate results
+## methode = chosen method for simulation of results (affects a little computation time)
+# Output : data.frame of simulated trials
 gen_patients_multinom <- function(n_sim,
                                   ana_inter,
                                   ana_inter_tox = NULL,
@@ -296,6 +309,12 @@ gen_patients_multinom <- function(n_sim,
 
 # Compute the operating characteristics of a Simon design with fixed r1, n1, r and n
 # Loop over possible values to determine optimal and minimax design
+# Arguments :
+## r1, r = number of responses at interim and final analysis
+## n1, n = number of patients at interim and final analysis
+## pu = probability of efficacy that is unacceptable
+## p& = probability of efficacu that is promising
+# Output : Vector with operating characteristics of such Simon's design
 alpha_puiss_simon <- function(r1, n1, r, n, pu, pa) {
   
   alpha1 <- pbinom(r1, n1, pu)
@@ -313,6 +332,11 @@ alpha_puiss_simon <- function(r1, n1, r, n, pu, pa) {
 }
 
 # Stopping rules for toxicity with Ivanova's design for monitoring toxicity
+# Arguments :
+## prior = vector of length 2 giving the 2 parameters of prior beta distribution of toxicity
+## ana_inter = number of patients at each analysis
+## seuil, critere = values for the stopping rule : stop for toxicity if Pr(p_tox > seuil | Dn) > critere
+# Output : data.frame with maximum number of toxicities at each analysis to continue the trial
 regle_arret <- function(prior, ana_inter, seuil, critere) {
   
   map_dfr(
@@ -327,7 +351,15 @@ regle_arret <- function(prior, ana_inter, seuil, critere) {
   
 }
 
-# Results of all simulated trials stored in liste_essai (generated with package multibrasBOP2)
+# Results of all simulated trials stored in liste_essai (generated with package multibrasBOP2 or with the forked function above)
+# Arguments :
+## p_n, p_a = vector of length 4 for unpromising and promising treatment (EffTox, EffNoTox, NoEffTox, NoEffNoTox)
+## CaracSeuilSimon = vector of decision rules for Simon's design (r1, r, n1, n)
+## CaracSeuilIva = vector of decision rules for Ivanova's design with 1 interim analysis (t1, t, n1, n)
+# Output : list of
+## global operating characteristics for the design
+## arm-wise operating characteristics for the design
+## each trials and its analysis simulated
 simu_simon <- function(p_n, p_a,
                        tableau_essais, 
                        CaracSeuilSimon,
@@ -415,6 +447,15 @@ simu_simon <- function(p_n, p_a,
 
 ## Multi-arm BOP ----
 
+# Analyse the data from 1 trial using multi-arm BOP2
+# Arguments :
+## data = data.frame with data from the trial simulated via gen_patients_multinom function
+## analyses = number of patients in each arm at analysis
+## CPar, PPar = parameters of threshold Cn of multi-arm BOP2 design
+## ana_eff_cum, ana_tox_cum = number of patients in each arm at analyses for efficacy/toxicity
+## phi_eff, phi_tox = threshold values for the rule to stop : futility and toxicity thresholds
+## prior_eff, prior_tox = vectors of length 2 giving the 2 parameters for the beta priors for efficacy and toxicity
+# Output : data.frame of the trial with decisions from design
 real_essai_bop <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, 
                            phi_eff, phi_tox, prior_eff, prior_tox) {
   data$arret_eff <- data$arret_tox <- NA_integer_
@@ -452,6 +493,15 @@ real_essai_bop <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum,
 
 ## BOP borrow ----
 
+# Analyse the data from 1 trial using multi-arm BOP2 by borrowing 100% information from stopped arms
+# Arguments :
+## data = data.frame with data from the trial simulated via gen_patients_multinom function
+## analyses = number of patients in each arm at analysis
+## CPar, PPar = parameters of threshold Cn of multi-arm BOP2 design
+## ana_eff_cum, ana_tox_cum = number of patients in each arm at analyses for efficacy/toxicity
+## phi_eff, phi_tox = threshold values for the rule to stop : futility and toxicity thresholds
+## prior_eff, prior_tox = vectors of length 2 giving the 2 parameters for the beta priors for efficacy and toxicity
+# Output : data.frame of the trial with decisions from design
 real_essai_bop_borrow <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, 
                                   phi_eff, phi_tox, prior_eff, prior_tox) {
   data$arret_eff <- data$arret_tox <- NA_integer_
@@ -461,14 +511,14 @@ real_essai_bop_borrow <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_t
   for (i in seq_len(max(data$nb_ana))) {
     Nb_pts <- analyses[i]
     seuil <- 1 - CPar * (Nb_pts / analyses[length(analyses)]) ** PPar
-    # Décomptes d'efficacités et de toxicité
+    # Counts of efficacy and toxicity
     if (i == 1) {
       n_eff <- data$tot_eff[data$nb_ana == i]
       n_tox <- Nb_pts - data$tot_notox[data$nb_ana == i]
       n_tox_autres <- vapply(seq_along(n_tox), \(x) sum((n_tox * BrasArretes)[-x]), numeric(1))
       n_pts_bras <- rep(Nb_pts, length(n_tox))
       n_pts_autres <- vapply(seq_along(n_tox), \(x) sum((n_pts_bras * BrasArretes)[-x]), numeric(1))
-    } else { # Si on n'est pas à la première analyse, il ne faut actualiser n_tox et n_pts que pour les cas où on ne s'est pas arrêté
+    } else { # If not at first analysis, only update numbers when the arm is not stopped
       VecNonArrets <- data$arret_eff[data$nb_ana == (i - 1)] == 0 & data$arret_tox[data$nb_ana == (i - 1)] == 0
       n_eff[VecNonArrets] <- data$tot_eff[data$nb_ana == i][VecNonArrets]
       n_tox[VecNonArrets] <- Nb_pts - data$tot_notox[data$nb_ana == i][VecNonArrets]
@@ -476,7 +526,7 @@ real_essai_bop_borrow <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_t
       n_pts_bras[VecNonArrets] <- rep(Nb_pts, sum(VecNonArrets))
       n_pts_autres <- vapply(seq_along(n_pts_bras), \(x) sum((n_pts_bras * BrasArretes)[-x]), numeric(1))
     }
-    # Règles d'arrêt sur la proba a posteriori
+    # Decision rules on posterio
     PPEff <- pbeta(phi_eff, prior_eff + n_eff, 1 - prior_eff + Nb_pts - n_eff)
     data$est_eff[data$nb_ana == i] <- (n_eff + prior_eff) / (Nb_pts + 1) 
     data$icinf_eff[data$nb_ana == i] <- qbeta(.025, prior_eff + n_eff, 1 - prior_eff + Nb_pts - n_eff) 
@@ -512,6 +562,15 @@ real_essai_bop_borrow <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_t
 
 ### Toxicity only ----
 
+# Analyse the data from 1 trial using multi-arm BOP2 with sequential borrowing (if an arm is stopped for toxicity, borrow toxicity information for higher doses arms)
+# Arguments :
+## data = data.frame with data from the trial simulated via gen_patients_multinom function
+## analyses = number of patients in each arm at analysis
+## CPar, PPar = parameters of threshold Cn of multi-arm BOP2 design
+## ana_eff_cum, ana_tox_cum = number of patients in each arm at analyses for efficacy/toxicity
+## phi_eff, phi_tox = threshold values for the rule to stop : futility and toxicity thresholds
+## prior_eff, prior_tox = vectors of length 2 giving the 2 parameters for the beta priors for efficacy and toxicity
+# Output : data.frame of the trial with decisions from design
 real_essai_bop_seq_tox <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, 
                                    phi_eff, phi_tox, prior_eff, prior_tox) {
   
@@ -527,16 +586,16 @@ real_essai_bop_seq_tox <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_
       n_pts_bras <- rep(Nb_pts, length(n_tox))
       n_tox_autres <- rep(0, length(n_tox))
       n_ptstox_autres <- rep(0, length(n_pts_bras))
-    } else { # Si on n'est pas à la première analyse, il ne faut actualiser n_tox et n_pts que pour les cas où on ne s'est pas arrêté
+    } else { # If not at first analysis, only update numbers when the arm is not stopped
       VecNonArrets <- data$arret_eff[data$nb_ana == (i - 1)] == 0 & data$arret_tox[data$nb_ana == (i - 1)] == 0
       n_eff[VecNonArrets] <- data$tot_eff[data$nb_ana == i][VecNonArrets]
       n_tox[VecNonArrets] <- Nb_pts - data$tot_notox[data$nb_ana == i][VecNonArrets]
       n_pts_bras[VecNonArrets] <- rep(Nb_pts, sum(VecNonArrets))
-      # Partage d'infos des bras arrêtés (à dose inférieure pour tox et supérieure pour eff)
+      # borrowing for stopped arm for toxicity at inferior dose
       n_tox_autres <- vapply(seq_along(n_tox), \(x) sum(n_tox * data$arret_tox[data$nb_ana == (i - 1)] * (x > seq_along(n_tox))), numeric(1))
       n_ptstox_autres <- vapply(seq_along(n_pts_bras), \(x) sum(n_pts_bras * data$arret_tox[data$nb_ana == (i - 1)] * (x > seq_along(n_tox))), numeric(1))
     }
-    # Règles d'arrêt
+    # Stopping rules via posterior
     PPEff <- pbeta(phi_eff, prior_eff + n_eff, 1 - prior_eff + Nb_pts - n_eff)
     if (i != 1) PPEff[data$arret_eff[data$nb_ana == (i - 1)] == 1] <- 1.5
     if (Nb_pts %in% ana_eff_cum) {
@@ -563,6 +622,17 @@ real_essai_bop_seq_tox <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_
 
 ### Efficacy and toxicity ----
 
+# Analyse the data from 1 trial using multi-arm BOP2 with sequential borrowing 
+# (if an arm is stopped for toxicity, borrow toxicity information for higher doses arms)
+# (if an arm is stopped for futility, borrow efficacy information for lower doses arms)
+# Arguments :
+## data = data.frame with data from the trial simulated via gen_patients_multinom function
+## analyses = number of patients in each arm at analysis
+## CPar, PPar = parameters of threshold Cn of multi-arm BOP2 design
+## ana_eff_cum, ana_tox_cum = number of patients in each arm at analyses for efficacy/toxicity
+## phi_eff, phi_tox = threshold values for the rule to stop : futility and toxicity thresholds
+## prior_eff, prior_tox = vectors of length 2 giving the 2 parameters for the beta priors for efficacy and toxicity
+# Output : data.frame of the trial with decisions from design
 real_essai_bop_seq_efftox <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, 
                                       phi_eff, phi_tox, prior_eff, prior_tox) {
   
@@ -580,18 +650,18 @@ real_essai_bop_seq_efftox <- function(data, analyses, CPar, PPar, ana_eff_cum, a
       n_tox_autres <- rep(0, length(n_tox))
       n_ptseff_autres <- rep(0, length(n_pts_bras))
       n_ptstox_autres <- rep(0, length(n_pts_bras))
-    } else { # Si on n'est pas à la première analyse, il ne faut actualiser n_tox et n_pts que pour les cas où on ne s'est pas arrêté
+    } else { # If not at first analysis, only update numbers when the arm is not stopped
       VecNonArrets <- data$arret_eff[data$nb_ana == (i - 1)] == 0 & data$arret_tox[data$nb_ana == (i - 1)] == 0
       n_eff[VecNonArrets] <- data$tot_eff[data$nb_ana == i][VecNonArrets]
       n_tox[VecNonArrets] <- Nb_pts - data$tot_notox[data$nb_ana == i][VecNonArrets]
       n_pts_bras[VecNonArrets] <- rep(Nb_pts, sum(VecNonArrets))
-      # Partage d'infos des bras arrêtés (à dose inférieure pour tox et supérieure pour eff)
+      # Information borrowing for both efficacy and toxicity
       n_tox_autres <- vapply(seq_along(n_tox), \(x) sum(n_tox * data$arret_tox[data$nb_ana == (i - 1)] * (x > seq_along(n_tox))), numeric(1))
       n_ptstox_autres <- vapply(seq_along(n_pts_bras), \(x) sum(n_pts_bras * data$arret_tox[data$nb_ana == (i - 1)] * (x > seq_along(n_tox))), numeric(1))
       n_eff_autres <- vapply(seq_along(n_eff), \(x) sum(n_eff * data$arret_eff[data$nb_ana == (i - 1)] * (x < seq_along(n_eff))), numeric(1))
       n_ptseff_autres <- vapply(seq_along(n_pts_bras), \(x) sum(n_pts_bras * data$arret_eff[data$nb_ana == (i - 1)] * (x < seq_along(n_eff))), numeric(1))
     }
-    # Règles d'arrêt
+    # Stopping rules via posterior
     PPEff <- pbeta(phi_eff, prior_eff + n_eff + n_eff_autres, 1 - prior_eff + Nb_pts - n_eff + n_ptseff_autres - n_eff_autres)
     if (i != 1) PPEff[data$arret_eff[data$nb_ana == (i - 1)] == 1] <- 1.5
     if (Nb_pts %in% ana_eff_cum) {
@@ -621,6 +691,16 @@ real_essai_bop_seq_efftox <- function(data, analyses, CPar, PPar, ana_eff_cum, a
 
 ### Toxicity only ----
 
+# Analyse the data from 1 trial using multi-arm BOP2 with power prior on toxicity
+# Arguments :
+## data = data.frame with data from the trial simulated via gen_patients_multinom function
+## analyses = number of patients in each arm at analysis
+## CPar, PPar = parameters of threshold Cn of multi-arm BOP2 design
+## ana_eff_cum, ana_tox_cum = number of patients in each arm at analyses for efficacy/toxicity
+## A0 = exponent of the power prior to determine borrowing
+## phi_eff, phi_tox = threshold values for the rule to stop : futility and toxicity thresholds
+## prior_eff, prior_tox = vectors of length 2 giving the 2 parameters for the beta priors for efficacy and toxicity
+# Output : data.frame of the trial with decisions from design
 real_essai_bop_power_tox <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, A0, 
                                      phi_eff, phi_tox, prior_eff, prior_tox) {
   data$arret_eff <- data$arret_tox <- NA_integer_
@@ -635,7 +715,7 @@ real_essai_bop_power_tox <- function(data, analyses, CPar, PPar, ana_eff_cum, an
       n_tox_autres <- vapply(seq_along(n_tox), \(x) sum(n_tox[-x]), numeric(1))
       n_pts_bras <- rep(Nb_pts, length(n_tox))
       n_pts_autres <- vapply(seq_along(n_tox), \(x) sum(n_pts_bras[-x]), numeric(1))
-    } else { # Si on n'est pas à la première analyse, il ne faut actualiser n_tox et n_pts que pour les cas où on ne s'est pas arrêté
+    } else { # If not at first analysis, only update numbers when the arm is not stopped
       VecNonArrets <- data$arret_eff[data$nb_ana == (i - 1)] == 0 & data$arret_tox[data$nb_ana == (i - 1)] == 0
       n_eff[VecNonArrets] <- data$tot_eff[data$nb_ana == i][VecNonArrets]
       n_tox[VecNonArrets] <- Nb_pts - data$tot_notox[data$nb_ana == i][VecNonArrets]
@@ -653,7 +733,7 @@ real_essai_bop_power_tox <- function(data, analyses, CPar, PPar, ana_eff_cum, an
     data$est_eff[data$nb_ana == i] <- (n_eff + prior_eff) / (Nb_pts + 1) 
     data$icinf_eff[data$nb_ana == i] <- qbeta(.025, prior_eff + n_eff, 1 - prior_eff + Nb_pts - n_eff) 
     data$icsup_eff[data$nb_ana == i] <- qbeta(.975, prior_eff + n_eff, 1 - prior_eff + Nb_pts - n_eff)
-    # Power prior pour partager l'information sur la toxicité
+    # Power prior on toxicity
     PPTox <- 1 - pbeta(phi_tox, prior_tox + n_tox + A0 * n_tox_autres, 1 - prior_tox + Nb_pts - n_tox + A0 * (n_pts_autres - n_tox_autres))
     if (i != 1) PPTox[data$arret_tox[data$nb_ana == (i - 1)] == 1] <- 1.5
     if (Nb_pts %in% ana_tox_cum) {
@@ -670,6 +750,16 @@ real_essai_bop_power_tox <- function(data, analyses, CPar, PPar, ana_eff_cum, an
 
 ### Efficacy and toxicity ----
 
+# Analyse the data from 1 trial using multi-arm BOP2 with power prior on efficacy and toxicity
+# Arguments :
+## data = data.frame with data from the trial simulated via gen_patients_multinom function
+## analyses = number of patients in each arm at analysis
+## CPar, PPar = parameters of threshold Cn of multi-arm BOP2 design
+## ana_eff_cum, ana_tox_cum = number of patients in each arm at analyses for efficacy/toxicity
+## A0_eff, A0_tox = exponent of the power prior to determine borrowing (by default, both equals)
+## phi_eff, phi_tox = threshold values for the rule to stop : futility and toxicity thresholds
+## prior_eff, prior_tox = vectors of length 2 giving the 2 parameters for the beta priors for efficacy and toxicity
+# Output : data.frame of the trial with decisions from design
 real_essai_bop_power_efftox <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, A0_eff, A0_tox = A0_eff, 
                                         phi_eff, phi_tox, prior_eff, prior_tox) {
   data$arret_eff <- data$arret_tox <- NA_integer_
@@ -685,7 +775,7 @@ real_essai_bop_power_efftox <- function(data, analyses, CPar, PPar, ana_eff_cum,
       n_eff_autres <- vapply(seq_along(n_eff), \(x) sum(n_eff[-x]), numeric(1))
       n_pts_bras <- rep(Nb_pts, length(n_tox))
       n_pts_autres <- vapply(seq_along(n_tox), \(x) sum(n_pts_bras[-x]), numeric(1))
-    } else { # Si on n'est pas à la première analyse, il ne faut actualiser n_tox et n_pts que pour les cas où on ne s'est pas arrêté
+    } else { # If not at first analysis, only update numbers when the arm is not stopped
       VecNonArrets <- data$arret_eff[data$nb_ana == (i - 1)] == 0 & data$arret_tox[data$nb_ana == (i - 1)] == 0
       n_eff[VecNonArrets] <- data$tot_eff[data$nb_ana == i][VecNonArrets]
       n_tox[VecNonArrets] <- Nb_pts - data$tot_notox[data$nb_ana == i][VecNonArrets]
@@ -694,6 +784,7 @@ real_essai_bop_power_efftox <- function(data, analyses, CPar, PPar, ana_eff_cum,
       n_pts_bras[VecNonArrets] <- rep(Nb_pts, sum(VecNonArrets))
       n_pts_autres <- vapply(seq_along(n_pts_bras), \(x) sum(n_pts_bras[-x]), numeric(1))
     }
+    # Power prior
     PPEff <- pbeta(phi_eff, prior_eff + n_eff + A0_eff * n_eff_autres, 1 - prior_eff + Nb_pts - n_eff + A0_eff * (n_pts_autres - n_eff_autres))
     if (i != 1) PPEff[data$arret_eff[data$nb_ana == (i - 1)] == 1] <- 1.5
     if (Nb_pts %in% ana_eff_cum) {
@@ -704,7 +795,6 @@ real_essai_bop_power_efftox <- function(data, analyses, CPar, PPar, ana_eff_cum,
     data$est_eff[data$nb_ana == i] <- (n_eff + A0_eff * n_eff_autres + prior_eff) / (Nb_pts + A0_eff * n_pts_autres + 1) 
     data$icinf_eff[data$nb_ana == i] <- qbeta(.025, prior_eff + n_eff + A0_eff * n_eff_autres, 1 - prior_eff + Nb_pts - n_eff + A0_eff * (n_pts_autres - n_eff_autres)) 
     data$icsup_eff[data$nb_ana == i] <- qbeta(.975, prior_eff + n_eff + A0_eff * n_eff_autres, 1 - prior_eff + Nb_pts - n_eff + A0_eff * (n_pts_autres - n_eff_autres))
-    # Power prior pour partager l'information sur la toxicité
     PPTox <- 1 - pbeta(phi_tox, prior_tox + n_tox + A0_tox * n_tox_autres, 1 - prior_tox + Nb_pts - n_tox + A0_tox * (n_pts_autres - n_tox_autres))
     if (Nb_pts %in% ana_tox_cum) {
       data$arret_tox[data$nb_ana == i] <- as.integer(PPTox > seuil)
@@ -723,6 +813,18 @@ real_essai_bop_power_efftox <- function(data, analyses, CPar, PPar, ana_eff_cum,
 
 ### Toxicity only ----
 
+# Analyse the data from 1 trial using multi-arm BOP2 with power prior on toxicity (if no evidence of difference by binomial test)
+# Adapted from test-then-pool strategy from Viele et al. Use of historical control data for assessing treatment effects in clinical trials. Pharm Stat. 2014 Jan-Feb;13(1):41-54. 
+# Arguments :
+## data = data.frame with data from the trial simulated via gen_patients_multinom function
+## analyses = number of patients in each arm at analysis
+## CPar, PPar = parameters of threshold Cn of multi-arm BOP2 design
+## ana_eff_cum, ana_tox_cum = number of patients in each arm at analyses for efficacy/toxicity
+## A0 = exponent of the power prior to determine borrowing (by default, both equals)
+## SeuilP = threshold on Pvalue to assess significant difference
+## phi_eff, phi_tox = threshold values for the rule to stop : futility and toxicity thresholds
+## prior_eff, prior_tox = vectors of length 2 giving the 2 parameters for the beta priors for efficacy and toxicity
+# Output : data.frame of the trial with decisions from design
 real_essai_bop_power_test_tox <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, A0, SeuilP, 
                                           # Tox0,
                                           phi_eff, phi_tox, prior_eff, prior_tox) {
@@ -742,12 +844,12 @@ real_essai_bop_power_test_tox <- function(data, analyses, CPar, PPar, ana_eff_cu
         Pvals <- vapply(seq_along(n_tox)[-x], \(t) fisher.test(matrix(c(n_tox[x], n_pts_bras[x] - n_tox[x], n_tox[t], n_pts_bras[t] - n_tox[t]), 2, 2))$p.value, numeric(1))
         return(c(sum(n_tox[-x][Pvals > SeuilP]), sum((Pvals > SeuilP) * n_pts_bras[-x])))
       }, numeric(2))
-    } else { # Si on n'est pas à la première analyse, il ne faut actualiser n_tox et n_pts que pour les cas où on ne s'est pas arrêté
+    } else { # If not at first analysis, only update numbers when the arm is not stopped
       VecNonArrets <- data$arret_eff[data$nb_ana == (i - 1)] == 0 & data$arret_tox[data$nb_ana == (i - 1)] == 0
       n_eff[VecNonArrets] <- data$tot_eff[data$nb_ana == i][VecNonArrets]
       n_tox[VecNonArrets] <- Nb_pts - data$tot_notox[data$nb_ana == i][VecNonArrets]
       n_pts_bras[VecNonArrets] <- rep(Nb_pts, sum(VecNonArrets))
-      # On teste si la toxicité est significativement différente de Tox0 pour partager l'information si ce n'est pas significativement différent
+      # Test if toxicity is different between arms and borrow if no difference found
       n_toxpts_autres <- vapply(seq_along(n_tox), \(x) {
         # Pvals <- vapply(seq_along(n_tox)[-x], \(t) binom.test(n_tox[t], n_pts_bras[t], Tox0)$p.value, numeric(1))
         Pvals <- vapply(seq_along(n_tox)[-x], \(t) fisher.test(matrix(c(n_tox[x], n_pts_bras[x] - n_tox[x], n_tox[t], n_pts_bras[t] - n_tox[t]), 2, 2))$p.value, numeric(1))
@@ -764,7 +866,7 @@ real_essai_bop_power_test_tox <- function(data, analyses, CPar, PPar, ana_eff_cu
     } else {
       if (i == 1) data$arret_eff[data$nb_ana == i] <- 0 else data$arret_eff[data$nb_ana == i] <- data$arret_eff[data$nb_ana == (i - 1)]
     }
-    # Power prior, mais sur les bras non significativement différents
+    # Power prior, but when no significant difference at threshold SeuilP
     PPTox <- 1 - pbeta(phi_tox, prior_tox + n_tox + A0 * n_toxpts_autres[1, ], 1 - prior_tox + Nb_pts - n_tox + A0 * (n_toxpts_autres[2, ] - n_toxpts_autres[1, ]))
     if (i != 1) PPTox[data$arret_tox[data$nb_ana == (i - 1)] == 1] <- 1.5
     if (Nb_pts %in% ana_tox_cum) {
@@ -781,11 +883,23 @@ real_essai_bop_power_test_tox <- function(data, analyses, CPar, PPar, ana_eff_cu
 
 ### Efficacy and toxicity ----
 
+# Analyse the data from 1 trial using multi-arm BOP2 with power prior on toxicity and efficacy (if no evidence of difference by binomial test)
+# Adapted from test-then-pool strategy from Viele et al. Use of historical control data for assessing treatment effects in clinical trials. Pharm Stat. 2014 Jan-Feb;13(1):41-54. 
+# Arguments :
+## data = data.frame with data from the trial simulated via gen_patients_multinom function
+## analyses = number of patients in each arm at analysis
+## CPar, PPar = parameters of threshold Cn of multi-arm BOP2 design
+## ana_eff_cum, ana_tox_cum = number of patients in each arm at analyses for efficacy/toxicity
+## A0_eff, A0_tox = exponent of the power prior to determine borrowing (by default, both equals)
+## SeuilP_eff, SeuilP_tox = threshold on Pvalue to assess significant difference (by default, both equal)
+## phi_eff, phi_tox = threshold values for the rule to stop : futility and toxicity thresholds
+## prior_eff, prior_tox = vectors of length 2 giving the 2 parameters for the beta priors for efficacy and toxicity
+# Output : data.frame of the trial with decisions from design
 real_essai_bop_power_test_efftox <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, 
                                              A0_eff, SeuilP_eff, A0_tox = A0_eff, SeuilP_tox = SeuilP_eff, 
                                              # Tox0, Eff0,
                                              phi_eff, phi_tox, prior_eff, prior_tox) {
-  # Tox0 is commented because we want to compare arm between them, not compare arm to a reference value as in historical borrowing
+  # Tox0/Eff0 is commented because we want to compare arm between them, not compare arm to a reference value as in historical borrowing
   data$arret_eff <- data$arret_tox <- NA_integer_
   data$est_eff <- data$icinf_eff <- data$icsup_eff <- NA_real_
   data$est_tox <- data$icinf_tox <- data$icsup_tox <- NA_real_
@@ -806,12 +920,12 @@ real_essai_bop_power_test_efftox <- function(data, analyses, CPar, PPar, ana_eff
         Pvals <- vapply(seq_along(n_tox)[-x], \(t) fisher.test(matrix(c(n_tox[x], n_pts_bras[x] - n_tox[x], n_tox[t], n_pts_bras[t] - n_tox[t]), 2, 2))$p.value, numeric(1))
         return(c(sum(n_tox[-x][Pvals > SeuilP_tox]), sum((Pvals > SeuilP_tox) * n_pts_bras[-x])))
       }, numeric(2))
-    } else { # Si on n'est pas à la première analyse, il ne faut actualiser n_tox et n_pts que pour les cas où on ne s'est pas arrêté
+    } else { # If not at first analysis, only update numbers when the arm is not stopped
       VecNonArrets <- data$arret_eff[data$nb_ana == (i - 1)] == 0 & data$arret_tox[data$nb_ana == (i - 1)] == 0
       n_eff[VecNonArrets] <- data$tot_eff[data$nb_ana == i][VecNonArrets]
       n_tox[VecNonArrets] <- Nb_pts - data$tot_notox[data$nb_ana == i][VecNonArrets]
       n_pts_bras[VecNonArrets] <- rep(Nb_pts, sum(VecNonArrets))
-      # On teste si la toxicité est significativement différente de Tox0 pour partager l'information si ce n'est pas significativement différent
+      # Test if efficacy and toxicity are different between arms and borrow when no difference found
       n_effpts_autres <- vapply(seq_along(n_eff), \(x) {
         # Pvals <- vapply(seq_along(n_eff)[-x], \(t) binom.test(n_eff[t], n_pts_bras[t], Eff0)$p.value, numeric(1))
         Pvals <- vapply(seq_along(n_eff)[-x], \(t) fisher.test(matrix(c(n_eff[x], n_pts_bras[x] - n_eff[x], n_eff[t], n_pts_bras[t] - n_eff[t]), 2, 2))$p.value, numeric(1))
@@ -823,6 +937,7 @@ real_essai_bop_power_test_efftox <- function(data, analyses, CPar, PPar, ana_eff
         return(c(sum(n_tox[-x][Pvals > SeuilP_tox]), sum((Pvals > SeuilP_tox) * n_pts_bras[-x])))
       }, numeric(2))
     }
+    # Power prior for efficacy and toxicity, on arms not significantly different
     PPEff <- pbeta(phi_eff, prior_eff + n_eff + A0_eff * n_effpts_autres[1, ], 1 - prior_eff + Nb_pts - n_eff + A0_eff * (n_effpts_autres[2, ] - n_effpts_autres[1, ]))
     data$est_eff[data$nb_ana == i] <- (prior_eff + n_eff + A0_eff * n_effpts_autres[1, ]) / (Nb_pts + A0_eff * n_effpts_autres[2, ] + 1) 
     data$icinf_eff[data$nb_ana == i] <- qbeta(.025, prior_eff + n_eff + A0_eff * n_effpts_autres[1, ], 1 - prior_eff + Nb_pts - n_eff + A0_eff * (n_effpts_autres[2, ] - n_effpts_autres[1, ]))
@@ -833,7 +948,6 @@ real_essai_bop_power_test_efftox <- function(data, analyses, CPar, PPar, ana_eff
     } else {
       if (i == 1) data$arret_eff[data$nb_ana == i] <- 0 else data$arret_eff[data$nb_ana == i] <- data$arret_eff[data$nb_ana == (i - 1)]
     }
-    # Power prior, mais sur les bras non significativement différents
     PPTox <- 1 - pbeta(phi_tox, prior_tox + n_tox + A0_tox * n_toxpts_autres[1, ], 1 - prior_tox + Nb_pts - n_tox + A0_tox * (n_toxpts_autres[2, ] - n_toxpts_autres[1, ]))
     if (i != 1) PPTox[data$arret_tox[data$nb_ana == (i - 1)] == 1] <- 1.5
     if (Nb_pts %in% ana_tox_cum) {
@@ -853,6 +967,18 @@ real_essai_bop_power_test_efftox <- function(data, analyses, CPar, PPar, ana_eff
 
 ### Toxicity only ----
 
+# Analyse the data from 1 trial using multi-arm BOP2 with power prior on toxicity (dynamic borrowing with pvalue of binomial test)
+# Adapted from test-then-pool strategy from Viele et al. Use of historical control data for assessing treatment effects in clinical trials. Pharm Stat. 2014 Jan-Feb;13(1):41-54. 
+# Arguments :
+## data = data.frame with data from the trial simulated via gen_patients_multinom function
+## analyses = number of patients in each arm at analysis
+## CPar, PPar = parameters of threshold Cn of multi-arm BOP2 design
+## ana_eff_cum, ana_tox_cum = number of patients in each arm at analyses for efficacy/toxicity
+## A0 = exponent of the power prior to determine borrowing (downscale after borrowing)
+## Tox0 = reference value that we test agains in binomial test
+## phi_eff, phi_tox = threshold values for the rule to stop : futility and toxicity thresholds
+## prior_eff, prior_tox = vectors of length 2 giving the 2 parameters for the beta priors for efficacy and toxicity
+# Output : data.frame of the trial with decisions from design
 real_essai_bop_borrow_test_tox <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, A0, Tox0, 
                                            phi_eff, phi_tox, prior_eff, prior_tox) {
   data$arret_eff <- data$arret_tox <- NA_integer_
@@ -869,7 +995,7 @@ real_essai_bop_borrow_test_tox <- function(data, analyses, CPar, PPar, ana_eff_c
         Pvals <- vapply(seq_along(n_tox)[-x], \(t) binom.test(n_tox[t], n_pts_bras[t], Tox0)$p.value, numeric(1))
         return(c(sum(n_tox[-x] * Pvals), sum(Pvals * n_pts_bras[-x])))
       }, numeric(2))
-    } else { # Si on n'est pas à la première analyse, il ne faut actualiser n_tox et n_pts que pour les cas où on ne s'est pas arrêté
+    } else { # If not at first analysis, only update numbers when the arm is not stopped
       VecNonArrets <- data$arret_eff[data$nb_ana == (i - 1)] == 0 & data$arret_tox[data$nb_ana == (i - 1)] == 0
       n_eff[VecNonArrets] <- data$tot_eff[data$nb_ana == i][VecNonArrets]
       n_tox[VecNonArrets] <- Nb_pts - data$tot_notox[data$nb_ana == i][VecNonArrets]
@@ -889,7 +1015,7 @@ real_essai_bop_borrow_test_tox <- function(data, analyses, CPar, PPar, ana_eff_c
     } else {
       if (i == 1) data$arret_eff[data$nb_ana == i] <- 0 else data$arret_eff[data$nb_ana == i] <- data$arret_eff[data$nb_ana == (i - 1)]
     }
-    # Idem que précédemment, mais la PValue est un multiplicateur, pas juste un seuil pour le partage
+    # Borrowing information
     PPTox <- 1 - pbeta(phi_tox, prior_tox + n_tox + A0 * n_toxpts_autres[1, ], 1 - prior_tox + Nb_pts - n_tox + A0 * (n_toxpts_autres[2, ] - n_toxpts_autres[1, ]))
     data$est_tox[data$nb_ana == i] <- (prior_tox + n_tox + A0 * n_toxpts_autres[1, ]) / (Nb_pts + A0 * n_toxpts_autres[2, ] + 1) 
     data$icinf_tox[data$nb_ana == i] <- qbeta(.025, prior_tox + n_tox + A0 * n_toxpts_autres[1, ], 1 - prior_tox + Nb_pts - n_tox + A0 * (n_toxpts_autres[2, ] - n_toxpts_autres[1, ]))
@@ -906,6 +1032,18 @@ real_essai_bop_borrow_test_tox <- function(data, analyses, CPar, PPar, ana_eff_c
 
 ### Efficacy and toxicity ----
 
+# Analyse the data from 1 trial using multi-arm BOP2 with power prior on toxicity and efficacy (dynamic borrowing with pvalue of binomial test)
+# Adapted from test-then-pool strategy from Viele et al. Use of historical control data for assessing treatment effects in clinical trials. Pharm Stat. 2014 Jan-Feb;13(1):41-54. 
+# Arguments :
+## data = data.frame with data from the trial simulated via gen_patients_multinom function
+## analyses = number of patients in each arm at analysis
+## CPar, PPar = parameters of threshold Cn of multi-arm BOP2 design
+## ana_eff_cum, ana_tox_cum = number of patients in each arm at analyses for efficacy/toxicity
+## A0_eff, A0_tox = exponent of the power prior to determine borrowing (downscale after borrowing)
+## Eff0, Tox0 = reference value that we test agains in binomial test
+## phi_eff, phi_tox = threshold values for the rule to stop : futility and toxicity thresholds
+## prior_eff, prior_tox = vectors of length 2 giving the 2 parameters for the beta priors for efficacy and toxicity
+# Output : data.frame of the trial with decisions from design
 real_essai_bop_borrow_test_efftox <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, 
                                               A0_eff, Eff0, A0_tox, Tox0, 
                                               phi_eff, phi_tox, prior_eff, prior_tox) {
@@ -925,7 +1063,7 @@ real_essai_bop_borrow_test_efftox <- function(data, analyses, CPar, PPar, ana_ef
         Pvals <- vapply(seq_along(n_tox)[-x], \(t) binom.test(n_tox[t], n_pts_bras[t], Tox0)$p.value, numeric(1))
         return(c(sum(n_tox[-x] * Pvals), sum(Pvals * n_pts_bras[-x])))
       }, numeric(2))
-    } else { # Si on n'est pas à la première analyse, il ne faut actualiser n_tox et n_pts que pour les cas où on ne s'est pas arrêté
+    } else { # If not at first analysis, only update numbers when the arm is not stopped
       VecNonArrets <- data$arret_eff[data$nb_ana == (i - 1)] == 0 & data$arret_tox[data$nb_ana == (i - 1)] == 0
       n_eff[VecNonArrets] <- data$tot_eff[data$nb_ana == i][VecNonArrets]
       n_tox[VecNonArrets] <- Nb_pts - data$tot_notox[data$nb_ana == i][VecNonArrets]
@@ -946,7 +1084,6 @@ real_essai_bop_borrow_test_efftox <- function(data, analyses, CPar, PPar, ana_ef
     } else {
       if (i == 1) data$arret_eff[data$nb_ana == i] <- 0 else data$arret_eff[data$nb_ana == i] <- data$arret_eff[data$nb_ana == (i - 1)]
     }
-    # Idem que précédemment, mais la PValue est un multiplicateur, pas juste un seuil pour le partage
     PPTox <- 1 - pbeta(phi_tox, prior_tox + n_tox + A0_tox * n_toxpts_autres[1, ], 1 - prior_tox + Nb_pts - n_tox + A0_tox * (n_toxpts_autres[2, ] - n_toxpts_autres[1, ]))
     data$est_tox[data$nb_ana == i] <- (prior_tox + n_tox + A0_tox * n_toxpts_autres[1, ]) / (Nb_pts + A0 * n_toxpts_autres[2, ] + 1) 
     data$icinf_tox[data$nb_ana == i] <- qbeta(.025, prior_tox + n_tox + A0_tox * n_toxpts_autres[1, ], 1 - prior_tox + Nb_pts - n_tox + A0 * (n_toxpts_autres[2, ] - n_toxpts_autres[1, ]))
@@ -964,15 +1101,26 @@ real_essai_bop_borrow_test_efftox <- function(data, analyses, CPar, PPar, ana_ef
 
 ## BHM ----
 
+# In the following, for the functions to work, it is assumed that all STAN models are stored in a list
+# nammed CompiledModelsTox for toxicity and CompiledModelsEffTox for both endpoints
+# See script TestPriorBop_vXX.R for usage
+
 ### Toxicity only ----
 
+# Compile the model BHM for toxicity
+# Use of non central parametrization to reduce divergences in STAN (https://ballardtj.github.io/blog/non-centered-params/)
+# Arguments :
+## moy_mu, sigma_mu = mean and standard deviation of normal prior for mean proportion on logit scale
+## moy_sig, sigma_sig = mean and standard deviation of normal truncated prior for standard deviation of proportion on logit scale
+## moy_p, sigma_p = parameters for non central parametrization, not touching in general
+# Output : Compiled BHM in STAN
 CompilBHM_tox <- function(moy_mu = 0, moy_sig = 0, moy_p = 0,
                           sigma_mu = 5, sigma_sig = 5, sigma_p = 1) {
   ModeleHier_t <- "
   data {
-    int<lower = 1> Nb; // Nombre de bras
-    int<lower = 1> n[Nb]; // Nombre de patients par bras
-    int<lower = 0> y[Nb]; // Nombre de toxicités par bras
+    int<lower = 1> Nb; // Number of arms
+    int<lower = 1> n[Nb]; // Number of patients per arm
+    int<lower = 0> y[Nb]; // Number of toxicities per arm
   }
   parameters{
     real p_raw[Nb];
@@ -980,8 +1128,8 @@ CompilBHM_tox <- function(moy_mu = 0, moy_sig = 0, moy_p = 0,
     real<lower = 0> sigma;
   }
   transformed parameters{
-    real p[Nb]; // Probabilité pour chaque bras
-    real logit_p[Nb]; // Prédicteur linéaire pour chaque bras
+    real p[Nb]; // Probability for each arm
+    real logit_p[Nb]; // Linear predictor in each arm
     for(j in 1:Nb){
       logit_p[j] = mu + sigma * p_raw[j]; // Non central parametrization
     }
@@ -1009,6 +1157,16 @@ CompilBHM_tox <- function(moy_mu = 0, moy_sig = 0, moy_p = 0,
   return(stan_model(model_code = ModeleHier_t))
 }
 
+# Analyse the data from 1 trial using BHM only for toxicity and BOP for efficacy
+# Stopping rules are those of the multi-arm BOP
+# Arguments :
+## data = data.frame with data from the trial simulated via gen_patients_multinom function
+## analyses = number of patients in each arm at analysis
+## CPar, PPar = parameters of threshold Cn of multi-arm BOP2 design
+## ana_eff_cum, ana_tox_cum = number of patients in each arm at analyses for efficacy/toxicity
+## phi_eff, phi_tox = threshold values for the rule to stop : futility and toxicity thresholds
+## prior_eff = vectors of length 2 giving the 2 parameters for the beta priors for efficacy
+# Output : data.frame of the trial with decisions from design
 real_essai_modhier_tox <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, 
                                    phi_eff, phi_tox, prior_eff) {
   
@@ -1038,7 +1196,7 @@ real_essai_modhier_tox <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_
     data$est_eff[data$nb_ana == i] <- (n_eff + prior_eff) / (Nb_pts + 1) 
     data$icinf_eff[data$nb_ana == i] <- qbeta(.025, prior_eff + n_eff, 1 - prior_eff + Nb_pts - n_eff) 
     data$icsup_eff[data$nb_ana == i] <- qbeta(.975, prior_eff + n_eff, 1 - prior_eff + Nb_pts - n_eff)
-    # Probas a posteriori calculées par MCMC sur le modèle hiérarchique
+    # Get posterior distributions via MCMC
     if ((i != 1 && any(data$arret_tox[data$nb_ana == (i - 1)] == 0 & data$arret_eff[data$nb_ana == (i - 1)] == 0)) | (i == 1)) {
       DonneesTox <- list(Nb = length(n_tox), n = n_pts_bras, y = n_tox)
       SampledTox <- sampling(CompiledModelsTox[["hBOP_tox"]], 
@@ -1051,7 +1209,7 @@ real_essai_modhier_tox <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_
                              control = list(stepsize = .3, adapt_delta = .95, max_treedepth = 15),
                              seed = 121221)
       PPred <- extract(SampledTox, pars = "p")$p
-      PPTox <- colMeans(PPred > phi_tox) # On va chercher les distributions a posteriori de chaque bras pour la proportion de toxicité
+      PPTox <- colMeans(PPred > phi_tox) # posterior probability
       data$est_tox[data$nb_ana == i] <- colMeans(PPred)
       data$icinf_tox[data$nb_ana == i] <- apply(PPred, 2, quantile, probs = .025)
       data$icsup_tox[data$nb_ana == i] <- apply(PPred, 2, quantile, probs = .975)
@@ -1075,6 +1233,13 @@ real_essai_modhier_tox <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_
 
 ### Efficacy and toxicity ----
 
+# Compile the model BHM for toxicity and efficacy
+# Use of non central parametrization to reduce divergences in STAN (https://ballardtj.github.io/blog/non-centered-params/)
+# Arguments :
+## moy_mu_eff, sigma_mu_eff, moy_mu_tox, sigma_mu_tox = mean and standard deviation of normal prior for mean proportion on logit scale
+## moy_sig_eff, sigma_sig_eff, moy_sig_tox, sigma_sig_tox = mean and standard deviation of normal truncated prior for standard deviation of proportion on logit scale
+## moy_p_eff, sigma_p_eff, moy_p_tox, sigma_p_tox = parameters for non central parametrization, not touching in general
+# Output : Compiled BHM in STAN
 CompilBHM_efftox <- function(moy_mu_eff = 0, moy_sig_eff = 0, moy_p_eff = 0, moy_mu_tox = 0, moy_sig_tox = 0, moy_p_tox = 0,
                              sigma_mu_eff = 5, sigma_sig_eff = 5, sigma_p_eff = 1, sigma_mu_tox = 5, sigma_sig_tox = 5, sigma_p_tox = 1) {
   ModeleHier_et <- "
@@ -1135,8 +1300,17 @@ CompilBHM_efftox <- function(moy_mu_eff = 0, moy_sig_eff = 0, moy_p_eff = 0, moy
   return(stan_model(model_code = ModeleHier_et))
 }
 
+# Analyse the data from 1 trial using BHM only for toxicity and efficacy
+# Stopping rules are those of the multi-arm BOP
+# Arguments :
+## data = data.frame with data from the trial simulated via gen_patients_multinom function
+## analyses = number of patients in each arm at analysis
+## CPar, PPar = parameters of threshold Cn of multi-arm BOP2 design
+## ana_eff_cum, ana_tox_cum = number of patients in each arm at analyses for efficacy/toxicity
+## phi_eff, phi_tox = threshold values for the rule to stop : futility and toxicity thresholds
+# Output : data.frame of the trial with decisions from design
 real_essai_modhier_efftox <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, 
-                                      phi_eff, phi_tox, prior_eff) {
+                                      phi_eff, phi_tox) {
   
   data$arret_eff <- data$arret_tox <- NA_integer_
   data$est_eff <- data$icinf_eff <- data$icsup_eff <- NA_real_
@@ -1154,7 +1328,6 @@ real_essai_modhier_efftox <- function(data, analyses, CPar, PPar, ana_eff_cum, a
       n_tox[VecNonArrets] <- Nb_pts - data$tot_notox[data$nb_ana == i][VecNonArrets]
       n_pts_bras[VecNonArrets] <- rep(Nb_pts, sum(VecNonArrets))
     }
-    # Probas a posteriori calculées par MCMC sur le modèle hiérarchique
     if ((i != 1 && any(data$arret_tox[data$nb_ana == (i - 1)] == 0 & data$arret_eff[data$nb_ana == (i - 1)] == 0)) | (i == 1)) {
       DonneesEffTox <- list(Nb = length(n_tox), n = n_pts_bras, y_tox = n_tox, y_eff = n_eff)
       SampledEffTox <- sampling(CompiledModelsEffTox[["hBOP_efftox"]], 
@@ -1167,12 +1340,12 @@ real_essai_modhier_efftox <- function(data, analyses, CPar, PPar, ana_eff_cum, a
                                 control = list(stepsize = .3, adapt_delta = .95, max_treedepth = 15),
                                 seed = 121221)
       PPredTox <- extract(SampledEffTox, pars = "p_tox")$p_tox
-      PPTox <- colMeans(PPredTox > phi_tox) # On va chercher les distributions a posteriori de chaque bras pour la proportion de toxicité
+      PPTox <- colMeans(PPredTox > phi_tox) 
       data$est_tox[data$nb_ana == i] <- colMeans(PPredTox)
       data$icinf_tox[data$nb_ana == i] <- apply(PPredTox, 2, quantile, probs = .025)
       data$icsup_tox[data$nb_ana == i] <- apply(PPredTox, 2, quantile, probs = .975)
       PPredEff <- extract(SampledEffTox, pars = "p_eff")$p_eff
-      PPEff <- colMeans(PPredEff < phi_eff) # On va chercher les distributions a posteriori de chaque bras pour la proportion de toxicité
+      PPEff <- colMeans(PPredEff < phi_eff) 
       data$est_eff[data$nb_ana == i] <- colMeans(PPredEff)
       data$icinf_eff[data$nb_ana == i] <- apply(PPredEff, 2, quantile, probs = .025)
       data$icsup_eff[data$nb_ana == i] <- apply(PPredEff, 2, quantile, probs = .975)
@@ -1209,6 +1382,13 @@ real_essai_modhier_efftox <- function(data, analyses, CPar, PPar, ana_eff_cum, a
 
 ### Calibration of parameters ----
 
+# Calibration of the 2 parameters for CBHM
+# As described in Chu Y, Yuan Y. A Bayesian basket trial design using a calibrated Bayesian hierarchical model. Clin Trials. 2018 Apr;15(2):149-158.
+# Arguments :
+## NSimu = number of simulated trials
+## NPts = number of patients per arm in each simulated trial
+## Q0, Q1 = null and alternative hypotheses
+## Graine = seed to ensure reproducibility
 CalibrateCBHM <- function(NSimu = 10000, NPts, Q0, Q1, Graine = 121221) {
   
   set.seed(Graine)
@@ -1257,14 +1437,20 @@ CalibrateCBHM <- function(NSimu = 10000, NPts, Q0, Q1, Graine = 121221) {
 
 ### Toxicity only ----
 
+# Compile the model CBHM for toxicity
+# Use of non central parametrization to reduce divergences in STAN (https://ballardtj.github.io/blog/non-centered-params/)
+# Arguments :
+## moy_mu, sigma_mu = mean and standard deviation of normal prior for mean proportion on logit scale
+## moy_p, sigma_p = parameters for non central parametrization, not touching in general
+# Output : Compiled CBHM in STAN
 CompilCBHM_tox <- function(moy_mu = 0, moy_p = 0,
                            sigma_mu = 5, sigma_p = 1) {
   ModeleCBHM_t <- "
   data {
-    int<lower = 1> Nb; // Nombre de bras
-    int<lower = 1> n[Nb]; // Nombre de patients par bras
-    int<lower = 0> y[Nb]; // Nombre de toxicités par bras
-    real<lower = 0> etype; // La SD du CBHM
+    int<lower = 1> Nb; // Number of arms
+    int<lower = 1> n[Nb]; // Number of patients in each arm
+    int<lower = 0> y[Nb]; // Number of toxicities in each arm
+    real<lower = 0> etype; // SD calibrated
   }
   
   parameters{
@@ -1273,8 +1459,8 @@ CompilCBHM_tox <- function(moy_mu = 0, moy_p = 0,
   }
   
   transformed parameters{
-    real p[Nb]; // Probabilité pour chaque bras
-    real logit_p[Nb]; // Prédicteur linéaire pour chaque bras
+    real p[Nb]; // Probability in each arm
+    real logit_p[Nb]; // Linear predictor in each arm
     for(j in 1:Nb){
       logit_p[j] = mu + etype * p_raw[j]; // Non central parametrization
     }
@@ -1301,6 +1487,17 @@ CompilCBHM_tox <- function(moy_mu = 0, moy_p = 0,
   return(stan_model(model_code = ModeleCBHM_t))
 }
 
+# Analyse the data from 1 trial using CBHM only for toxicity and BOP for efficacy
+# Stopping rules are those of the multi-arm BOP
+# Arguments :
+## data = data.frame with data from the trial simulated via gen_patients_multinom function
+## analyses = number of patients in each arm at analysis
+## CPar, PPar = parameters of threshold Cn of multi-arm BOP2 design
+## ana_eff_cum, ana_tox_cum = number of patients in each arm at analyses for efficacy/toxicity
+## phi_eff, phi_tox = threshold values for the rule to stop : futility and toxicity thresholds
+## prior_eff = vector of 2 parameters for the beta prior on efficacy
+## a, b = 2 hyperparameters of CBHM to compute variance of the model
+# Output : data.frame of the trial with decisions from design
 real_essai_modcbhm_tox <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, 
                                    phi_eff, phi_tox, prior_eff,
                                    a, b) {
@@ -1332,10 +1529,9 @@ real_essai_modcbhm_tox <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_
     data$est_eff[data$nb_ana == i] <- (n_eff + prior_eff) / (Nb_pts + 1) 
     data$icinf_eff[data$nb_ana == i] <- qbeta(.025, prior_eff + n_eff, 1 - prior_eff + Nb_pts - n_eff) 
     data$icsup_eff[data$nb_ana == i] <- qbeta(.975, prior_eff + n_eff, 1 - prior_eff + Nb_pts - n_eff)
-    # Probas a posteriori calculées par MCMC sur le modèle STAN CBHM
     if ((i != 1 && any(data$arret_tox[data$nb_ana == (i - 1)] == 0 & data$arret_eff[data$nb_ana == (i - 1)] == 0)) | (i == 1)) {
       suppressWarnings(Statistic <- as.numeric(chisq.test(matrix(c(n_tox, n_pts_bras - n_tox), nrow = 2, byrow = TRUE))$statistic))
-      if (Statistic < 1) Statistic <- 1 # Security added in the code of the article
+      if (Statistic < 1) Statistic <- 1 # Security added in the code of the article to ensure not to have too small variance or too high
       VarianceCBHM <- exp(a + b * log(Statistic))
       if (is.na(VarianceCBHM) || !is.finite(VarianceCBHM) || VarianceCBHM > 1e+4) VarianceCBHM <- 1e+4
       DonneesTox <- list(Nb = length(n_tox), n = n_pts_bras, y = n_tox, etype = sqrt(VarianceCBHM))
@@ -1349,7 +1545,7 @@ real_essai_modcbhm_tox <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_
                              control = list(stepsize = .3, adapt_delta = .95, max_treedepth = 15),
                              seed = 121221)
       PPred <- extract(SampledTox, pars = "p")$p
-      PPTox <- colMeans(PPred > phi_tox) # On va chercher les distributions a posteriori de chaque bras pour la proportion de toxicité
+      PPTox <- colMeans(PPred > phi_tox) 
       data$est_tox[data$nb_ana == i] <- colMeans(PPred)
       data$icinf_tox[data$nb_ana == i] <- apply(PPred, 2, quantile, probs = .025)
       data$icsup_tox[data$nb_ana == i] <- apply(PPred, 2, quantile, probs = .975)
@@ -1375,6 +1571,12 @@ real_essai_modcbhm_tox <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_
 
 ### Efficacy and toxicity ----
 
+# Compile the model CBHM for toxicity and efficacy
+# Use of non central parametrization to reduce divergences in STAN (https://ballardtj.github.io/blog/non-centered-params/)
+# Arguments :
+## moy_mu_eff, sigma_mu_eff, moy_mu_tox, sigma_mu_tox = mean and standard deviation of normal prior for mean proportion on logit scale
+## moy_p_eff, sigma_p_eff, moy_p_tox, sigma_p_tox = parameters for non central parametrization, not touching in general
+# Output : Compiled CBHM in STAN
 CompilCBHM_efftox <- function(moy_mu_tox = 0, moy_p_tox = 0, sigma_mu_tox = 5, sigma_p_tox = 1,
                               moy_mu_eff = 0, moy_p_eff = 0, sigma_mu_eff = 5, sigma_p_eff = 1) {
   ModeleCBHM_et <- "
@@ -1434,8 +1636,18 @@ CompilCBHM_efftox <- function(moy_mu_tox = 0, moy_p_tox = 0, sigma_mu_tox = 5, s
   return(stan_model(model_code = ModeleCBHM_et))
 }
 
+# Analyse the data from 1 trial using CBHM only for toxicity and efficacy
+# Stopping rules are those of the multi-arm BOP
+# Arguments :
+## data = data.frame with data from the trial simulated via gen_patients_multinom function
+## analyses = number of patients in each arm at analysis
+## CPar, PPar = parameters of threshold Cn of multi-arm BOP2 design
+## ana_eff_cum, ana_tox_cum = number of patients in each arm at analyses for efficacy/toxicity
+## phi_eff, phi_tox = threshold values for the rule to stop : futility and toxicity thresholds
+## a_eff, b_eff, a_tox, b_tox = 2 hyperparameters of CBHM to compute variance of the model (separate optimisation for efficacy and toxicity)
+# Output : data.frame of the trial with decisions from design
 real_essai_modcbhm_efftox <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, 
-                                      phi_eff, phi_tox, prior_eff,
+                                      phi_eff, phi_tox,
                                       a_eff, b_eff, a_tox, b_tox) {
   
   data$arret_eff <- data$arret_tox <- NA_integer_
@@ -1455,7 +1667,6 @@ real_essai_modcbhm_efftox <- function(data, analyses, CPar, PPar, ana_eff_cum, a
       n_tox[VecNonArrets] <- Nb_pts - data$tot_notox[data$nb_ana == i][VecNonArrets]
       n_pts_bras[VecNonArrets] <- rep(Nb_pts, sum(VecNonArrets))
     }
-    # Probas a posteriori calculées par MCMC sur le modèle STAN CBHM
     if ((i != 1 && any(data$arret_tox[data$nb_ana == (i - 1)] == 0 & data$arret_eff[data$nb_ana == (i - 1)] == 0)) | (i == 1)) {
       suppressWarnings(StatisticEff <- as.numeric(chisq.test(matrix(c(n_eff, n_pts_bras - n_eff), nrow = 2, byrow = TRUE))$statistic))
       suppressWarnings(StatisticTox <- as.numeric(chisq.test(matrix(c(n_tox, n_pts_bras - n_tox), nrow = 2, byrow = TRUE))$statistic))
@@ -1476,12 +1687,12 @@ real_essai_modcbhm_efftox <- function(data, analyses, CPar, PPar, ana_eff_cum, a
                                 control = list(stepsize = .3, adapt_delta = .95, max_treedepth = 15),
                                 seed = 121221)
       PPredTox <- extract(SampledEffTox, pars = "p_tox")$p_tox
-      PPTox <- colMeans(PPredTox > phi_tox) # On va chercher les distributions a posteriori de chaque bras pour la proportion de toxicité
+      PPTox <- colMeans(PPredTox > phi_tox) 
       data$est_tox[data$nb_ana == i] <- colMeans(PPredTox)
       data$icinf_tox[data$nb_ana == i] <- apply(PPredTox, 2, quantile, probs = .025)
       data$icsup_tox[data$nb_ana == i] <- apply(PPredTox, 2, quantile, probs = .975)
       PPredEff <- extract(SampledEffTox, pars = "p_eff")$p_eff
-      PPEff <- colMeans(PPredEff < phi_eff) # On va chercher les distributions a posteriori de chaque bras pour la proportion de toxicité
+      PPEff <- colMeans(PPredEff < phi_eff) 
       data$est_eff[data$nb_ana == i] <- colMeans(PPredEff)
       data$icinf_eff[data$nb_ana == i] <- apply(PPredEff, 2, quantile, probs = .025)
       data$icsup_eff[data$nb_ana == i] <- apply(PPredEff, 2, quantile, probs = .975)
@@ -1522,24 +1733,30 @@ real_essai_modcbhm_efftox <- function(data, analyses, CPar, PPar, ana_eff_cum, a
 
 ### Toxicity only ----
 
+# Compile the model EXNEX for toxicity
+# Arguments :
+## moy_muex, sigma_muex = mean and standard deviation of normal prior for mean proportion on logit scale in EX part of the model
+## moy_sigex, sigma_sigex = mean and standard deviation of normal prior for standard deviation of proportion on logit scale in EX part of the model
+## mu_nex, sigma_nex = mean and standard deviation of prior for NEX part of model
+# Output : Compiled CBHM in STAN
 CompilEXNEX_tox <- function(moy_muex = -1.734601, moy_sigex = 0,
                             sigma_muex = 2.616, sigma_sigex = 1,
                             mu_nex = -1.734601, sigma_nex = 2.801) {
   ModeleEXNEX_t <- "
   data {
-    int<lower = 1> Nb; // Nombre de bras
-    int<lower = 1> n[Nb]; // Nombre de patients par bras
-    int<lower = 0> y[Nb]; // Nombre de toxicités par bras
+    int<lower = 1> Nb; // Number of arms
+    int<lower = 1> n[Nb]; // Number of patients in each arm
+    int<lower = 0> y[Nb]; // Number of toxicities in each arm
     real<lower = 0, upper = 1> prob_ex[Nb];
   }
   parameters{
-    real theta[Nb]; // Log(odds) dans chaque bras
-    real mu_ex; // Moyenne du log(odds) pour la distribution EX
-    real<lower = 0> etype_ex; // Sd du log(odds) pour la distribution EX
+    real theta[Nb]; // Log(odds) 
+    real mu_ex; // Mean of log(odds) in EX distribution
+    real<lower = 0> etype_ex; // Sd of log(odds) in EX distribution
   }
   transformed parameters{
-    real p[Nb]; // Probabilité pour chaque bras
-    p = inv_logit(theta); // Theta = prédicteur linéaire pour chaque bras
+    real p[Nb]; // Probability in each arm
+    p = inv_logit(theta); // Theta = linear predictor in each arm
   }
   model{
     // prior distributions
@@ -1554,7 +1771,7 @@ CompilEXNEX_tox <- function(moy_muex = -1.734601, moy_sigex = 0,
     }
   }
   generated quantities{
-    // Probabilité d'être EX (https://mc-stan.org/docs/stan-users-guide/finite-mixtures.html)
+    // Probability of being EX (https://mc-stan.org/docs/stan-users-guide/finite-mixtures.html)
     real postprob_ex[Nb];
     for (i in 1:Nb) {
       postprob_ex[i] = normal_lpdf(theta[i] | mu_ex, etype_ex) + bernoulli_lpmf(0 | prob_ex[i]) - 
@@ -1572,8 +1789,18 @@ CompilEXNEX_tox <- function(moy_muex = -1.734601, moy_sigex = 0,
   ModeleEXNEX_t <- gsub("%sigma_nex%", sigma_nex, ModeleEXNEX_t)
   return(stan_model(model_code = ModeleEXNEX_t))
 }
-# CompiledEXNEX_t <- CompilEXNEX_tox()
 
+# Analyse the data from 1 trial using EXNEX only for toxicity and BOP for efficacy
+# Stopping rules are those of the multi-arm BOP
+# Arguments :
+## data = data.frame with data from the trial simulated via gen_patients_multinom function
+## analyses = number of patients in each arm at analysis
+## CPar, PPar = parameters of threshold Cn of multi-arm BOP2 design
+## ana_eff_cum, ana_tox_cum = number of patients in each arm at analyses for efficacy/toxicity
+## phi_eff, phi_tox = threshold values for the rule to stop : futility and toxicity thresholds
+## prior_eff = vector of 2 parameters for the beta prior on efficacy
+## pmix = initial guess of the probability of being EX
+# Output : data.frame of the trial with decisions from design
 real_essai_modexnex_tox <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, 
                                     phi_eff, phi_tox, prior_eff, p_mix) {
   
@@ -1604,7 +1831,6 @@ real_essai_modexnex_tox <- function(data, analyses, CPar, PPar, ana_eff_cum, ana
     data$est_eff[data$nb_ana == i] <- (n_eff + prior_eff) / (Nb_pts + 1) 
     data$icinf_eff[data$nb_ana == i] <- qbeta(.025, prior_eff + n_eff, 1 - prior_eff + Nb_pts - n_eff) 
     data$icsup_eff[data$nb_ana == i] <- qbeta(.975, prior_eff + n_eff, 1 - prior_eff + Nb_pts - n_eff)
-    # Probas a posteriori calculées par MCMC sur le modèle STAN CBHM
     if ((i != 1 && any(data$arret_tox[data$nb_ana == (i - 1)] == 0 & data$arret_eff[data$nb_ana == (i - 1)] == 0)) | (i == 1)) {
       DonneesTox <- list(Nb = length(n_tox), n = n_pts_bras, y = n_tox, prob_ex = p_mix)
       SampledTox <- sampling(CompiledModelsTox[["exnexBOP_tox"]], 
@@ -1644,29 +1870,35 @@ real_essai_modexnex_tox <- function(data, analyses, CPar, PPar, ana_eff_cum, ana
 
 ### Efficacy and toxicity ----
 
+# Compile the model EXNEX for toxicity and efficacy
+# Arguments :
+## moy_muex_tox, sigma_muex_tox, moy_muex_eff, sigma_muex_eff = mean and standard deviation of normal prior for mean proportion on logit scale in EX part of the model
+## moy_sigex_tox, sigma_sigex_tox, moy_sigex_eff, sigma_sigex_eff = mean and standard deviation of normal prior for standard deviation of proportion on logit scale in EX part of the model
+## mu_nex_tox, sigma_nex_tox, mu_nex_eff, sigma_nex_eff = mean and standard deviation of prior for NEX part of model
+# Output : Compiled CBHM in STAN
 CompilEXNEX_efftox <- function(moy_muex_tox = -1.734601, moy_sigex_tox = 0, sigma_muex_tox = 2.616, sigma_sigex_tox = 1, mu_nex_tox = -1.734601, sigma_nex_tox = 2.801,
                                moy_muex_eff = -1.734601, moy_sigex_eff = 0, sigma_muex_eff = 2.616, sigma_sigex_eff = 1, mu_nex_eff = -1.734601, sigma_nex_eff = 2.801) {
   ModeleEXNEX_et <- "
   data {
-    int<lower = 1> Nb; // Nombre de bras
-    int<lower = 1> n[Nb]; // Nombre de patients par bras
-    int<lower = 0> y_eff[Nb]; // Nombre de réponses par bras
-    int<lower = 0> y_tox[Nb]; // Nombre de toxicités par bras
+    int<lower = 1> Nb; // Number of arms
+    int<lower = 1> n[Nb]; // Number of patients in each arm
+    int<lower = 0> y_eff[Nb]; // Number of responses in each arm
+    int<lower = 0> y_tox[Nb]; // Number of toxicities in each arm
     real<lower = 0, upper = 1> prob_ex_eff[Nb];
     real<lower = 0, upper = 1> prob_ex_tox[Nb];
   }
   parameters{
-    real theta_eff[Nb]; // Log(odds) dans chaque bras pour l'efficacité
-    real theta_tox[Nb]; // Log(odds) dans chaque bras pour la toxicité
-    real mu_ex_eff; // Moyenne du log(odds) pour la distribution EX pour l'efficacité
-    real<lower = 0> etype_ex_eff; // Sd du log(odds) pour la distribution EX pour l'efficacité
-    real mu_ex_tox; // Moyenne du log(odds) pour la distribution EX pour la toxicité
-    real<lower = 0> etype_ex_tox; // Sd du log(odds) pour la distribution EX pour la toxicité
+    real theta_eff[Nb]; // Log(odds) of efficacy in each arm
+    real theta_tox[Nb]; // Log(odds) of toxicity in each arm
+    real mu_ex_eff; // Mean of log(odds) of efficacy in EX
+    real<lower = 0> etype_ex_eff; // Sd of log(odds) of efficacy in EX
+    real mu_ex_tox; // Mean of log(odds) of toxicity in EX
+    real<lower = 0> etype_ex_tox; // Sd of log(odds) of toxicity in EX
   }
   transformed parameters{
-    real p_eff[Nb]; // Probabilité de réponse pour chaque bras
-    real p_tox[Nb]; // Probabilité de toxicité pour chaque bras
-    p_eff = inv_logit(theta_eff); // Theta = prédicteur linéaire pour chaque bras
+    real p_eff[Nb]; // Probability of response in each arm
+    real p_tox[Nb]; // Probability of toxicity in each arm
+    p_eff = inv_logit(theta_eff); // Theta = linear predictor in each arm
     p_tox = inv_logit(theta_tox); 
   }
   model{
@@ -1688,7 +1920,7 @@ CompilEXNEX_efftox <- function(moy_muex_tox = -1.734601, moy_sigex_tox = 0, sigm
     }
   }
   generated quantities{
-    // Probabilité d'être EX (https://mc-stan.org/docs/stan-users-guide/finite-mixtures.html)
+    // Probability of being EX (https://mc-stan.org/docs/stan-users-guide/finite-mixtures.html)
     real postprob_ex_eff[Nb];
     real postprob_ex_tox[Nb];
     for (i in 1:Nb) {
@@ -1718,8 +1950,18 @@ CompilEXNEX_efftox <- function(moy_muex_tox = -1.734601, moy_sigex_tox = 0, sigm
   return(stan_model(model_code = ModeleEXNEX_et))
 }
 
+# Analyse the data from 1 trial using EXNEX only for toxicity and for efficacy
+# Stopping rules are those of the multi-arm BOP
+# Arguments :
+## data = data.frame with data from the trial simulated via gen_patients_multinom function
+## analyses = number of patients in each arm at analysis
+## CPar, PPar = parameters of threshold Cn of multi-arm BOP2 design
+## ana_eff_cum, ana_tox_cum = number of patients in each arm at analyses for efficacy/toxicity
+## phi_eff, phi_tox = threshold values for the rule to stop : futility and toxicity thresholds
+## pmix_eff, pmix_tox = initial guess of the probability of being EX for efficacy and toxicity
+# Output : data.frame of the trial with decisions from design
 real_essai_modexnex_efftox <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, 
-                                       phi_eff, phi_tox, prior_eff, p_mix_eff, p_mix_tox = p_mix_eff) {
+                                       phi_eff, phi_tox, p_mix_eff, p_mix_tox = p_mix_eff) {
   
   data$arret_eff <- data$arret_tox <- NA_integer_
   data$est_eff <- data$icinf_eff <- data$icsup_eff <- NA_real_
@@ -1738,7 +1980,6 @@ real_essai_modexnex_efftox <- function(data, analyses, CPar, PPar, ana_eff_cum, 
       n_tox[VecNonArrets] <- Nb_pts - data$tot_notox[data$nb_ana == i][VecNonArrets]
       n_pts_bras[VecNonArrets] <- rep(Nb_pts, sum(VecNonArrets))
     }
-    # Probas a posteriori calculées par MCMC sur le modèle STAN CBHM
     if ((i != 1 && any(data$arret_tox[data$nb_ana == (i - 1)] == 0 & data$arret_eff[data$nb_ana == (i - 1)] == 0)) | (i == 1)) {
       DonneesEffTox <- list(Nb = length(n_tox), n = n_pts_bras, y_eff = n_eff, prob_ex_eff = p_mix_eff, y_tox = n_tox, prob_ex_tox = p_mix_tox)
       SampledEffTox <- sampling(CompiledModelsEffTox[["exnexBOP_efftox"]], 
@@ -1751,12 +1992,12 @@ real_essai_modexnex_efftox <- function(data, analyses, CPar, PPar, ana_eff_cum, 
                                 control = list(stepsize = .3, adapt_delta = .95, max_treedepth = 15),
                                 seed = 121221)
       PPredTox <- extract(SampledEffTox, pars = "p_tox")$p_tox
-      PPTox <- colMeans(PPredTox > phi_tox) # On va chercher les distributions a posteriori de chaque bras pour la proportion de toxicité
+      PPTox <- colMeans(PPredTox > phi_tox) 
       data$est_tox[data$nb_ana == i] <- colMeans(PPredTox)
       data$icinf_tox[data$nb_ana == i] <- apply(PPredTox, 2, quantile, probs = .025)
       data$icsup_tox[data$nb_ana == i] <- apply(PPredTox, 2, quantile, probs = .975)
       PPredEff <- extract(SampledEffTox, pars = "p_eff")$p_eff
-      PPEff <- colMeans(PPredEff < phi_eff) # On va chercher les distributions a posteriori de chaque bras pour la proportion de toxicité
+      PPEff <- colMeans(PPredEff < phi_eff) 
       data$est_eff[data$nb_ana == i] <- colMeans(PPredEff)
       data$icinf_eff[data$nb_ana == i] <- apply(PPredEff, 2, quantile, probs = .025)
       data$icsup_eff[data$nb_ana == i] <- apply(PPredEff, 2, quantile, probs = .975)
@@ -1805,6 +2046,13 @@ real_essai_modexnex_efftox <- function(data, analyses, CPar, PPar, ana_eff_cum, 
 
 ### Toxicity only ----
 
+# Compile the logistic model for toxicity 
+# Arguments :
+## mu_inter, sigma_inter = mean and standard deviation of the normal prior for intercept
+## mu_coef, sigma_coef = mean and standard deviation of the normal prior for beta coefficient
+## PentePos = TRUE to ensure a positive log-linear beta coefficient
+## SecondCov = TRUE to add a third coefficient in the model (with same prior as "coef")
+# Output : Compiled logistic regression in STAN
 CompilModLog_tox <- function(mu_inter = 0, sigma_inter = 5, mu_coef = 0, sigma_coef = 5,
                              PentePos = FALSE, SecondCov = FALSE) {
   ModeleLog <- "
@@ -1842,6 +2090,18 @@ CompilModLog_tox <- function(mu_inter = 0, sigma_inter = 5, mu_coef = 0, sigma_c
   return(stan_model(model_code = ModeleLog))
 }
 
+# Analyse the data from 1 trial using bayesian logistic regression for toxicity and for efficacy
+# Stopping rules are those of the multi-arm BOP
+# Arguments :
+## data = data.frame with data from the trial simulated via gen_patients_multinom function
+## analyses = number of patients in each arm at analysis
+## CPar, PPar = parameters of threshold Cn of multi-arm BOP2 design
+## ana_eff_cum, ana_tox_cum = number of patients in each arm at analyses for efficacy/toxicity
+## phi_eff, phi_tox = threshold values for the rule to stop : futility and toxicity thresholds
+## prior_eff = vector of 2 parameters for the beta prior on efficacy
+## modele_log = Number of model as defined above
+## log_dose = TRUE to incorporate log of dose in model instead of dose
+# Output : data.frame of the trial with decisions from design
 real_essai_bayeslog_tox <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, 
                                     phi_eff, phi_tox, prior_eff, modele_log, log_dose) {
   
@@ -1877,7 +2137,6 @@ real_essai_bayeslog_tox <- function(data, analyses, CPar, PPar, ana_eff_cum, ana
     data$est_eff[data$nb_ana == i] <- (n_eff + prior_eff) / (Nb_pts + 1) 
     data$icinf_eff[data$nb_ana == i] <- qbeta(.025, prior_eff + n_eff, 1 - prior_eff + Nb_pts - n_eff) 
     data$icsup_eff[data$nb_ana == i] <- qbeta(.975, prior_eff + n_eff, 1 - prior_eff + Nb_pts - n_eff)
-    # MCMC pour la proba a posteriori seulement si nécessaire (gain de temps)
     if ((i != 1 && any(data$arret_tox[data$nb_ana == (i - 1)] == 0 & data$arret_eff[data$nb_ana == (i - 1)] == 0)) | (i == 1)) {
       if (modele_log %in% c(1:3, 6)) {
         DonneesTox <- list(N = sum(n_pts_bras),
@@ -1897,10 +2156,9 @@ real_essai_bayeslog_tox <- function(data, analyses, CPar, PPar, ana_eff_cum, ana
                              iter = 15000,
                              thin = 8,
                              cores = 3,
-                             # J'ai dû ajouter cela car cela ne convergeait pas bien sinon pour le modèle qui restreint beta en positif
+                             # For convergence issues
                              control = list(stepsize = .3, adapt_delta = .95, max_treedepth = 15),
                              seed = 121221)
-      # print(SampledTox)
       DistPost <- extract(SampledTox)
       if (modele_log %in% c(1:3)) {
         PPred <- lapply(doses_ttt, \(x) 1 / (1 + exp(-1 * (DistPost$alpha + x * DistPost$beta))))
@@ -1933,6 +2191,13 @@ real_essai_bayeslog_tox <- function(data, analyses, CPar, PPar, ana_eff_cum, ana
 
 ### Efficacy and toxicity ----
 
+# Compile the logistic model for toxicity and BOP2 for efficacy
+# Arguments :
+## mu_inter_tox, sigma_inter_tox, mu_inter_eff, sigma_inter_eff = mean and standard deviation of the normal prior for intercept for toxicity and efficacy
+## mu_coef_tox, sigma_coef_tox, mu_coef_eff, sigma_coef_eff = mean and standard deviation of the normal prior for beta coefficient for toxicity and efficacy
+## PentePos_tox, PentePos_eff = TRUE to ensure a positive log-linear beta coefficient for toxicity and efficacy
+## SecondCov_tox, SecondCov_eff = TRUE to add a third coefficient in the model (with same prior as "coef") for toxicity and efficacy
+# Output : Compiled logistic regression in STAN
 CompilModLog_efftox <- function(mu_inter_tox = 0, sigma_inter_tox = 5, mu_coef_tox = 0, sigma_coef_tox = 5,
                                 mu_inter_eff = 0, sigma_inter_eff = 5, mu_coef_eff = 0, sigma_coef_eff = 5,
                                 PentePos_tox = FALSE, SecondCov_tox = FALSE,
@@ -1993,8 +2258,19 @@ CompilModLog_efftox <- function(mu_inter_tox = 0, sigma_inter_tox = 5, mu_coef_t
   return(stan_model(model_code = ModeleLog))
 }
 
+# Analyse the data from 1 trial using bayesian logistic regression for toxicity and for efficacy
+# Stopping rules are those of the multi-arm BOP
+# Arguments :
+## data = data.frame with data from the trial simulated via gen_patients_multinom function
+## analyses = number of patients in each arm at analysis
+## CPar, PPar = parameters of threshold Cn of multi-arm BOP2 design
+## ana_eff_cum, ana_tox_cum = number of patients in each arm at analyses for efficacy/toxicity
+## phi_eff, phi_tox = threshold values for the rule to stop : futility and toxicity thresholds
+## modele_log = Number of model as defined above
+## log_dose = TRUE to incorporate log of dose in model instead of dose
+# Output : data.frame of the trial with decisions from design
 real_essai_bayeslog_efftox <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, 
-                                       phi_eff, phi_tox, prior_eff, modele_log, log_dose) {
+                                       phi_eff, phi_tox, modele_log, log_dose) {
   
   data$arret_eff <- data$arret_tox <- NA_integer_
   data$dose <- as.numeric(gsub("^ttt(\\d+)$", "\\1", data$ttt)) # Doses 1/2/3/... prises dans ces simulations
@@ -2018,7 +2294,6 @@ real_essai_bayeslog_efftox <- function(data, analyses, CPar, PPar, ana_eff_cum, 
       n_pts_bras[VecNonArrets] <- rep(Nb_pts, sum(VecNonArrets))
       doses_ttt[VecNonArrets] <- data$dose[data$nb_ana == i][VecNonArrets]
     }
-    # MCMC pour la proba a posteriori seulement si nécessaire (gain de temps)
     if ((i != 1 && any(data$arret_tox[data$nb_ana == (i - 1)] == 0 & data$arret_eff[data$nb_ana == (i - 1)] == 0)) | (i == 1)) {
       if (modele_log %in% c(1:3, 6)) {
         DonneesEffTox <- list(N = sum(n_pts_bras),
@@ -2040,7 +2315,7 @@ real_essai_bayeslog_efftox <- function(data, analyses, CPar, PPar, ana_eff_cum, 
                                 iter = 10000,
                                 thin = 4,
                                 cores = 3,
-                                # J'ai dû ajouter cela car cela ne convergeait pas bien sinon pour le modèle qui restreint beta en positif
+                                # Convergence issues
                                 control = list(stepsize = .3, adapt_delta = .95, max_treedepth = 15),
                                 seed = 121221)
       DistPost <- extract(SampledEffTox)
@@ -2093,6 +2368,14 @@ real_essai_bayeslog_efftox <- function(data, analyses, CPar, PPar, ana_eff_cum, 
 
 ## Logistic regression with CRM skeleton ----
 
+# Compute the skeleton of the model. Allow logistic and power skeleton
+# Arguments :
+## Probas = assumed probability of efficacy/toxicity assumed a priori
+## A0 = assumed intercept for logistic model
+## B0 = assumed slope for logistic model and coefficient for power model
+## MTD = number of assumed MTD dose
+## Delta = delta parameter from Cheung to incorporate variability around the doses
+## Model = logistic or power to select the desired model
 MakeSkeleton <- function(Probas, A0 = 3, B0 = 1, MTD, Delta = NULL, Model = "logistic") {
   Model <- match.arg(Model, c("logistic", "power"))
   if (Model == "logistic") {
@@ -2120,6 +2403,14 @@ MakeSkeleton <- function(Probas, A0 = 3, B0 = 1, MTD, Delta = NULL, Model = "log
 
 ### Toxicity only ----
 
+# Compile the logistic model type CRM for toxicity 
+# Arguments :
+## mu_inter, sigma_inter = mean and standard deviation of the normal prior for intercept
+## mu_coef, sigma_coef = mean and standard deviation of the normal prior for beta coefficient
+## fixed_intercept = TRUE to make the intercept a constant
+## PentePos = TRUE to ensure a positive log-linear beta coefficient
+## SecondCov = TRUE to add a third coefficient in the model (with same prior as "coef")
+# Output : Compiled logistic regression in STAN
 CompilModLogCrm_tox <- function(mu_inter = 0, sigma_inter = 5, mu_coef = 0, sigma_coef = 5,
                                 fixed_intercept = FALSE, PentePos = FALSE, SecondCov = FALSE) {
   if (fixed_intercept) {
@@ -2176,6 +2467,12 @@ CompilModLogCrm_tox <- function(mu_inter = 0, sigma_inter = 5, mu_coef = 0, sigm
   ModeleLog <- gsub("%sigma_coef%", sigma_coef, ModeleLog)
   return(stan_model(model_code = ModeleLog))
 }
+
+# Compile the power model (type CRM) for toxicity 
+# Arguments :
+## mu_coef, sigma_coef = mean and standard deviation of the normal prior for beta coefficient
+## PentePos = TRUE to ensure a positive beta coefficient
+# Output : Compiled power model CRM in STAN
 CompilModPowCrm_tox <- function(mu_coef = 0, sigma_coef = 5, PentePos = FALSE) {
   ModelePow <- "
   data {
@@ -2201,14 +2498,28 @@ CompilModPowCrm_tox <- function(mu_coef = 0, sigma_coef = 5, PentePos = FALSE) {
   return(stan_model(model_code = ModelePow))
 }
 
+# Analyse the data from 1 trial using bayesian logistic regression with CRM skeleton for toxicity and BOP2 for efficacy
+# Stopping rules are those of the multi-arm BOP
+# Arguments :
+## data = data.frame with data from the trial simulated via gen_patients_multinom function
+## analyses = number of patients in each arm at analysis
+## CPar, PPar = parameters of threshold Cn of multi-arm BOP2 design
+## ana_eff_cum, ana_tox_cum = number of patients in each arm at analyses for efficacy/toxicity
+## phi_eff, phi_tox = threshold values for the rule to stop : futility and toxicity thresholds
+## prior_eff = vector of 2 parameters for the beta prior on efficacy
+## skeleton_tox = skeleton for toxicity (for example using MakeSkeleton function)
+## fixed_intercept = TRUE for 1 parameter logistic regression
+## A0 = intercept when fixed
+## power_mod = TRUE for power model
+# Output : data.frame of the trial with decisions from design
 real_essai_bayeslogcrm_tox <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, 
                                        phi_eff, phi_tox, prior_eff, skeleton_tox, fixed_intercept, A0, 
                                        power_mod = FALSE) {
   
   data$arret_eff <- data$arret_tox <- NA_integer_
+  # Using the crm skeleton for doses
   data$dose <- as.numeric(gsub("^ttt(\\d+)$", "\\1", data$ttt)) 
   data$dose <- skeleton_tox[data$dose]
-  # Using the crm skeleton for doses
   data$est_eff <- data$icinf_eff <- data$icsup_eff <- NA_real_
   data$est_tox <- data$icinf_tox <- data$icsup_tox <- NA_real_
   for (i in seq_len(max(data$nb_ana))) {
@@ -2236,7 +2547,6 @@ real_essai_bayeslogcrm_tox <- function(data, analyses, CPar, PPar, ana_eff_cum, 
     data$est_eff[data$nb_ana == i] <- (n_eff + prior_eff) / (Nb_pts + 1) 
     data$icinf_eff[data$nb_ana == i] <- qbeta(.025, prior_eff + n_eff, 1 - prior_eff + Nb_pts - n_eff) 
     data$icsup_eff[data$nb_ana == i] <- qbeta(.975, prior_eff + n_eff, 1 - prior_eff + Nb_pts - n_eff)
-    # MCMC pour la proba a posteriori seulement si nécessaire (gain de temps)
     if ((i != 1 && any(data$arret_tox[data$nb_ana == (i - 1)] == 0 & data$arret_eff[data$nb_ana == (i - 1)] == 0)) | (i == 1)) {
       if (!power_mod) {
         if (fixed_intercept) {
@@ -2264,10 +2574,8 @@ real_essai_bayeslogcrm_tox <- function(data, analyses, CPar, PPar, ana_eff_cum, 
                              iter = 15000,
                              thin = 8,
                              cores = 3,
-                             # J'ai dû ajouter cela car cela ne convergeait pas bien sinon pour le modèle qui restreint beta en positif
                              control = list(stepsize = .3, adapt_delta = .95, max_treedepth = 15),
                              seed = 121221)
-      # print(SampledTox)
       DistPost <- rstan::extract(SampledTox)
       if (!power_mod) {
         if (fixed_intercept) {
@@ -2302,6 +2610,14 @@ real_essai_bayeslogcrm_tox <- function(data, analyses, CPar, PPar, ana_eff_cum, 
 
 ### Efficacy and toxicity ----
 
+# Compile the logistic model (like CRM) for toxicity  and efficacy
+# Arguments :
+## mu_inter_tox, sigma_inter_tox, mu_inter_eff, sigma_inter_eff = mean and standard deviation of the normal prior for intercept for toxicity and efficacy
+## mu_coef_tox, sigma_coef_tox, mu_coef_eff, sigma_coef_eff = mean and standard deviation of the normal prior for beta coefficient for toxicity and efficacy
+## fixed_intercept = TRUE to make the intercept a constant
+## PentePos_tox, PentePos_eff = TRUE to ensure a positive log-linear beta coefficient
+## SecondCov_tox, SecondCov_eff = TRUE to add a third coefficient in the model (with same prior as "coef")
+# Output : Compiled logistic regression in STAN
 CompilModLogCrm_efftox <- function(mu_inter_tox = 0, sigma_inter_tox = 5, mu_coef_tox = 0, sigma_coef_tox = 5,
                                    mu_inter_eff = 0, sigma_inter_eff = 5, mu_coef_eff = 0, sigma_coef_eff = 5,
                                    fixed_intercept = FALSE, PentePos_tox = FALSE, SecondCov_tox = FALSE,
@@ -2389,6 +2705,12 @@ CompilModLogCrm_efftox <- function(mu_inter_tox = 0, sigma_inter_tox = 5, mu_coe
   ModeleLog <- gsub("%sigma_coef_eff%", sigma_coef_eff, ModeleLog)
   return(stan_model(model_code = ModeleLog))
 }
+
+# Compile the power model (type CRM) for toxicity and efficacy
+# Arguments :
+## mu_coef_tox, sigma_coef_tox, mu_coef_eff, sigma_coef_eff = mean and standard deviation of the normal prior for beta coefficient
+## PentePos_tox, PentePos_eff = TRUE to ensure a positive beta coefficient
+# Output : Compiled power model CRM in STAN
 CompilModPowCrm_efftox <- function(mu_coef_tox = 0, sigma_coef_tox = 5, PentePos_tox = FALSE,
                                    mu_coef_eff = 0, sigma_coef_eff = 5, PentePos_eff = FALSE) {
   ModelePow <- "
@@ -2425,15 +2747,28 @@ CompilModPowCrm_efftox <- function(mu_coef_tox = 0, sigma_coef_tox = 5, PentePos
   return(stan_model(model_code = ModelePow))
 }
 
+# Analyse the data from 1 trial using bayesian logistic regression with CRM skeleton for toxicity and for efficacy
+# Stopping rules are those of the multi-arm BOP
+# Arguments :
+## data = data.frame with data from the trial simulated via gen_patients_multinom function
+## analyses = number of patients in each arm at analysis
+## CPar, PPar = parameters of threshold Cn of multi-arm BOP2 design
+## ana_eff_cum, ana_tox_cum = number of patients in each arm at analyses for efficacy/toxicity
+## phi_eff, phi_tox = threshold values for the rule to stop : futility and toxicity thresholds
+## skeleton_tox = skeleton for toxicity (for example using MakeSkeleton function)
+## fixed_intercept = TRUE for 1 parameter logistic regression
+## A0 = intercept when fixed
+## power_mod = TRUE for power model
+# Output : data.frame of the trial with decisions from design
 real_essai_bayeslogcrm_efftox <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, 
-                                          phi_eff, phi_tox, prior_eff, skeleton_tox, skeleton_eff, fixed_intercept, A0,
+                                          phi_eff, phi_tox, skeleton_tox, skeleton_eff, fixed_intercept, A0,
                                           power_mod = FALSE) {
   
   data$arret_eff <- data$arret_tox <- NA_integer_
+  # Using the crm skeleton for doses
   data$dose <- as.numeric(gsub("^ttt(\\d+)$", "\\1", data$ttt)) 
   data$dose_eff <- skeleton_eff[data$dose]
   data$dose_tox <- skeleton_tox[data$dose]
-  # Using the crm skeleton for doses
   data$est_eff <- data$icinf_eff <- data$icsup_eff <- NA_real_
   data$est_tox <- data$icinf_tox <- data$icsup_tox <- NA_real_
   for (i in seq_len(max(data$nb_ana))) {
@@ -2453,7 +2788,6 @@ real_essai_bayeslogcrm_efftox <- function(data, analyses, CPar, PPar, ana_eff_cu
       doseseff_ttt[VecNonArrets] <- data$dose_eff[data$nb_ana == i][VecNonArrets]
       dosestox_ttt[VecNonArrets] <- data$dose_tox[data$nb_ana == i][VecNonArrets]
     }
-    # MCMC pour la proba a posteriori seulement si nécessaire (gain de temps)
     if ((i != 1 && any(data$arret_tox[data$nb_ana == (i - 1)] == 0 & data$arret_eff[data$nb_ana == (i - 1)] == 0)) | (i == 1)) {
       if (!power_mod) {
         if (fixed_intercept) {
@@ -2488,7 +2822,6 @@ real_essai_bayeslogcrm_efftox <- function(data, analyses, CPar, PPar, ana_eff_cu
                                 iter = 10000,
                                 thin = 4,
                                 cores = 3,
-                                # J'ai dû ajouter cela car cela ne convergeait pas bien sinon pour le modèle qui restreint beta en positif
                                 control = list(stepsize = .3, adapt_delta = .95, max_treedepth = 15),
                                 seed = 121221)
       DistPost <- rstan::extract(SampledEffTox)
@@ -2543,6 +2876,25 @@ real_essai_bayeslogcrm_efftox <- function(data, analyses, CPar, PPar, ana_eff_cu
 
 # Get operating characteristics ----
 
+# Apply the chosen design to the simulated trials and compute the operating characteristics
+# Arguments :
+## ana_inter, ana_inter_tox = number of supplement patients at each analysis for efficacy and toxicity analyses
+## p_n, p_a = null and alternative hypotheses with vector of length 4 (EffTox, EffNoTox, NoEffTox, NoEffNoTox)
+## prior = prior multinomial distribution (if NULL, take the null hypothesis)
+## phi = threshold values for the rule to stop : futility and toxicity thresholds (vector of length 2)
+## mat_beta_xi = matrix of 2 rows and 4 columns for contrasts for BOP2 design with first row for efficacy and second for non toxicity
+## CPar, PPar = parameters of threshold Cn of multi-arm BOP2 design
+## methode = model you want to use to make analyses
+## A0_tox, A0_eff = exponents for power prior
+## SeuilP_tox, SeuilP_eff = pvalue threshold for test-then-pool
+## a_tox, b_tox, a_eff, b_eff = hyperparameters for CBHM model
+## p_mix_tox, p_mix_eff = initial guesses for proportion of EX in EXNEX model
+## log_dose = TRUE to put log dose in logistic regression
+## tableau_essais = data.frame of simulated trials
+# Output : list of
+## global operating characteristics for the design
+## arm-wise operating characteristics for the design
+## each trials and its analysis simulated
 opcharac <- function(ana_inter,
                      ana_inter_tox = NULL,
                      p_n,

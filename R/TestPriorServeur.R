@@ -1,8 +1,9 @@
-# ------------------------------------ #
-# Script de test des différents priors #
-# Auteur : G. Mulier                   #
-# Créé le 02/04/2024, modifié 02/04/24 #
-# ------------------------------------ #
+# ----------------------------------------------------------- #
+# Experimentation with different type of borrowing techniques #
+# to retrieve results                                         #
+# Autor : G. Mulier                                           #
+# Creation 02/04/2024, modified 02/04/24                      #
+# ----------------------------------------------------------- #
 
 # Packages et helpers ----
 
@@ -14,11 +15,11 @@ library(doParallel)
 
 
 
-# Définition des modèles MCMC ----
+# MCMC models in STAN ----
 
 ## Power prior ----
 
-## Un seul essai ----
+### Simple : 1 trial ----
 
 Modele1 <- "
 data{
@@ -36,12 +37,14 @@ transformed parameters{
 }
 model{
   target += beta_lpdf(theta | a, b); // Prior
-  target += gamm * logVrais; // Vraissemblance avec puissance
+  target += gamm * logVrais; // Likelihood with power
 }
 "
 Compil1 <- stan_model(model_code = Modele1)
 
-## Essai multiples ----
+
+## Multiple trials ----
+
 ModeleM <- "
 data{
   int<lower = 1> Nt;
@@ -59,13 +62,15 @@ transformed parameters{
 model{
   target += beta_lpdf(theta | a, b); // Prior
   for (i in 1:Nt) {
-    target += gamm * (x[i] * log(theta[i]) + (N[i] - x[i]) * log1m(theta[i])); // Vraissemblance avec puissance
+    target += gamm * (x[i] * log(theta[i]) + (N[i] - x[i]) * log1m(theta[i])); // Likelihood with power
   } 
 }
 "
 CompilM <- stan_model(model_code = ModeleM)
 
-## Hiérarchique ----
+
+## Hierarchical model + power prior ----
+
 ModeleH <- "
 data{
   int<lower = 1> Nt;
@@ -90,13 +95,17 @@ model{
   sigma ~ normal(0, 1000);
   for (i in 1:Nt) {
     target += beta_lpdf(theta[i] | alpha, beta); // Prior
-    target += gamm * (x[i] * log(theta[i]) + (N[i] - x[i]) * log1m(theta[i])); // Vraissemblance avec puissance
+    target += gamm * (x[i] * log(theta[i]) + (N[i] - x[i]) * log1m(theta[i])); // Likelihood with power
   } 
 }
 "
 CompilH <- stan_model(model_code = ModeleH)
 
 # MAP Prior ----
+
+# From Schmidli H, Gsteiger S, Roychoudhury S, O'Hagan A, Spiegelhalter D, Neuenschwander B. 
+# Robust meta-analytic-predictive priors in clinical trials with historical control information. Biometrics. 2014 Dec;70(4):1023-32.
+
 ModeleMAP <- "
 data {
   int <lower = 2> Nt; // Nombre d'essais
@@ -199,7 +208,8 @@ MAP.Binary2PriorML <- function(fit, ...){
   return(prior)
 }
 
-# Générer des données et appliquer les différents priors ----
+
+# Generate data and apply the different priors ----
 
 NEssais <- 3
 NSimul <- 10000
@@ -214,7 +224,6 @@ set.seed(121221, kind = "L'Ecuyer-CMRG")
 
 
 for (loi in seq_along(ParamsBeta)) {
-  # En quelque sorte les hyperparamètres, et la simulations des paramètres p de la loi binomiale
   cat(paste0("\n\nScénario n°", loi, "\n\n"), file = "~/R/log.txt", append = TRUE)
   AlphaB <- ParamsBeta[[loi]][1]
   BetaB <- ParamsBeta[[loi]][2]
@@ -225,7 +234,7 @@ for (loi in seq_along(ParamsBeta)) {
                               .packages = c("MASS", "rstan"),
                               .export = c("Compil1", "CompilM", "CompilH", "CompilMAP", "MAP.Binary2PriorML", "AlphaB", "BetaB")) %dopar% {
                                 if (essai %% 50 == 0) cat(paste0("simu ", essai, "\n"), file = "~/R/log.txt", append = TRUE)
-                                # Power prior données poolées
+                                # Power prior pooled data
                                 DonneesRegroup <- list(N = sum(NPtsBras), x = sum(ResultatsEssais[essai, ]), a = .5, b = .5, gamm = .75)
                                 FitPPrior <- sampling(Compil1, 
                                                       data = DonneesRegroup,         
@@ -242,7 +251,7 @@ for (loi in seq_along(ParamsBeta)) {
                                 theopp1 <- data.frame("simu" = essai, "var" = "theta", "algo" = "analytique", "prior" = "PP1", 
                                                       "moy" = APP1 / (APP1 + BPP1), "icinf" = qbeta(.025, APP1, BPP1), 
                                                       "icsup" = qbeta(.975, APP1, BPP1))
-                                # Power prior multiples
+                                # Power prior multiple trials
                                 Donnees <- list(Nt = NEssais, N = NPtsBras, x = ResultatsEssais[essai, ], a = .5, b = .5, gamm = .75)
                                 FitPPrior2 <- sampling(CompilM, 
                                                        data = Donnees,         
@@ -261,7 +270,7 @@ for (loi in seq_along(ParamsBeta)) {
                                 theopp2 <- data.frame("simu" = essai, "var" = paste0("theta", seq(1, NEssais)), "algo" = "analytique", "prior" = "PP2", 
                                                       "moy" = APP2 / (APP2 + BPP2), "icinf" = qbeta(.025, APP2, BPP2), 
                                                       "icsup" = qbeta(.975, APP2, BPP2))
-                                # Power prior hiérarchique
+                                # Power prior BHM
                                 FitPPriorH <- sampling(CompilH, 
                                                        data = Donnees,         
                                                        chains = 4,             
@@ -308,7 +317,6 @@ NPtsEssais <- matrix(rep(NPtsBras, each = NSimul), ncol = NEssais, nrow = NSimul
 Resultats2 <- list()
 
 for (loi in seq_along(ParamsBeta)) {
-  # En quelque sorte les hyperparamètres, et la simulations des paramètres p de la loi binomiale
   cat(paste0("\n\nScénario n°", loi, "\n\n"), file = "~/R/log.txt", append = TRUE)
   AlphaB <- ParamsBeta[[loi]][1]
   BetaB <- ParamsBeta[[loi]][2]
@@ -319,7 +327,7 @@ for (loi in seq_along(ParamsBeta)) {
                                .packages = c("MASS", "rstan"),
                                .export = c("Compil1", "CompilM", "CompilH", "CompilMAP", "MAP.Binary2PriorML", "AlphaB", "BetaB")) %dopar% {
                                  if (essai %% 50 == 0) cat(paste0("simu ", essai, "\n"), file = "~/R/log.txt", append = TRUE)
-                                 # Power prior données poolées
+                                 # Power prior pooled
                                  DonneesRegroup <- list(N = sum(NPtsBras), x = sum(ResultatsEssais[essai, ]), a = .5, b = .5, gamm = .75)
                                  FitPPrior <- sampling(Compil1, 
                                                        data = DonneesRegroup,         
@@ -336,7 +344,7 @@ for (loi in seq_along(ParamsBeta)) {
                                  theopp1 <- data.frame("simu" = essai, "var" = "theta", "algo" = "analytique", "prior" = "PP1", 
                                                        "moy" = APP1 / (APP1 + BPP1), "icinf" = qbeta(.025, APP1, BPP1), 
                                                        "icsup" = qbeta(.975, APP1, BPP1))
-                                 # Power prior multiples
+                                 # Power prior multiple trials
                                  Donnees <- list(Nt = NEssais, N = NPtsBras, x = ResultatsEssais[essai, ], a = .5, b = .5, gamm = .75)
                                  FitPPrior2 <- sampling(CompilM, 
                                                         data = Donnees,         
@@ -355,7 +363,7 @@ for (loi in seq_along(ParamsBeta)) {
                                  theopp2 <- data.frame("simu" = essai, "var" = paste0("theta", seq(1, NEssais)), "algo" = "analytique", "prior" = "PP2", 
                                                        "moy" = APP2 / (APP2 + BPP2), "icinf" = qbeta(.025, APP2, BPP2), 
                                                        "icsup" = qbeta(.975, APP2, BPP2))
-                                 # Power prior hiérarchique
+                                 # Power prior BHM
                                  FitPPriorH <- sampling(CompilH, 
                                                         data = Donnees,         
                                                         chains = 4,             

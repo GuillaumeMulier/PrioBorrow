@@ -4,12 +4,12 @@ Code repository for the simulations done in order to make the 2^nd^ paper of the
 
 Folders:
 
-- Archives: Old versions of reports and code
+- Archives: Old versions of reports and code (if you want to see the evolution of the code)
 - R: R code
-    - GenFigures.R ==> generate figures for chosen scenarios
     - GetOC.R ==> all function to simulate data and analyse them with the different explored models
-    - TestPriorBOP.R ==> simulate the scenarios with different modification of the manner to compute posterior probability
-    - TestPriorServeur.R ==> experimentation to replicate different prior borrowing techniques
+    - TestPriorBOP_vXX.R ==> simulate the scenarios with different modification of the manner to compute posterior probability
+    - TestPriorServeur.R ==> experimentation to replicate different prior borrowing techniques (power priors, hierarchical model + power prior, MAP prior)
+    - GenFigures.R ==> generate figures for article
 - Rapports: the reports
  
  
