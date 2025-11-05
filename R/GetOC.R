@@ -1,7 +1,7 @@
 # -------------------------------------------------------------------------------------------------- #
 # Functions used to generate data, analyzed simulated trials and summarize operating characteristics #
 # Autor : G. Mulier                                                                                  #
-# Creation the 20/05/2024, modified the 28/08/2024                                                   #
+# Creation the 20/05/2024, modified the 05/11/2025                                                   #
 # -------------------------------------------------------------------------------------------------- #
 
 
@@ -3004,7 +3004,7 @@ opcharac <- function(ana_inter,
       } else if (methode == "cbhm_tox") {
         real_essai_modcbhm_tox(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, phi_eff, phi_tox, prior_eff, a_tox, b_tox)
       } else if (methode == "cbhm_efftox") {
-        real_essai_modcbhm_efftox(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, phi_eff, phi_tox, prior_eff, a_eff, b_eff, a_tox, b_tox)
+        real_essai_modcbhm_efftox(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, phi_eff, phi_tox, a_eff, b_eff, a_tox, b_tox)
       } else if (methode == "exnex_tox") {
         real_essai_modexnex_tox(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, phi_eff, phi_tox, prior_eff, p_mix_tox)
       } else if (methode == "exnex_efftox") {
