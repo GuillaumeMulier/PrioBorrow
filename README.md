@@ -10,6 +10,7 @@ Folders:
     - TestPriorBOP_vXX.R ==> simulate the scenarios with different modification of the manner to compute posterior probability
     - TestPriorServeur.R ==> experimentation to replicate different prior borrowing techniques (power priors, hierarchical model + power prior, MAP prior)
     - GenFigures.R ==> generate figures for article
+    - ExplorSeedCBHM.R ==> explore the influence of the seed on the results for FWER of CBHM
 - Rapports: the reports
  
  
