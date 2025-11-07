@@ -2,7 +2,7 @@
 # Create illustrative figures #
 # Author: G. Mulier           #
 # Created 2024/07/05          #
-# Modified 2024/12/04         #
+# Modified 2025/11/06         #
 # --------------------------- #
 
 # Packages and helpers ----
@@ -33,15 +33,15 @@ walk(1:6, \(fich_num) {
 })
 CaracGlobales <- do.call("rbind", CaracGlobales)
 CaracGlobales$methode[CaracGlobales$methode == "mBOP"] <- "mBOP_both"
-CaracGlobales$methode[CaracGlobales$methode == "Simon+Iva"] <- "Simon+Iva_both"
+CaracGlobales$methode[CaracGlobales$methode == "Simon+Iva"] <- "Simon+TM_both"
 CaracGlobales <- separate(CaracGlobales, methode, c("methode", "cible"), "_")
 CaracBras <- do.call("rbind", CaracBras)
 CaracBras$methode[CaracBras$methode == "mBOP"] <- "mBOP_both"
-CaracBras$methode[CaracBras$methode == "Simon+Iva"] <- "Simon+Iva_both"
+CaracBras$methode[CaracBras$methode == "Simon+Iva"] <- "Simon+TM_both"
 CaracBras <- separate(CaracBras, methode, c("methode", "cible"), "_")
 CaracEssais <- do.call("rbind", CaracEssais)
 CaracEssais$methode[CaracEssais$methode == "mBOP"] <- "mBOP_both"
-CaracEssais$methode[CaracEssais$methode == "Simon+Iva"] <- "Simon+Iva_both"
+CaracEssais$methode[CaracEssais$methode == "Simon+Iva"] <- "Simon+TM_both"
 CaracEssais <- separate(CaracEssais, methode, c("methode", "cible"), "_")
 CaracEssais$larg_ic_eff <- CaracEssais$icsup_eff - CaracEssais$icinf_eff
 CaracEssais$larg_ic_tox <- CaracEssais$icsup_tox - CaracEssais$icinf_tox
@@ -62,15 +62,15 @@ walk(1:6, \(fich_num) {
 })
 CaracGlobales4Bras <- do.call("rbind", CaracGlobales4Bras)
 CaracGlobales4Bras$methode[CaracGlobales4Bras$methode == "mBOP"] <- "mBOP_both"
-CaracGlobales4Bras$methode[CaracGlobales4Bras$methode == "Simon+Iva"] <- "Simon+Iva_both"
+CaracGlobales4Bras$methode[CaracGlobales4Bras$methode == "Simon+Iva"] <- "Simon+TM_both"
 CaracGlobales4Bras <- separate(CaracGlobales4Bras, methode, c("methode", "cible"), "_")
 CaracBras4Bras <- do.call("rbind", CaracBras4Bras)
 CaracBras4Bras$methode[CaracBras4Bras$methode == "mBOP"] <- "mBOP_both"
-CaracBras4Bras$methode[CaracBras4Bras$methode == "Simon+Iva"] <- "Simon+Iva_both"
+CaracBras4Bras$methode[CaracBras4Bras$methode == "Simon+Iva"] <- "Simon+TM_both"
 CaracBras4Bras <- separate(CaracBras4Bras, methode, c("methode", "cible"), "_")
 CaracEssais4Bras <- do.call("rbind", CaracEssais4Bras)
 CaracEssais4Bras$methode[CaracEssais4Bras$methode == "mBOP"] <- "mBOP_both"
-CaracEssais4Bras$methode[CaracEssais4Bras$methode == "Simon+Iva"] <- "Simon+Iva_both"
+CaracEssais4Bras$methode[CaracEssais4Bras$methode == "Simon+Iva"] <- "Simon+TM_both"
 CaracEssais4Bras <- separate(CaracEssais4Bras, methode, c("methode", "cible"), "_")
 CaracEssais4Bras$larg_ic_eff <- CaracEssais4Bras$icsup_eff - CaracEssais4Bras$icinf_eff
 CaracEssais4Bras$larg_ic_tox <- CaracEssais4Bras$icsup_tox - CaracEssais4Bras$icinf_tox
@@ -91,15 +91,15 @@ walk(1:6, \(fich_num) {
 })
 CaracGlobales5Bras <- do.call("rbind", CaracGlobales5Bras)
 CaracGlobales5Bras$methode[CaracGlobales5Bras$methode == "mBOP"] <- "mBOP_both"
-CaracGlobales5Bras$methode[CaracGlobales5Bras$methode == "Simon+Iva"] <- "Simon+Iva_both"
+CaracGlobales5Bras$methode[CaracGlobales5Bras$methode == "Simon+Iva"] <- "Simon+TM_both"
 CaracGlobales5Bras <- separate(CaracGlobales5Bras, methode, c("methode", "cible"), "_")
 CaracBras5Bras <- do.call("rbind", CaracBras5Bras)
 CaracBras5Bras$methode[CaracBras5Bras$methode == "mBOP"] <- "mBOP_both"
-CaracBras5Bras$methode[CaracBras5Bras$methode == "Simon+Iva"] <- "Simon+Iva_both"
+CaracBras5Bras$methode[CaracBras5Bras$methode == "Simon+Iva"] <- "Simon+TM_both"
 CaracBras5Bras <- separate(CaracBras5Bras, methode, c("methode", "cible"), "_")
 CaracEssais5Bras <- do.call("rbind", CaracEssais5Bras)
 CaracEssais5Bras$methode[CaracEssais5Bras$methode == "mBOP"] <- "mBOP_both"
-CaracEssais5Bras$methode[CaracEssais5Bras$methode == "Simon+Iva"] <- "Simon+Iva_both"
+CaracEssais5Bras$methode[CaracEssais5Bras$methode == "Simon+Iva"] <- "Simon+TM_both"
 CaracEssais5Bras <- separate(CaracEssais5Bras, methode, c("methode", "cible"), "_")
 CaracEssais5Bras$larg_ic_eff <- CaracEssais5Bras$icsup_eff - CaracEssais5Bras$icinf_eff
 CaracEssais5Bras$larg_ic_tox <- CaracEssais5Bras$icsup_tox - CaracEssais5Bras$icinf_tox
@@ -154,15 +154,15 @@ walk(1:2, \(fich_num) {
 })
 CaracGlobalesLogit <- do.call("rbind", CaracGlobalesLogit)
 CaracGlobalesLogit$methode[CaracGlobalesLogit$methode == "mBOP"] <- "mBOP_both"
-CaracGlobalesLogit$methode[CaracGlobalesLogit$methode == "Simon+Iva"] <- "Simon+Iva_both"
+CaracGlobalesLogit$methode[CaracGlobalesLogit$methode == "Simon+Iva"] <- "Simon+TM_both"
 CaracGlobalesLogit <- separate(CaracGlobalesLogit, methode, c("methode", "cible"), "_")
 CaracBrasLogit <- do.call("rbind", CaracBrasLogit)
 CaracBrasLogit$methode[CaracBrasLogit$methode == "mBOP"] <- "mBOP_both"
-CaracBrasLogit$methode[CaracBrasLogit$methode == "Simon+Iva"] <- "Simon+Iva_both"
+CaracBrasLogit$methode[CaracBrasLogit$methode == "Simon+Iva"] <- "Simon+TM_both"
 CaracBrasLogit <- separate(CaracBrasLogit, methode, c("methode", "cible"), "_")
 CaracEssaisLogit <- do.call("rbind", CaracEssaisLogit)
 CaracEssaisLogit$methode[CaracEssaisLogit$methode == "mBOP"] <- "mBOP_both"
-CaracEssaisLogit$methode[CaracEssaisLogit$methode == "Simon+Iva"] <- "Simon+Iva_both"
+CaracEssaisLogit$methode[CaracEssaisLogit$methode == "Simon+Iva"] <- "Simon+TM_both"
 CaracEssaisLogit <- separate(CaracEssaisLogit, methode, c("methode", "cible"), "_")
 CaracEssaisLogit$larg_ic_eff <- CaracEssaisLogit$icsup_eff - CaracEssaisLogit$icinf_eff
 CaracEssaisLogit$larg_ic_tox <- CaracEssaisLogit$icsup_tox - CaracEssaisLogit$icinf_tox
@@ -212,7 +212,8 @@ Graphe <- do.call("rbind", lapply(names(ListeScenars), \(l) {
                tox = ListeScenars[[l]][[x]][1] + ListeScenars[[l]][[x]][3])
   }))
 })) %>% 
-  mutate(scenar = factor(scenar, levels = c(paste0("Sc", 1:8), "ScI1", "ScI2"), labels = NomsScenars[c(paste0("Sc", 1:8), "ScI1", "ScI2")]),
+  # mutate(scenar = factor(scenar, levels = c(paste0("Sc", 1:8), "ScI1", "ScI2"), labels = NomsScenars[c(paste0("Sc", 1:8), "ScI1", "ScI2")]),
+  mutate(scenar = factor(scenar, levels = c(paste0("Sc", 1:8), "ScI1", "ScI2")),
          efficacite = case_when(eff < .31 ~ "futile",
                                 eff < .5 ~ "intermediaire",
                                 TRUE ~ "efficace"),
@@ -237,12 +238,13 @@ Graphe <- do.call("rbind", lapply(names(ListeScenars), \(l) {
   expand_limits(y = 0) +
   theme_light(base_size = 18) +
   theme(strip.background = element_rect(fill = "white", color = "black", size = 1.2),
-        strip.text = element_text(face = "bold", color = "black", size = 12),
-        axis.text.x = element_markdown()) +
+        strip.text = element_text(face = "bold", color = "black", size = 15),
+        axis.text.x = element_markdown(),
+        legend.position = "right") +
   scale_color_discrete(type = c("darkblue", "darkred")) +
   scale_shape_manual(values = c(17, 15, 19)) +
   guides(color = guide_legend(override.aes = list(shape = NA, linewidth = 2))) +
-  labs(x = "Treatment dosis", y = "Probability", color = "Endpoint", shape = "Decision")
+  labs(x = "Treatment dose", y = "Probability", color = "Endpoint", shape = "Decision")
 # caption = "Vert=prometteur / rouge=futile et toxique / beige=futile / rouge foncé=toxique / bleu=intermédiaire")
 g <- ggplot_gtable(ggplot_build(Graphe))
 stripes <- which(grepl("strip-t", g$layout$name))
@@ -250,15 +252,15 @@ for (i in stripes[1:2]) {
   g$grobs[[i]]$grobs[[1]]$children[[1]]$gp$fill <- "steelblue"
 }
 grid::grid.draw(g)
-ggsave(g, filename = "Figures/scenar_simul_v5.png", height = 220, width = 280, units = "mm", dpi = 300)
+ggsave(g, filename = "Figures/scenar_simul_v5.png", height = 300, width = 230, units = "mm", dpi = 300)
 
 # Figure 2 ----
 
 Graphes <- CaracBras %>% 
-  filter(cible %in% c("efftox", "both"), scenar %in% c("Sc1", "Sc2", "Sc3", "Sc4"), methode %in% c("mBOP", "Simon+Iva", "powBOP", "hBOP", "cbhmBOP", "log1BOP", "log2BOP")) %>% 
+  filter(cible %in% c("efftox", "both"), scenar %in% c("Sc1", "Sc2", "Sc3", "Sc4"), methode %in% c("mBOP", "Simon+TM", "powBOP", "hBOP", "cbhmBOP", "log1BOP", "log2BOP")) %>% 
   mutate(ttt = gsub("ttt", "D", ttt),
          scenar = factor(scenar, levels = c("Sc1", "Sc2", "Sc3", "Sc4")),
-         methode = factor(methode, levels = rev(c("mBOP", "Simon+Iva", "powBOP", "hBOP", "cbhmBOP", "log1BOP", "log2BOP")))) %>% 
+         methode = factor(methode, levels = rev(c("mBOP", "Simon+TM", "powBOP", "hBOP", "cbhmBOP", "log1BOP", "log2BOP")))) %>% 
   split(.$scenar) %>% 
   map(\(Sc) {
     if (Sc$scenar[1] %in% c("Sc1", "Sc2")) {
@@ -278,17 +280,17 @@ Graphes <- CaracBras %>%
             strip.text = element_text(face = "bold", color = "black"))
   })
 wrap_plots(Graphes, guides = "collect", axes = "collect_y", axis_titles = "collect")
-ggsave(wrap_plots(Graphes, guides = "collect", axes = "collect_y", axis_titles = "collect"), filename = "Figures/rejet_bras_sc1234_vposter.png", device = "png", 
+ggsave(wrap_plots(Graphes, guides = "collect", axes = "collect_y", axis_titles = "collect"), filename = "Figures/rejet_bras_sc1234.png", device = "png", 
        height = 27.33 / 2, width = 40.99 / 2, units = "cm", dpi = 300)
 
 
 # Figure 3 ----
 
 Graphes <- CaracBras %>% 
-  filter(cible %in% c("efftox", "both"), scenar %in% c("Sc5", "Sc6", "Sc7", "Sc8"), methode %in% c("mBOP", "Simon+Iva", "powBOP", "hBOP", "cbhmBOP", "log1BOP", "log2BOP")) %>% 
+  filter(cible %in% c("efftox", "both"), scenar %in% c("Sc5", "Sc6", "Sc7", "Sc8"), methode %in% c("mBOP", "Simon+TM", "powBOP", "hBOP", "cbhmBOP", "log1BOP", "log2BOP")) %>% 
   mutate(ttt = gsub("ttt", "D", ttt),
          scenar = factor(scenar, levels = c("Sc5", "Sc6", "Sc7", "Sc8")),
-         methode = factor(methode, levels = rev(c("mBOP", "Simon+Iva", "powBOP", "hBOP", "cbhmBOP", "log1BOP", "log2BOP")))) %>% 
+         methode = factor(methode, levels = rev(c("mBOP", "Simon+TM", "powBOP", "hBOP", "cbhmBOP", "log1BOP", "log2BOP")))) %>% 
   split(.$scenar) %>% 
   map(\(Sc) {
     if (Sc$scenar[1] %in% c("Sc1", "Sc2")) {
@@ -308,16 +310,16 @@ Graphes <- CaracBras %>%
             strip.text = element_text(face = "bold", color = "black"))
   })
 wrap_plots(Graphes, guides = "collect", axes = "collect_y", axis_titles = "collect")
-ggsave(wrap_plots(Graphes, guides = "collect", axes = "collect_y", axis_titles = "collect"), filename = "Figures/rejet_bras_sc5678_v2.png", device = "png", 
+ggsave(wrap_plots(Graphes, guides = "collect", axes = "collect_y", axis_titles = "collect"), filename = "Figures/rejet_bras_sc5678.png", device = "png", 
        height = 130, width = 170, units = "mm", dpi = 300)
 
 # Figure 4 and table 2 ----
 
 Graphes <- CaracBras %>% 
-  filter(cible %in% c("efftox", "both"), scenar %in% c("ScI1", "ScI2"), methode %in% c("mBOP", "Simon+Iva", "powBOP", "hBOP", "cbhmBOP", "log1BOP", "log2BOP")) %>% 
+  filter(cible %in% c("efftox", "both"), scenar %in% c("ScI1", "ScI2"), methode %in% c("mBOP", "Simon+TM", "powBOP", "hBOP", "cbhmBOP", "log1BOP", "log2BOP")) %>% 
   mutate(ttt = gsub("ttt", "D", ttt),
          scenar = factor(scenar, levels = c("ScI1", "ScI2")),
-         methode = factor(methode, levels = rev(c("mBOP", "Simon+Iva", "powBOP", "hBOP", "cbhmBOP", "log1BOP", "log2BOP")))) %>% 
+         methode = factor(methode, levels = rev(c("mBOP", "Simon+TM", "powBOP", "hBOP", "cbhmBOP", "log1BOP", "log2BOP")))) %>% 
   split(.$scenar) %>% 
   map(\(Sc) {
     if (Sc$scenar[1] %in% c("Sc1", "Sc2")) {
@@ -337,7 +339,7 @@ Graphes <- CaracBras %>%
             strip.text = element_text(face = "bold", color = "black"))
   })
 wrap_plots(Graphes, guides = "collect", axes = "collect_y", axis_titles = "collect")
-ggsave(wrap_plots(Graphes, guides = "collect", axes = "collect_y", axis_titles = "collect"), filename = "Figures/rejet_bras_scibru_v2.png", device = "png", 
+ggsave(wrap_plots(Graphes, guides = "collect", axes = "collect_y", axis_titles = "collect"), filename = "Figures/rejet_bras_scibru.png", device = "png", 
        height = 100, width = 170, units = "mm", dpi = 300)
 
 CaracEssais %>% 
@@ -395,7 +397,7 @@ CaracBras %>%
          MPts = sprintf("%.1f", tot_pat)) %>% 
   select(methode, Scenario, Dose, AP, MPts) %>% 
   pivot_wider(names_from = "methode", values_from = c("AP", "MPts"), names_glue = "{methode}_{.value}") %>% 
-  select(Scenario, Dose, mBOP_AP, mBOP_MPts, `Simon+Iva_AP`, `Simon+Iva_MPts`, powBOP_AP, powBOP_MPts, 
+  select(Scenario, Dose, mBOP_AP, mBOP_MPts, `Simon+TM_AP`, `Simon+TM_MPts`, powBOP_AP, powBOP_MPts, 
          hBOP_AP, hBOP_MPts, cbhmBOP_AP, cbhmBOP_MPts, log1BOP_AP, log1BOP_MPts, log2BOP_AP, log2BOP_MPts) %>% 
   xtable::xtable()
 
@@ -411,7 +413,7 @@ TabScenars <- do.call("rbind", lapply(names(ListeScenars), \(nom_scenar) {
 Graphe <- ((CaracEssais %>% 
               filter(cible != "tox", scenar %in% c("Sc1", "Sc2", "Sc3", "Sc4")) %>% 
               mutate(ttt = gsub("^ttt", "D", ttt),
-                     methode = factor(methode, levels = c("mBOP", "Simon+Iva", "powBOP", "hBOP", "cbhmBOP", "log1BOP", "log2BOP"))) %>% 
+                     methode = factor(methode, levels = c("mBOP", "Simon+TM", "powBOP", "hBOP", "cbhmBOP", "log1BOP", "log2BOP"))) %>% 
               ggplot(aes(y = est_eff, x = methode, fill = methode)) +
               geom_boxplot(alpha = .6) +
               geom_hline(data = TabScenars %>% filter(scenar %in% c("Sc1", "Sc2", "Sc3", "Sc4")), aes(yintercept = eff_true), 
@@ -428,7 +430,7 @@ Graphe <- ((CaracEssais %>%
              (CaracEssais %>% 
                 filter(cible != "tox", scenar %in% c("Sc1", "Sc2", "Sc3", "Sc4")) %>% 
                 mutate(ttt = gsub("^ttt", "D", ttt),
-                       methode = factor(methode, levels = c("mBOP", "Simon+Iva", "powBOP", "hBOP", "cbhmBOP", "log1BOP", "log2BOP"))) %>% 
+                       methode = factor(methode, levels = c("mBOP", "Simon+TM", "powBOP", "hBOP", "cbhmBOP", "log1BOP", "log2BOP"))) %>% 
                 ggplot(aes(y = est_tox, x = methode, fill = methode)) +
                 geom_boxplot(alpha = .6) +
                 geom_hline(data = TabScenars %>% filter(scenar %in% c("Sc1", "Sc2", "Sc3", "Sc4")), aes(yintercept = tox_true), 
@@ -448,7 +450,7 @@ ggsave(Graphe, filename = "Figures/estimations_sc1234.png", device = "png",
 Graphe <- ((CaracEssais %>% 
               filter(cible != "tox", scenar %in% c("Sc5", "Sc6", "Sc7", "Sc8")) %>% 
               mutate(ttt = gsub("^ttt", "D", ttt),
-                     methode = factor(methode, levels = c("mBOP", "Simon+Iva", "powBOP", "hBOP", "cbhmBOP", "log1BOP", "log2BOP"))) %>% 
+                     methode = factor(methode, levels = c("mBOP", "Simon+TM", "powBOP", "hBOP", "cbhmBOP", "log1BOP", "log2BOP"))) %>% 
               ggplot(aes(y = est_eff, x = methode, fill = methode)) +
               geom_boxplot(alpha = .6) +
               geom_hline(data = TabScenars %>% filter(scenar %in% c("Sc5", "Sc6", "Sc7", "Sc8")), aes(yintercept = eff_true), 
@@ -465,7 +467,7 @@ Graphe <- ((CaracEssais %>%
              (CaracEssais %>% 
                 filter(cible != "tox", scenar %in% c("Sc5", "Sc6", "Sc7", "Sc8")) %>% 
                 mutate(ttt = gsub("^ttt", "D", ttt),
-                       methode = factor(methode, levels = c("mBOP", "Simon+Iva", "powBOP", "hBOP", "cbhmBOP", "log1BOP", "log2BOP"))) %>% 
+                       methode = factor(methode, levels = c("mBOP", "Simon+TM", "powBOP", "hBOP", "cbhmBOP", "log1BOP", "log2BOP"))) %>% 
                 ggplot(aes(y = est_tox, x = methode, fill = methode)) +
                 geom_boxplot(alpha = .6) +
                 geom_hline(data = TabScenars %>% filter(scenar %in% c("Sc5", "Sc6", "Sc7", "Sc8")), aes(yintercept = tox_true), 
@@ -485,7 +487,7 @@ ggsave(Graphe, filename = "Figures/estimations_sc5678.png", device = "png",
 Graphe <- ((CaracEssais %>% 
               filter(cible != "tox", scenar %in% c("ScI1", "ScI2")) %>% 
               mutate(ttt = gsub("^ttt", "D", ttt),
-                     methode = factor(methode, levels = c("mBOP", "Simon+Iva", "powBOP", "hBOP", "cbhmBOP", "log1BOP", "log2BOP"))) %>% 
+                     methode = factor(methode, levels = c("mBOP", "Simon+TM", "powBOP", "hBOP", "cbhmBOP", "log1BOP", "log2BOP"))) %>% 
               ggplot(aes(y = est_eff, x = methode, fill = methode)) +
               geom_boxplot(alpha = .6) +
               geom_hline(data = TabScenars %>% filter(scenar %in% c("ScI1", "ScI2")), aes(yintercept = eff_true), 
@@ -502,7 +504,7 @@ Graphe <- ((CaracEssais %>%
              (CaracEssais %>% 
                 filter(cible != "tox", scenar %in% c("ScI1", "ScI2")) %>% 
                 mutate(ttt = gsub("^ttt", "D", ttt),
-                       methode = factor(methode, levels = c("mBOP", "Simon+Iva", "powBOP", "hBOP", "cbhmBOP", "log1BOP", "log2BOP"))) %>% 
+                       methode = factor(methode, levels = c("mBOP", "Simon+TM", "powBOP", "hBOP", "cbhmBOP", "log1BOP", "log2BOP"))) %>% 
                 ggplot(aes(y = est_tox, x = methode, fill = methode)) +
                 geom_boxplot(alpha = .6) +
                 geom_hline(data = TabScenars %>% filter(scenar %in% c("ScI1", "ScI2")), aes(yintercept = tox_true), 
@@ -583,14 +585,14 @@ Graphe <- TabScenarRegroup %>%
   expand_limits(y = 0) +
   scale_color_discrete(type = c("darkblue", "darkred")) +
   scale_shape_manual(values = c(17, 15, 19)) +
-  labs(x = "Treatment dosis", y = "Probability", color = "Endpoint", shape = "Decision")
+  labs(x = "Treatment dose", y = "Probability", color = "Endpoint", shape = "Decision")
 ggsave(Graphe, filename = "Figures/scenar_sensi_arms.png", device = "png", height = 7, width = 14)
 
 CaracBrasSensiBras <- rbind(CaracBras %>% filter(scenar %in% c("Sc2", "Sc4", "ScI1", "ScI2")), CaracBras4Bras, CaracBras5Bras)
 Graphe <- CaracBrasSensiBras %>%
   filter(cible %in% c("efftox", "both"), scenar == "Sc2") %>%
   mutate(ttt = gsub("^ttt", "D", ttt),
-         methode = factor(methode, levels = c("mBOP", "Simon+Iva", "powBOP", "hBOP", "cbhmBOP", "log1BOP", "log2BOP"))) %>% 
+         methode = factor(methode, levels = c("mBOP", "Simon+TM", "powBOP", "hBOP", "cbhmBOP", "log1BOP", "log2BOP"))) %>% 
   ggplot(aes(ttt, rejet_h0, group = n_bras, color = n_bras)) +
   geom_point(size = 2) +
   geom_line() +
@@ -603,7 +605,7 @@ ggsave(Graphe, filename = "Figures/resultbras_sensi_arms_2.png", device = "png",
 Graphe <- CaracBrasSensiBras %>%
   filter(cible %in% c("efftox", "both"), scenar == "Sc4") %>%
   mutate(ttt = gsub("^ttt", "D", ttt),
-         methode = factor(methode, levels = c("mBOP", "Simon+Iva", "powBOP", "hBOP", "cbhmBOP", "log1BOP", "log2BOP"))) %>% 
+         methode = factor(methode, levels = c("mBOP", "Simon+TM", "powBOP", "hBOP", "cbhmBOP", "log1BOP", "log2BOP"))) %>% 
   ggplot(aes(ttt, rejet_h0, group = n_bras, color = n_bras)) +
   geom_point(size = 2) +
   geom_line() +
@@ -616,7 +618,7 @@ ggsave(Graphe, filename = "Figures/resultbras_sensi_arms_4.png", device = "png",
 Graphe <- CaracBrasSensiBras %>%
   filter(cible %in% c("efftox", "both"), scenar == "ScI1") %>%
   mutate(ttt = gsub("^ttt", "D", ttt),
-         methode = factor(methode, levels = c("mBOP", "Simon+Iva", "powBOP", "hBOP", "cbhmBOP", "log1BOP", "log2BOP"))) %>% 
+         methode = factor(methode, levels = c("mBOP", "Simon+TM", "powBOP", "hBOP", "cbhmBOP", "log1BOP", "log2BOP"))) %>% 
   ggplot(aes(ttt, rejet_h0, group = n_bras, color = n_bras)) +
   geom_point(size = 2) +
   geom_line() +
@@ -629,7 +631,7 @@ ggsave(Graphe, filename = "Figures/resultbras_sensi_arms_I1.png", device = "png"
 Graphe <- CaracBrasSensiBras %>%
   filter(cible %in% c("efftox", "both"), scenar == "ScI2") %>%
   mutate(ttt = gsub("^ttt", "D", ttt),
-         methode = factor(methode, levels = c("mBOP", "Simon+Iva", "powBOP", "hBOP", "cbhmBOP", "log1BOP", "log2BOP"))) %>% 
+         methode = factor(methode, levels = c("mBOP", "Simon+TM", "powBOP", "hBOP", "cbhmBOP", "log1BOP", "log2BOP"))) %>% 
   ggplot(aes(ttt, rejet_h0, group = n_bras, color = n_bras)) +
   geom_point(size = 2) +
   geom_line() +
