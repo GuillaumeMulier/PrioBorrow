@@ -201,6 +201,42 @@ NomsScenars <- c(
   "Sc8"  = "Sc8 : No promising dosis"
 )
 
+# Table 1 ----
+
+CaracGlobales %>% 
+  filter(cible != "tox") %>% 
+  select(scenar, methode, rejet_glob) %>% 
+  mutate(rejet_glob = sprintf("%.1f", 100 * rejet_glob)) %>% 
+  pivot_wider(names_from = "methode", values_from = "rejet_glob") %>% 
+  select("Scenario" = scenar, mBOP, `Simon+TM`, powBOP, hBOP, cbhmBOP, log1BOP, log2BOP) %>% 
+  arrange(Scenario) %>% 
+  mutate(Scenario = gsub("^Sc", "Scenario ", Scenario)) %>% 
+  apply(1, \(x) paste(x, sep = "", collapse = " & ")) %>% 
+  paste(collapse = "\\\\ \n") %>% 
+  cat()
+
+# Alternative, complete version of the table
+bind_rows(CaracGlobales %>% 
+            filter(cible != "tox") %>% 
+            select(scenar, methode, rejet = rejet_glob) %>% 
+            mutate(ttt = "glob"),
+          CaracBras %>% 
+            filter(cible != "tox") %>% 
+            select(scenar, methode, rejet = rejet_h0, ttt)) %>% 
+  mutate(rejet = sprintf("%.1f", 100 * rejet),
+         Scenario = gsub("^Sc", "Scenario ", scenar),
+         Arm = ifelse(ttt == "glob", "Global reject", "Arm-specific")) %>% 
+  summarise(rejet = ifelse(Arm[1] == "Global reject",
+                           paste0("\\multicolumn{3}{c}{", rejet, "}"),
+                           paste0(rejet[ttt == "ttt1"], " & ", rejet[ttt == "ttt2"], " & ", rejet[ttt == "ttt3"])),
+            .by = c(Scenario, Arm, methode)) %>% 
+  pivot_wider(names_from = "methode", values_from = "rejet") %>% 
+  select(Scenario, Arm, mBOP, `Simon+TM`, powBOP, hBOP, cbhmBOP, log1BOP, log2BOP) %>% 
+  arrange(Scenario, desc(Arm)) %>% 
+  apply(1, \(x) paste(x, sep = "", collapse = " & ")) %>% 
+  paste(collapse = "\\\\ \n") %>% 
+  cat()
+
 # Figure 1 ----
 
 # Couleurs <- c("prometteur" = "green", "futile/toxique" = "red", "futile" = "coral", "toxique" = "darkred", "intermediaire" = "steelblue")
@@ -275,13 +311,13 @@ Graphes <- CaracBras %>%
       scale_x_continuous(labels = scales::percent_format()) +
       scale_color_discrete(type = c("darkred", "steelblue", "orange")) +
       labs(y = NULL, x = "Proportion of conclusion to promising dose", color = "Dose", shape = "Dose") +
-      theme_light(base_size = 15) +
+      theme_light(base_size = 18) +
       theme(strip.background = element_rect(fill = "white", color = "black", size = 1.6),
             strip.text = element_text(face = "bold", color = "black"))
   })
 wrap_plots(Graphes, guides = "collect", axes = "collect_y", axis_titles = "collect")
 ggsave(wrap_plots(Graphes, guides = "collect", axes = "collect_y", axis_titles = "collect"), filename = "Figures/rejet_bras_sc1234.png", device = "png", 
-       height = 27.33 / 2, width = 40.99 / 2, units = "cm", dpi = 300)
+       height = 35 / 2, width = 42 / 2, units = "cm", dpi = 300)
 
 
 # Figure 3 ----
@@ -305,13 +341,13 @@ Graphes <- CaracBras %>%
       scale_x_continuous(labels = scales::percent_format()) +
       scale_color_discrete(type = c("darkred", "steelblue", "orange")) +
       labs(y = NULL, x = "Proportion of conclusion to promising dose", color = "Dose", shape = "Dose") +
-      theme_light(base_size = 15) +
+      theme_light(base_size = 18) +
       theme(strip.background = element_rect(fill = "white", color = "black", size = 1.6),
             strip.text = element_text(face = "bold", color = "black"))
   })
 wrap_plots(Graphes, guides = "collect", axes = "collect_y", axis_titles = "collect")
 ggsave(wrap_plots(Graphes, guides = "collect", axes = "collect_y", axis_titles = "collect"), filename = "Figures/rejet_bras_sc5678.png", device = "png", 
-       height = 130, width = 170, units = "mm", dpi = 300)
+       height = 35 / 2, width = 42 / 2, units = "cm", dpi = 300)
 
 # Figure 4 and table 2 ----
 
@@ -334,13 +370,13 @@ Graphes <- CaracBras %>%
       scale_x_continuous(labels = scales::percent_format()) +
       scale_color_discrete(type = c("darkred", "steelblue", "orange")) +
       labs(y = NULL, x = "Proportion of conclusion to promising dose", color = "Dose", shape = "Dose") +
-      theme_light(base_size = 15) +
+      theme_light(base_size = 18) +
       theme(strip.background = element_rect(fill = "white", color = "black", size = 1.6),
             strip.text = element_text(face = "bold", color = "black"))
   })
 wrap_plots(Graphes, guides = "collect", axes = "collect_y", axis_titles = "collect")
 ggsave(wrap_plots(Graphes, guides = "collect", axes = "collect_y", axis_titles = "collect"), filename = "Figures/rejet_bras_scibru.png", device = "png", 
-       height = 100, width = 170, units = "mm", dpi = 300)
+       height = 25 / 2, width = 42 / 2, units = "cm", dpi = 300)
 
 CaracEssais %>% 
   filter(cible != "tox", scenar == "ScI1") %>% 
