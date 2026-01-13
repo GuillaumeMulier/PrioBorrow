@@ -412,6 +412,12 @@ CaracEssais %>%
   slice(c(5, 7, 6, 2, 1, 3, 4)) %>% 
   apply(1, \(x) paste(x, collapse = " & ")) %>% 
   paste(collapse = " \\\\ \n") %>% cat()
+CaracBras %>% 
+  filter(cible != "tox", scenar %in% c("ScI1", "ScI2")) %>%
+  mutate(rejet_h0 = sprintf("%.1f", 100 * rejet_h0)) %>% 
+  group_by(methode, scenar) %>% 
+  summarise(rejet = paste0(rejet_h0[ttt == "ttt1"], " & ", rejet_h0[ttt == "ttt2"], " & ", rejet_h0[ttt == "ttt3"])) %>% 
+  pivot_wider(names_from = "scenar", values_from = "rejet")
 
 CaracBras %>% 
   filter(cible != "tox") %>% 
@@ -483,6 +489,44 @@ Graphe <- ((CaracEssais %>%
   plot_annotation(tag_levels = "A")
 ggsave(Graphe, filename = "Figures/estimations_sc1234.png", device = "png", 
        height = 250, width = 150, units = "mm", dpi = 300)
+Graphe1 <- CaracEssais %>% 
+  filter(cible != "tox", scenar %in% c("Sc1", "Sc2", "Sc3", "Sc4")) %>% 
+  mutate(ttt = gsub("^ttt", "D", ttt),
+         methode = factor(methode, levels = c("mBOP", "Simon+TM", "powBOP", "hBOP", "cbhmBOP", "log1BOP", "log2BOP"))) %>% 
+  ggplot(aes(y = est_eff, x = methode, fill = methode)) +
+  geom_boxplot(alpha = .6) +
+  geom_hline(data = TabScenars %>% filter(scenar %in% c("Sc1", "Sc2", "Sc3", "Sc4")), aes(yintercept = eff_true), 
+             color = "darkred", linetype = "solid", linewidth = .7) +
+  facet_grid(scenar ~ ttt) +
+  scale_fill_discrete(type = c("#0f3d9b", "#08a448", "#7846ab", "#c33215", "#dd790e", "#11caa6", "#07772e")) + 
+  theme_light(base_size = 13) +
+  scale_y_continuous(labels = scales::percent_format()) +
+  theme(legend.position = "none",
+        strip.background = element_rect(fill = "white", color = "black", size = 1.2),
+        strip.text = element_text(face = "bold", color = "black", size = 12),
+        axis.text.x = element_markdown(angle = 45, hjust = 1)) +
+  labs(x = NULL, y = "Efficacy")
+Graphe2 <- CaracEssais %>% 
+  filter(cible != "tox", scenar %in% c("Sc1", "Sc2", "Sc3", "Sc4")) %>% 
+  mutate(ttt = gsub("^ttt", "D", ttt),
+         methode = factor(methode, levels = c("mBOP", "Simon+TM", "powBOP", "hBOP", "cbhmBOP", "log1BOP", "log2BOP"))) %>% 
+  ggplot(aes(y = est_tox, x = methode, fill = methode)) +
+  geom_boxplot(alpha = .6) +
+  geom_hline(data = TabScenars %>% filter(scenar %in% c("Sc1", "Sc2", "Sc3", "Sc4")), aes(yintercept = tox_true), 
+             color = "darkred", linetype = "solid", linewidth = .7) +
+  facet_grid(scenar ~ ttt) +
+  scale_fill_discrete(type = c("#0f3d9b", "#08a448", "#7846ab", "#c33215", "#dd790e", "#11caa6", "#07772e")) + 
+  theme_light(base_size = 13) +
+  scale_y_continuous(labels = scales::percent_format()) +
+  theme(legend.position = "none",
+        strip.background = element_rect(fill = "white", color = "black", size = 1.2),
+        strip.text = element_text(face = "bold", color = "black", size = 12),
+        axis.text.x = element_markdown(angle = 45, hjust = 1)) +
+  labs(x = NULL, y = "Toxicity")
+ggsave(Graphe1, filename = "Figures/estimationseff_sc1234.png", device = "png", 
+       height = 200, width = 150, units = "mm", dpi = 300)
+ggsave(Graphe2, filename = "Figures/estimationstox_sc1234.png", device = "png", 
+       height = 200, width = 150, units = "mm", dpi = 300)
 Graphe <- ((CaracEssais %>% 
               filter(cible != "tox", scenar %in% c("Sc5", "Sc6", "Sc7", "Sc8")) %>% 
               mutate(ttt = gsub("^ttt", "D", ttt),
@@ -520,6 +564,44 @@ Graphe <- ((CaracEssais %>%
   plot_annotation(tag_levels = "A")
 ggsave(Graphe, filename = "Figures/estimations_sc5678.png", device = "png", 
        height = 250, width = 150, units = "mm", dpi = 300)
+Graphe1 <- CaracEssais %>% 
+              filter(cible != "tox", scenar %in% c("Sc5", "Sc6", "Sc7", "Sc8")) %>% 
+              mutate(ttt = gsub("^ttt", "D", ttt),
+                     methode = factor(methode, levels = c("mBOP", "Simon+TM", "powBOP", "hBOP", "cbhmBOP", "log1BOP", "log2BOP"))) %>% 
+              ggplot(aes(y = est_eff, x = methode, fill = methode)) +
+              geom_boxplot(alpha = .6) +
+              geom_hline(data = TabScenars %>% filter(scenar %in% c("Sc5", "Sc6", "Sc7", "Sc8")), aes(yintercept = eff_true), 
+                         color = "darkred", linetype = "solid", linewidth = .7) +
+              facet_grid(scenar ~ ttt) +
+              scale_fill_discrete(type = c("#0f3d9b", "#08a448", "#7846ab", "#c33215", "#dd790e", "#11caa6", "#07772e")) + 
+              theme_light(base_size = 13) +
+              scale_y_continuous(labels = scales::percent_format()) +
+              theme(legend.position = "none",
+                    strip.background = element_rect(fill = "white", color = "black", size = 1.2),
+                    strip.text = element_text(face = "bold", color = "black", size = 12),
+                    axis.text.x = element_markdown(angle = 45, hjust = 1)) +
+              labs(x = NULL, y = "Efficacy")
+Graphe2 <- CaracEssais %>% 
+                filter(cible != "tox", scenar %in% c("Sc5", "Sc6", "Sc7", "Sc8")) %>% 
+                mutate(ttt = gsub("^ttt", "D", ttt),
+                       methode = factor(methode, levels = c("mBOP", "Simon+TM", "powBOP", "hBOP", "cbhmBOP", "log1BOP", "log2BOP"))) %>% 
+                ggplot(aes(y = est_tox, x = methode, fill = methode)) +
+                geom_boxplot(alpha = .6) +
+                geom_hline(data = TabScenars %>% filter(scenar %in% c("Sc5", "Sc6", "Sc7", "Sc8")), aes(yintercept = tox_true), 
+                           color = "darkred", linetype = "solid", linewidth = .7) +
+                facet_grid(scenar ~ ttt) +
+                scale_fill_discrete(type = c("#0f3d9b", "#08a448", "#7846ab", "#c33215", "#dd790e", "#11caa6", "#07772e")) + 
+                theme_light(base_size = 13) +
+                scale_y_continuous(labels = scales::percent_format()) +
+                theme(legend.position = "none",
+                      strip.background = element_rect(fill = "white", color = "black", size = 1.2),
+                      strip.text = element_text(face = "bold", color = "black", size = 12),
+                      axis.text.x = element_markdown(angle = 45, hjust = 1)) +
+                labs(x = NULL, y = "Toxicity")
+ggsave(Graphe1, filename = "Figures/estimationseff_sc5678.png", device = "png", 
+       height = 200, width = 150, units = "mm", dpi = 300)
+ggsave(Graphe2, filename = "Figures/estimationstox_sc5678.png", device = "png", 
+       height = 200, width = 150, units = "mm", dpi = 300)
 Graphe <- ((CaracEssais %>% 
               filter(cible != "tox", scenar %in% c("ScI1", "ScI2")) %>% 
               mutate(ttt = gsub("^ttt", "D", ttt),
@@ -557,6 +639,44 @@ Graphe <- ((CaracEssais %>%
   plot_annotation(tag_levels = "A")
 ggsave(Graphe, filename = "Figures/estimations_scibru.png", device = "png", 
        height = 250, width = 150, units = "mm", dpi = 300)
+Graphe1 <- CaracEssais %>% 
+              filter(cible != "tox", scenar %in% c("ScI1", "ScI2")) %>% 
+              mutate(ttt = gsub("^ttt", "D", ttt),
+                     methode = factor(methode, levels = c("mBOP", "Simon+TM", "powBOP", "hBOP", "cbhmBOP", "log1BOP", "log2BOP"))) %>% 
+              ggplot(aes(y = est_eff, x = methode, fill = methode)) +
+              geom_boxplot(alpha = .6) +
+              geom_hline(data = TabScenars %>% filter(scenar %in% c("ScI1", "ScI2")), aes(yintercept = eff_true), 
+                         color = "darkred", linetype = "solid", linewidth = .7) +
+              facet_grid(scenar ~ ttt) +
+              scale_fill_discrete(type = c("#0f3d9b", "#08a448", "#7846ab", "#c33215", "#dd790e", "#11caa6", "#07772e")) + 
+              theme_light(base_size = 13) +
+              scale_y_continuous(labels = scales::percent_format()) +
+              theme(legend.position = "none",
+                    strip.background = element_rect(fill = "white", color = "black", size = 1.2),
+                    strip.text = element_text(face = "bold", color = "black", size = 12),
+                    axis.text.x = element_markdown(angle = 45, hjust = 1)) +
+              labs(x = NULL, y = "Efficacy")
+Graphe2 <- CaracEssais %>% 
+                filter(cible != "tox", scenar %in% c("ScI1", "ScI2")) %>% 
+                mutate(ttt = gsub("^ttt", "D", ttt),
+                       methode = factor(methode, levels = c("mBOP", "Simon+TM", "powBOP", "hBOP", "cbhmBOP", "log1BOP", "log2BOP"))) %>% 
+                ggplot(aes(y = est_tox, x = methode, fill = methode)) +
+                geom_boxplot(alpha = .6) +
+                geom_hline(data = TabScenars %>% filter(scenar %in% c("ScI1", "ScI2")), aes(yintercept = tox_true), 
+                           color = "darkred", linetype = "solid", linewidth = .7) +
+                facet_grid(scenar ~ ttt) +
+                scale_fill_discrete(type = c("#0f3d9b", "#08a448", "#7846ab", "#c33215", "#dd790e", "#11caa6", "#07772e")) + 
+                theme_light(base_size = 13) +
+                scale_y_continuous(labels = scales::percent_format()) +
+                theme(legend.position = "none",
+                      strip.background = element_rect(fill = "white", color = "black", size = 1.2),
+                      strip.text = element_text(face = "bold", color = "black", size = 12),
+                      axis.text.x = element_markdown(angle = 45, hjust = 1)) +
+                labs(x = NULL, y = "Toxicity")
+ggsave(Graphe1, filename = "Figures/estimationseff_scibru.png", device = "png", 
+       height = 200, width = 150, units = "mm", dpi = 300)
+ggsave(Graphe2, filename = "Figures/estimationstox_scibru.png", device = "png", 
+       height = 200, width = 150, units = "mm", dpi = 300)
 
 # Sensitivity analysis: 4 and 5 arms ----
 

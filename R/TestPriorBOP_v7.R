@@ -899,7 +899,7 @@ CompiledModelsEffTox <- list(
 # Skeletons for CRM
 ## Logistic link function
 SkelToxPpal <- MakeSkeleton(c(.3, .35, .4), A0 = 3, B0 = 1, MTD = NA, Delta = NULL)
-SkelToxFaible <- MakeSkeleton(c(.25, .27, .3), A0 = 3, B0 = 1, MTD = NA, Delta = NULL)
+SkelToxFaible <- MakeSkeleton(c(.2, .25, .3), A0 = 3, B0 = 1, MTD = NA, Delta = NULL)
 SkelToxForte <- MakeSkeleton(c(.4, .45, .5), A0 = 3, B0 = 1, MTD = NA, Delta = NULL)
 # SkelToxDel <- MakeSkeleton(c(.3, .35, .4), A0 = 3, B0 = 1, MTD = 3, Delta = .1) # http://www.columbia.edu/~yc632/pub/crmcal.pdf
 SkelEffPpal <- MakeSkeleton(c(.3, .4, .5), A0 = 3, B0 = 1, MTD = NA, Delta = NULL)
@@ -925,12 +925,11 @@ Methodes <- list(
   "crmfixeda3_ppal_efftox" = list(methode = "crm_efftox", efftox = 1, tox = 1, A0 = 3, SeuilP = list(SkelToxPpal, SkelEffPpal)),
   "crmunfixed_ppal_efftox" = list(methode = "crm_efftox", efftox = 1, tox = 1, A0 = NA, SeuilP = list(SkelToxPpal, SkelEffPpal)),
   "crmfixeda3_cons_efftox" = list(methode = "crm_efftox", efftox = 1, tox = 1, A0 = 3, SeuilP = list(SkelToxForte, SkelEffFaible)),
-  "crmunfixed_cons_efftox" = list(methode = "crm_efftox", efftox = 1, tox = 1, A0 = NA, SeuilP = list(SkelToxForte, SkelEffFaible))
-  # ,
-  # "crmfixeda3_opti_efftox" = list(methode = "crm_efftox", efftox = 1, tox = 1, A0 = 3, SeuilP = list(SkelToxFaible, SkelEffForte)),
-  # "crmunfixed_opti_efftox" = list(methode = "crm_efftox", efftox = 1, tox = 1, A0 = NA, SeuilP = list(SkelToxFaible, SkelEffForte)),
-  # "crmpowbop_ppal_efftox" = list(methode = "crmpow_efftox", efftox = 1, tox = 1, A0 = NA, SeuilP = list(SkelToxPpalPow, SkelEffPpalPow)),
-  # "crmpowbop_cons_efftox" = list(methode = "crmpow_efftox", efftox = 1, tox = 1, A0 = NA, SeuilP = list(SkelToxFortePow, SkelEffFaiblePow)),
+  "crmunfixed_cons_efftox" = list(methode = "crm_efftox", efftox = 1, tox = 1, A0 = NA, SeuilP = list(SkelToxForte, SkelEffFaible)),
+  "crmfixeda3_opti_efftox" = list(methode = "crm_efftox", efftox = 1, tox = 1, A0 = 3, SeuilP = list(SkelToxFaible, SkelEffForte)),
+  "crmunfixed_opti_efftox" = list(methode = "crm_efftox", efftox = 1, tox = 1, A0 = NA, SeuilP = list(SkelToxFaible, SkelEffForte)),
+  "crmpowbop_ppal_efftox" = list(methode = "crmpow_efftox", efftox = 1, tox = 1, A0 = NA, SeuilP = list(SkelToxPpalPow, SkelEffPpalPow)),
+  "crmpowbop_cons_efftox" = list(methode = "crmpow_efftox", efftox = 1, tox = 1, A0 = NA, SeuilP = list(SkelToxFortePow, SkelEffFaiblePow))#,
   # "crmpowbop_opti_efftox" = list(methode = "crmpow_efftox", efftox = 1, tox = 1, A0 = NA, SeuilP = list(SkelToxFaiblePow, SkelEffFortePow)),
   # "crmpowbop2_ppal_efftox" = list(methode = "crmpow_efftox", efftox = 1, tox = 1, A0 = NA, SeuilP = list(SkelToxPpalPow2, SkelEffPpalPow2)),
   # "crmpowbop2_cons_efftox" = list(methode = "crmpow_efftox", efftox = 1, tox = 1, A0 = NA, SeuilP = list(SkelToxFortePow2, SkelEffFaiblePow2)),
@@ -944,7 +943,7 @@ NomMethodes <- names(Methodes)
 cl <- makeCluster(16)
 registerDoParallel(cl)
 
-if (FALSE) {
+if (TRUE) {
   cat("----\nSensitivity analysis: CRM-like models\n----\n\n", file = "~/simu_priors/log.txt", append = TRUE)
   
   for (m in seq_len(ceiling(length(Methodes) / 4))) {
@@ -1107,7 +1106,7 @@ NomMethodes <- names(Methodes)
 cl <- makeCluster(20)
 registerDoParallel(cl)
 
-if (TRUE) {
+if (FALSE) {
   cat("----\nMain simulation: log dose\n----\n\n", file = "~/simu_priors/log.txt", append = TRUE)
   
   # for (m in seq_len(ceiling(length(Methodes) / 2))) {

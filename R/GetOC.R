@@ -3020,11 +3020,11 @@ opcharac <- function(ana_inter,
       } else if (methode == "crm_tox") {
         real_essai_bayeslogcrm_tox(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, phi_eff, phi_tox, prior_eff, SeuilP_tox, !is.na(A0_tox), A0_tox)
       } else if (methode == "crm_efftox") {
-        real_essai_bayeslogcrm_efftox(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, phi_eff, phi_tox, prior_eff, SeuilP_tox[[1]], SeuilP_tox[[2]], !is.na(A0_tox), A0_tox)
+        real_essai_bayeslogcrm_efftox(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, phi_eff, phi_tox, SeuilP_tox[[1]], SeuilP_tox[[2]], !is.na(A0_tox), A0_tox)
       } else if (methode == "crmpow_tox") {
         real_essai_bayeslogcrm_tox(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, phi_eff, phi_tox, prior_eff, SeuilP_tox, !is.na(A0_tox), A0_tox, TRUE)
       } else if (methode == "crmpow_efftox")
-        real_essai_bayeslogcrm_efftox(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, phi_eff, phi_tox, prior_eff, SeuilP_tox[[1]], SeuilP_tox[[2]], !is.na(A0_tox), A0_tox, TRUE)
+        real_essai_bayeslogcrm_efftox(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, phi_eff, phi_tox, SeuilP_tox[[1]], SeuilP_tox[[2]], !is.na(A0_tox), A0_tox, TRUE)
     }
   )
   
