@@ -177,16 +177,18 @@ CaracEssaisLogit$methode <- paste0("ver", CaracEssaisLogit$methode)
 # Scenarios ----
 
 ListeScenars <- list(
-  Sc1  = list(ttt1 = c(0.15, 0.15, 0.25, 0.45), ttt2 = c(0.15, 0.15, 0.25, 0.45), ttt3 = c(0.15, 0.15, 0.25, 0.45)),
-  Sc2  = list(ttt1 = c(0.13, 0.12, 0.27, 0.48), ttt2 = c(0.15, 0.13, 0.27, 0.45), ttt3 = c(0.16, 0.14, 0.29, 0.41)),
-  Sc3  = list(ttt1 = c(0.20, 0.30, 0.10, 0.40), ttt2 = c(0.20, 0.30, 0.10, 0.40), ttt3 = c(0.20, 0.30, 0.10, 0.40)),
-  Sc4  = list(ttt1 = c(0.15, 0.35, 0.10, 0.40), ttt2 = c(0.17, 0.35, 0.11, 0.37), ttt3 = c(0.19, 0.36, 0.11, 0.34)),
-  Sc5  = list(ttt1 = c(0.11, 0.19, 0.17, 0.53), ttt2 = c(0.20, 0.30, 0.10, 0.40), ttt3 = c(0.25, 0.30, 0.15, 0.30)),
-  Sc6  = list(ttt1 = c(0.14, 0.26, 0.14, 0.46), ttt2 = c(0.20, 0.30, 0.10, 0.40), ttt3 = c(0.25, 0.30, 0.15, 0.30)),
-  Sc7  = list(ttt1 = c(0.18, 0.32, 0.12, 0.38), ttt2 = c(0.22, 0.28, 0.15, 0.35), ttt3 = c(0.23, 0.27, 0.17, 0.33)),
-  Sc8  = list(ttt1 = c(0.12, 0.18, 0.18, 0.52), ttt2 = c(0.17, 0.23, 0.18, 0.42), ttt3 = c(0.23, 0.27, 0.17, 0.33)),
-  ScI1 = list(ttt1 = c(0.10, 0.20, 0.15, 0.55), ttt2 = c(0.20, 0.30, 0.10, 0.40), ttt3 = c(0.19, 0.36, 0.11, 0.34)),
-  ScI2 = list(ttt1 = c(0.15, 0.35, 0.10, 0.40), ttt2 = c(0.18, 0.34, 0.12, 0.36), ttt3 = c(0.25, 0.30, 0.15, 0.30))
+  "Sc1"  = list(ttt1 = c(0.15, 0.15, 0.25, 0.45), ttt2 = c(0.15, 0.15, 0.25, 0.45), ttt3 = c(0.15, 0.15, 0.25, 0.45)),
+  "Sc2"  = list(ttt1 = c(0.13, 0.12, 0.27, 0.48), ttt2 = c(0.15, 0.13, 0.27, 0.45), ttt3 = c(0.16, 0.14, 0.29, 0.41)),
+  "Sc3"  = list(ttt1 = c(0.20, 0.30, 0.10, 0.40), ttt2 = c(0.20, 0.30, 0.10, 0.40), ttt3 = c(0.20, 0.30, 0.10, 0.40)),
+  "Sc4"  = list(ttt1 = c(0.15, 0.35, 0.10, 0.40), ttt2 = c(0.17, 0.35, 0.11, 0.37), ttt3 = c(0.19, 0.36, 0.11, 0.34)),
+  "ScI1" = list(ttt1 = c(0.10, 0.20, 0.15, 0.55), ttt2 = c(0.20, 0.30, 0.10, 0.40), ttt3 = c(0.19, 0.36, 0.11, 0.34)),
+  "ScI2" = list(ttt1 = c(0.10, 0.20, 0.15, 0.55), ttt2 = c(0.19, 0.36, 0.11, 0.34), ttt3 = c(0.18, 0.34, 0.12, 0.36)),
+  "ScI3" = list(ttt1 = c(0.15, 0.35, 0.10, 0.40), ttt2 = c(0.18, 0.34, 0.12, 0.36), ttt3 = c(0.25, 0.30, 0.15, 0.30)),
+  "Sc5"  = list(ttt1 = c(0.11, 0.19, 0.17, 0.53), ttt2 = c(0.20, 0.30, 0.10, 0.40), ttt3 = c(0.25, 0.30, 0.15, 0.30)),
+  "Sc6"  = list(ttt1 = c(0.11, 0.19, 0.17, 0.53), ttt2 = c(0.20, 0.30, 0.10, 0.40), ttt3 = c(0.19, 0.21, 0.21, 0.39)),
+  "Sc7"  = list(ttt1 = c(0.14, 0.26, 0.14, 0.46), ttt2 = c(0.20, 0.30, 0.10, 0.40), ttt3 = c(0.25, 0.30, 0.15, 0.30)),
+  "Sc8"  = list(ttt1 = c(0.18, 0.32, 0.12, 0.38), ttt2 = c(0.22, 0.28, 0.15, 0.35), ttt3 = c(0.23, 0.27, 0.17, 0.33)),
+  "Sc9"  = list(ttt1 = c(0.12, 0.18, 0.18, 0.52), ttt2 = c(0.17, 0.23, 0.18, 0.42), ttt3 = c(0.23, 0.27, 0.17, 0.33))
 )
 NomsScenars <- c(
   "Sc1"  = "Sc1 : Global Null",
@@ -194,12 +196,17 @@ NomsScenars <- c(
   "Sc3"  = "Sc3 : Global Alternative",
   "Sc4"  = "Sc4 : Global Alternative increasing",
   "ScI1" = "ScI1 : 1st dosis futile",
-  "ScI2" = "ScI2 : 3rd dosis toxic",
+  "ScI2" = "ScI2 : 1st dosis futile, non monotonic",
+  "ScI3" = "ScI3 : 3rd dosis toxic",
   "Sc5"  = "Sc5 : 1st dosis futile and 3rd dosis toxic",
-  "Sc6"  = "Sc6 : 3rd dosis toxic and 1st dosis intermediate",
-  "Sc7"  = "Sc7 : 2nd dosis intermediate and 3rd dosis toxic",
-  "Sc8"  = "Sc8 : No promising dosis"
+  "Sc6"  = "Sc6 : 1st dosis futile and 3rd dosis toxic, non monotonic",
+  "Sc7"  = "Sc7 : 3rd dosis toxic and 1st dosis intermediate",
+  "Sc8"  = "Sc8 : 2nd dosis intermediate and 3rd dosis toxic",
+  "Sc9"  = "Sc9 : No promising dosis"
 )
+calculate_corr <- function(Peff, Ptox, Pinter) {
+  (Pinter - Peff * Ptox) / sqrt((Peff - Peff ^ 2) * (Ptox - Ptox ^ 2))
+}
 
 # Table 1 ----
 
@@ -245,11 +252,12 @@ Graphe <- do.call("rbind", lapply(names(ListeScenars), \(l) {
     data.frame(scenar = l, 
                bras = x,
                eff = ListeScenars[[l]][[x]][1] + ListeScenars[[l]][[x]][2],
-               tox = ListeScenars[[l]][[x]][1] + ListeScenars[[l]][[x]][3])
+               tox = ListeScenars[[l]][[x]][1] + ListeScenars[[l]][[x]][3]) %>% 
+      mutate(corr = sprintf("rho==%.2f", calculate_corr(eff, tox, ListeScenars[[l]][[x]][1])))
   }))
 })) %>% 
   # mutate(scenar = factor(scenar, levels = c(paste0("Sc", 1:8), "ScI1", "ScI2"), labels = NomsScenars[c(paste0("Sc", 1:8), "ScI1", "ScI2")]),
-  mutate(scenar = factor(scenar, levels = c(paste0("Sc", 1:8), "ScI1", "ScI2")),
+  mutate(scenar = factor(scenar, levels = c(paste0("Sc", 1:9), "ScI1", "ScI2", "ScI3")),
          efficacite = case_when(eff < .31 ~ "futile",
                                 eff < .5 ~ "intermediaire",
                                 TRUE ~ "efficace"),
@@ -270,7 +278,8 @@ Graphe <- do.call("rbind", lapply(names(ListeScenars), \(l) {
   geom_point(aes(y = eff, color = "Efficacy", shape = couleur), size = 3) +
   geom_line(aes(y = tox, color = "Toxicity", group = scenar)) +
   geom_point(aes(y = tox, color = "Toxicity", shape = couleur), size = 3) +
-  facet_wrap(vars(scenar), ncol = 2, scales = "free_x") +
+  geom_text(aes(y = .05, label = corr), parse = TRUE, size = 4) +
+  facet_wrap(vars(scenar), ncol = 3, scales = "free_x") +
   expand_limits(y = 0) +
   theme_light(base_size = 18) +
   theme(strip.background = element_rect(fill = "white", color = "black", size = 1.2),
@@ -284,11 +293,11 @@ Graphe <- do.call("rbind", lapply(names(ListeScenars), \(l) {
 # caption = "Vert=prometteur / rouge=futile et toxique / beige=futile / rouge foncé=toxique / bleu=intermédiaire")
 g <- ggplot_gtable(ggplot_build(Graphe))
 stripes <- which(grepl("strip-t", g$layout$name))
-for (i in stripes[1:2]) {
+for (i in stripes[1:3]) {
   g$grobs[[i]]$grobs[[1]]$children[[1]]$gp$fill <- "steelblue"
 }
 grid::grid.draw(g)
-ggsave(g, filename = "Figures/scenar_simul_v5.png", height = 300, width = 230, units = "mm", dpi = 300)
+ggsave(g, filename = "Figures/scenar_simul_v6.png", height = 300, width = 280, units = "mm", dpi = 300)
 
 # Figure 2 ----
 

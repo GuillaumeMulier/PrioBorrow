@@ -1,7 +1,7 @@
 # -------------------------------------------------------------------------------------------------- #
 # Functions used to generate data, analyzed simulated trials and summarize operating characteristics #
 # Autor : G. Mulier                                                                                  #
-# Creation the 20/05/2024, modified the 05/11/2025                                                   #
+# Creation the 20/05/2024, modified the 16/03/2026                                                   #
 # -------------------------------------------------------------------------------------------------- #
 
 
