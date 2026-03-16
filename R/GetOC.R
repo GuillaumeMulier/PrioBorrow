@@ -809,6 +809,281 @@ real_essai_bop_power_efftox <- function(data, analyses, CPar, PPar, ana_eff_cum,
 }
 
 
+## Normalized power prior BOP ----
+
+### Toxicity only ----
+
+# Compile the model Normalized power prior for toxicity
+# Arguments :
+## phi_tox = reference value of toxicity which is used for the beta prior
+## a, b = parameters for beta prior on a0 parameter
+# Output : Compiled normalized power prior in STAN
+CompilNPower_tox <- function(phi_tox, a = 1, b = 1) {
+  ModeleNPower_t <- "
+  data {
+    int<lower = 0> Nb; // Number of arms
+    int<lower = 1> n[Nb]; // Number of patients per arm
+    int<lower = 0> y[Nb]; // Number of toxicites per arm
+  }
+  parameters{
+    real<lower = 0, upper = 1> theta[Nb];
+    real<lower = 0, upper = 1> a0[Nb * (Nb - 1)];
+  }
+  model{
+  
+    for (arm in 1:Nb) {
+      // Pre-compute the parameters for power prior
+      real alpha = %phi_tox%;
+      real beta = 1 - %phi_tox%;
+      for (j in 1:Nb) {
+        if (j < arm) {
+          int index = (arm - 1) * (Nb - 1) + j;
+          alpha += a0[index] * y[j];
+          beta += a0[index] * (n[j] - y[j]);
+        } else if (j > arm) {
+          int index = (arm - 1) * (Nb - 1) + j - 1;
+          alpha += a0[index] * y[j];
+          beta += a0[index] * (n[j] - y[j]);
+        }
+      }
+      
+      // Power prior distributions
+      target += beta_lpdf(theta[arm] | alpha, beta);
+      
+      // Likelihood
+      target += y[arm] * log(theta[arm]) + (n[arm] - y[arm]) * log(1 - theta[arm]);
+    }
+
+    // Priors for normalization of Power prior
+    for (k in 1:(Nb * (Nb - 1))) {
+      target += beta_lpdf(a0[k] | %a%, %b%);
+    }
+
+  }
+"
+  ModeleNPower_t <- gsub("%phi_tox%", phi_tox, ModeleNPower_t)
+  ModeleNPower_t <- gsub("%a%", a, ModeleNPower_t)
+  ModeleNPower_t <- gsub("%b%", b, ModeleNPower_t)
+  return(stan_model(model_code = ModeleNPower_t))
+}
+
+# Analyse the data from 1 trial using multi-arm BOP2 with normalized power prior on toxicity
+# Arguments :
+## data = data.frame with data from the trial simulated via gen_patients_multinom function
+## analyses = number of patients in each arm at analysis
+## CPar, PPar = parameters of threshold Cn of multi-arm BOP2 design
+## ana_eff_cum, ana_tox_cum = number of patients in each arm at analyses for efficacy/toxicity
+## A0 = exponent of the power prior to determine borrowing
+## phi_eff, phi_tox = threshold values for the rule to stop : futility and toxicity thresholds
+## prior_eff = vectors of length 2 giving the 2 parameters for the beta priors for efficacy and toxicity
+# Output : data.frame of the trial with decisions from design
+real_essai_bop_normpower_tox <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, 
+                                         phi_eff, phi_tox, prior_eff) {
+  data$arret_eff <- data$arret_tox <- NA_integer_
+  data$est_eff <- data$icinf_eff <- data$icsup_eff <- NA_real_
+  data$est_tox <- data$icinf_tox <- data$icsup_tox <- NA_real_
+  for (i in seq_len(max(data$nb_ana))) {
+    Nb_pts <- analyses[i]
+    seuil <- 1 - CPar * (Nb_pts / analyses[length(analyses)]) ** PPar
+    if (i == 1) {
+      n_eff <- data$tot_eff[data$nb_ana == i]
+      n_tox <- Nb_pts - data$tot_notox[data$nb_ana == i]
+      n_pts_bras <- rep(Nb_pts, length(n_tox))
+      n_pts_autres <- vapply(seq_along(n_tox), \(x) sum(n_pts_bras[-x]), numeric(1))
+    } else { # If not at first analysis, only update numbers when the arm is not stopped
+      VecNonArrets <- data$arret_eff[data$nb_ana == (i - 1)] == 0 & data$arret_tox[data$nb_ana == (i - 1)] == 0
+      n_eff[VecNonArrets] <- data$tot_eff[data$nb_ana == i][VecNonArrets]
+      n_tox[VecNonArrets] <- Nb_pts - data$tot_notox[data$nb_ana == i][VecNonArrets]
+      n_pts_bras[VecNonArrets] <- rep(Nb_pts, sum(VecNonArrets))
+      n_pts_autres <- vapply(seq_along(n_pts_bras), \(x) sum(n_pts_bras[-x]), numeric(1))
+    }
+    PPEff <- pbeta(phi_eff, prior_eff + n_eff, 1 - prior_eff + Nb_pts - n_eff)
+    if (i != 1) PPEff[data$arret_eff[data$nb_ana == (i - 1)] == 1] <- 1.5
+    if (Nb_pts %in% ana_eff_cum) {
+      data$arret_eff[data$nb_ana == i] <- as.integer(PPEff > seuil)
+    } else {
+      if (i == 1) data$arret_eff[data$nb_ana == i] <- 0 else data$arret_eff[data$nb_ana == i] <- data$arret_eff[data$nb_ana == (i - 1)]
+    }
+    data$est_eff[data$nb_ana == i] <- (n_eff + prior_eff) / (Nb_pts + 1) 
+    data$icinf_eff[data$nb_ana == i] <- qbeta(.025, prior_eff + n_eff, 1 - prior_eff + Nb_pts - n_eff) 
+    data$icsup_eff[data$nb_ana == i] <- qbeta(.975, prior_eff + n_eff, 1 - prior_eff + Nb_pts - n_eff)
+    # Normalized power prior on toxicity
+    if ((i != 1 && any(data$arret_tox[data$nb_ana == (i - 1)] == 0 & data$arret_eff[data$nb_ana == (i - 1)] == 0)) | (i == 1)) {
+      DonneesTox <- list(Nb = length(n_tox), n = n_pts_bras, y = n_tox)
+      SampledTox <- sampling(CompiledModelsTox[["normpowBOP_tox"]], 
+                             data = DonneesTox,         
+                             chains = 3,             
+                             warmup = 2000,          
+                             iter = 4000,
+                             thin = 1,
+                             cores = 3,
+                             control = list(stepsize = .3, adapt_delta = .95, max_treedepth = 15),
+                             seed = 121221)
+      PPred <- extract(SampledTox, pars = "theta")$theta
+      PPTox <- colMeans(PPred > phi_tox) # posterior probability
+      data$est_tox[data$nb_ana == i] <- colMeans(PPred)
+      data$icinf_tox[data$nb_ana == i] <- apply(PPred, 2, quantile, probs = .025)
+      data$icsup_tox[data$nb_ana == i] <- apply(PPred, 2, quantile, probs = .975)
+    } else {
+      PPTox <- rep(1.5, length(n_tox))
+      data$est_tox[data$nb_ana == i] <- data$est_tox[data$nb_ana == (i - 1)] 
+      data$icinf_tox[data$nb_ana == i] <- data$icinf_tox[data$nb_ana == (i - 1)] 
+      data$icsup_tox[data$nb_ana == i] <- data$icsup_tox[data$nb_ana == (i - 1)] 
+    }
+    if (i != 1) PPTox[data$arret_tox[data$nb_ana == (i - 1)] == 1] <- 1.5
+    if (Nb_pts %in% ana_tox_cum) {
+      data$arret_tox[data$nb_ana == i] <- as.integer(PPTox > seuil)
+    } else {
+      if (i == 1) data$arret_tox[data$nb_ana == i] <- 0 else data$arret_tox[data$nb_ana == i] <- data$arret_tox[data$nb_ana == (i - 1)]
+    }
+  }
+  return(data)
+}
+
+### Efficacy and toxicity ----
+
+# Compile the model Normalized power prior for efficacy and toxicity
+# Arguments :
+## phi_tox, phi_eff = reference values of toxicity and efficacy which are used for the beta prior
+## a, b = parameters for beta prior on a0 parameter
+# Output : Compiled normalized power prior in STAN
+CompilNPower_efftox <- function(phi_eff, phi_tox, a = 1, b = 1) {
+  ModeleNPower_et <- "
+  data {
+    int<lower = 1> Nb; // Nombre de bras
+    int<lower = 1> n[Nb]; // Nombre de patients par bras
+    int<lower = 0> y_tox[Nb]; // Nombre de toxicités par bras
+    int<lower = 0> y_eff[Nb]; // Nombre de réponses par bras
+  }
+  parameters{
+    real<lower = 0, upper = 1> theta_eff[Nb];
+    real<lower = 0, upper = 1> theta_tox[Nb];
+    real<lower = 0, upper = 1> a0_eff[Nb * (Nb - 1)];
+    real<lower = 0, upper = 1> a0_tox[Nb * (Nb - 1)];
+  }
+  model{
+  
+    for (arm in 1:Nb) {
+      // Pre-compute the parameters for power prior
+      real alpha_eff = %phi_eff%;
+      real beta_eff = 1 - %phi_eff%;
+      real alpha_tox = %phi_tox%;
+      real beta_tox = 1 - %phi_tox%;
+      for (j in 1:Nb) {
+        if (j < arm) {
+          int index = (arm - 1) * (Nb - 1) + j;
+          alpha_eff += a0_eff[index] * y_eff[j];
+          beta_eff += a0_eff[index] * (n[j] - y_eff[j]);
+          alpha_tox += a0_tox[index] * y_tox[j];
+          beta_tox += a0_tox[index] * (n[j] - y_tox[j]);
+        } else if (j > arm) {
+          int index = (arm - 1) * (Nb - 1) + j - 1;
+          alpha_eff += a0_eff[index] * y_eff[j];
+          beta_eff += a0_eff[index] * (n[j] - y_eff[j]);
+          alpha_tox += a0_tox[index] * y_tox[j];
+          beta_tox += a0_tox[index] * (n[j] - y_tox[j]);
+        }
+      }
+      
+      // Power prior distributions
+      target += beta_lpdf(theta_eff[arm] | alpha_eff, beta_eff);
+      target += beta_lpdf(theta_tox[arm] | alpha_tox, beta_tox);
+      
+      // Likelihood
+      target += y_eff[arm] * log(theta_eff[arm]) + (n[arm] - y_eff[arm]) * log(1 - theta_eff[arm]);
+      target += y_tox[arm] * log(theta_tox[arm]) + (n[arm] - y_tox[arm]) * log(1 - theta_tox[arm]);
+    }
+
+    // Priors for normalization of Power prior
+    for (k in 1:(Nb * (Nb - 1))) {
+      target += beta_lpdf(a0_eff[k] | %a%, %b%);
+      target += beta_lpdf(a0_tox[k] | %a%, %b%);
+    }
+
+  }
+"
+  ModeleNPower_et <- gsub("%phi_tox%", phi_tox, ModeleNPower_et)
+  ModeleNPower_et <- gsub("%phi_eff%", phi_eff, ModeleNPower_et)
+  ModeleNPower_et <- gsub("%a%", a, ModeleNPower_et)
+  ModeleNPower_et <- gsub("%b%", b, ModeleNPower_et)
+  return(stan_model(model_code = ModeleNPower_et))
+}
+
+# Analyse the data from 1 trial using multi-arm BOP2 with normalized power prior on efficacy and toxicity
+# Arguments :
+## data = data.frame with data from the trial simulated via gen_patients_multinom function
+## analyses = number of patients in each arm at analysis
+## CPar, PPar = parameters of threshold Cn of multi-arm BOP2 design
+## ana_eff_cum, ana_tox_cum = number of patients in each arm at analyses for efficacy/toxicity
+## phi_eff, phi_tox = threshold values for the rule to stop : futility and toxicity thresholds
+# Output : data.frame of the trial with decisions from design
+real_essai_bop_normpower_efftox <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum,  
+                                            phi_eff, phi_tox) {
+  data$arret_eff <- data$arret_tox <- NA_integer_
+  data$est_eff <- data$icinf_eff <- data$icsup_eff <- NA_real_
+  data$est_tox <- data$icinf_tox <- data$icsup_tox <- NA_real_
+  for (i in seq_len(max(data$nb_ana))) {
+    Nb_pts <- analyses[i]
+    seuil <- 1 - CPar * (Nb_pts / analyses[length(analyses)]) ** PPar
+    if (i == 1) {
+      n_eff <- data$tot_eff[data$nb_ana == i]
+      n_tox <- Nb_pts - data$tot_notox[data$nb_ana == i]
+      n_pts_bras <- rep(Nb_pts, length(n_tox))
+    } else { # If not at first analysis, only update numbers when the arm is not stopped
+      VecNonArrets <- data$arret_eff[data$nb_ana == (i - 1)] == 0 & data$arret_tox[data$nb_ana == (i - 1)] == 0
+      n_eff[VecNonArrets] <- data$tot_eff[data$nb_ana == i][VecNonArrets]
+      n_tox[VecNonArrets] <- Nb_pts - data$tot_notox[data$nb_ana == i][VecNonArrets]
+      n_pts_bras[VecNonArrets] <- rep(Nb_pts, sum(VecNonArrets))
+    }
+    # Normalized power prior on efficacy and toxicity
+    if ((i != 1 && any(data$arret_tox[data$nb_ana == (i - 1)] == 0 & data$arret_eff[data$nb_ana == (i - 1)] == 0)) | (i == 1)) {
+      DonneesEffTox <- list(Nb = length(n_tox), n = n_pts_bras, y_tox = n_tox, y_eff = n_eff)
+      SampledEffTox <- sampling(CompiledModelsEffTox[["normpowBOP_efftox"]], 
+                                data = DonneesEffTox,         
+                                chains = 3,             
+                                warmup = 2000,          
+                                iter = 6000,
+                                thin = 2,
+                                cores = 3,
+                                control = list(stepsize = .3, adapt_delta = .95, max_treedepth = 15),
+                                seed = 121221)
+      PPredTox <- extract(SampledEffTox, pars = "theta_tox")$theta_tox
+      PPTox <- colMeans(PPredTox > phi_tox) 
+      data$est_tox[data$nb_ana == i] <- colMeans(PPredTox)
+      data$icinf_tox[data$nb_ana == i] <- apply(PPredTox, 2, quantile, probs = .025)
+      data$icsup_tox[data$nb_ana == i] <- apply(PPredTox, 2, quantile, probs = .975)
+      PPredEff <- extract(SampledEffTox, pars = "theta_eff")$theta_eff
+      PPEff <- colMeans(PPredEff < phi_eff) 
+      data$est_eff[data$nb_ana == i] <- colMeans(PPredEff)
+      data$icinf_eff[data$nb_ana == i] <- apply(PPredEff, 2, quantile, probs = .025)
+      data$icsup_eff[data$nb_ana == i] <- apply(PPredEff, 2, quantile, probs = .975)
+    } else {
+      PPTox <- rep(1.5, length(n_tox))
+      data$est_tox[data$nb_ana == i] <- data$est_tox[data$nb_ana == (i - 1)] 
+      data$icinf_tox[data$nb_ana == i] <- data$icinf_tox[data$nb_ana == (i - 1)] 
+      data$icsup_tox[data$nb_ana == i] <- data$icsup_tox[data$nb_ana == (i - 1)] 
+      PPEff <- rep(1.5, length(n_eff))
+      data$est_eff[data$nb_ana == i] <- data$est_eff[data$nb_ana == (i - 1)] 
+      data$icinf_eff[data$nb_ana == i] <- data$icinf_eff[data$nb_ana == (i - 1)] 
+      data$icsup_eff[data$nb_ana == i] <- data$icsup_eff[data$nb_ana == (i - 1)] 
+    }
+    if (i != 1) PPEff[data$arret_eff[data$nb_ana == (i - 1)] == 1] <- 1.5
+    if (Nb_pts %in% ana_eff_cum) {
+      data$arret_eff[data$nb_ana == i] <- as.integer(PPEff > seuil)
+    } else {
+      if (i == 1) data$arret_eff[data$nb_ana == i] <- 0 else data$arret_eff[data$nb_ana == i] <- data$arret_eff[data$nb_ana == (i - 1)]
+    }
+    if (i != 1) PPTox[data$arret_tox[data$nb_ana == (i - 1)] == 1] <- 1.5
+    if (Nb_pts %in% ana_tox_cum) {
+      data$arret_tox[data$nb_ana == i] <- as.integer(PPTox > seuil)
+    } else {
+      if (i == 1) data$arret_tox[data$nb_ana == i] <- 0 else data$arret_tox[data$nb_ana == i] <- data$arret_tox[data$nb_ana == (i - 1)]
+    }
+  }
+  return(data)
+}
+
+
 ## Power prior BOP with binomial/fisher test ----
 
 ### Toxicity only ----
@@ -826,7 +1101,6 @@ real_essai_bop_power_efftox <- function(data, analyses, CPar, PPar, ana_eff_cum,
 ## prior_eff, prior_tox = vectors of length 2 giving the 2 parameters for the beta priors for efficacy and toxicity
 # Output : data.frame of the trial with decisions from design
 real_essai_bop_power_test_tox <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, A0, SeuilP, 
-                                          # Tox0,
                                           phi_eff, phi_tox, prior_eff, prior_tox) {
   # Tox0 is commented because we want to compare arm between them, not compare arm to a reference value as in historical borrowing
   data$arret_eff <- data$arret_tox <- NA_integer_
@@ -897,7 +1171,6 @@ real_essai_bop_power_test_tox <- function(data, analyses, CPar, PPar, ana_eff_cu
 # Output : data.frame of the trial with decisions from design
 real_essai_bop_power_test_efftox <- function(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, 
                                              A0_eff, SeuilP_eff, A0_tox = A0_eff, SeuilP_tox = SeuilP_eff, 
-                                             # Tox0, Eff0,
                                              phi_eff, phi_tox, prior_eff, prior_tox) {
   # Tox0/Eff0 is commented because we want to compare arm between them, not compare arm to a reference value as in historical borrowing
   data$arret_eff <- data$arret_tox <- NA_integer_
@@ -2904,7 +3177,7 @@ opcharac <- function(ana_inter,
                      mat_beta_xi = matrix(c(1, 1, 0, 0, 0, 1, 0, 1), nrow = 2, byrow = TRUE),
                      CPar = .6,
                      PPar = .8,
-                     methode = c("bop", "bop_borrow", "bop_seq_tox", "bop_seq_efftox", "bop_power_tox", "bop_power_efftox",
+                     methode = c("bop", "bop_borrow", "bop_seq_tox", "bop_seq_efftox", "bop_power_tox", "bop_power_efftox", "bop_normpower_tox",
                                  "bop_power_test_tox", "bop_power_test_efftox", "bop_borrow_test_tox", "bop_borrow_test_efftox",
                                  "hier_tox", "hier_efftox", "cbhm_tox", "cbhm_efftox", "exnex_tox", "exnex_efftox",
                                  "bop_log1_tox", "bop_log2_tox", "bop_log3_tox", "bop_log4_tox", "bop_log5_tox", "bop_log6_tox",
@@ -2987,6 +3260,8 @@ opcharac <- function(ana_inter,
         real_essai_bop_seq_efftox(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, phi_eff, phi_tox, prior_eff, prior_tox)
       } else if (methode == "bop_power_tox") {
         real_essai_bop_power_tox(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, A0_tox, phi_eff, phi_tox, prior_eff, prior_tox)
+      } else if (methode == "bop_normpower_tox") {
+        real_essai_bop_normpower_tox(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, phi_eff, phi_tox, prior_eff)
       } else if (methode == "bop_power_efftox") {
         real_essai_bop_power_efftox(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, A0_eff, A0_tox, phi_eff, phi_tox, prior_eff, prior_tox)
       } else if (methode == "bop_power_test_tox") {
