@@ -25,23 +25,23 @@ source("~/R/GetOC.R")
 # Precompile stan models 
 cat("----\nCompiling efficacy/toxicity STAN\n----\n\n", file = "~/simu_priors/log.txt", append = TRUE)
 CompiledModelsEffTox <- list(
-  "hBOP_efftox" = CompilBHM_efftox(moy_mu_eff = log(.3 / .7), sigma_mu_eff = 2.5, moy_sig_eff = 0, sigma_sig_eff = 1,
-                                   moy_mu_tox = log(.4 / .6), sigma_mu_tox = 2.5, moy_sig_tox = 0, sigma_sig_tox = 1),
-  "cbhmBOP_efftox" = CompilCBHM_efftox(moy_mu_eff = log(.3 / .7), sigma_mu_eff = 2.5, 
-                                       moy_mu_tox = log(.4 / .6), sigma_mu_tox = 2.5),
-  "log1_efftox" = CompilModLog_efftox(mu_inter_eff = log(.3 / .7), sigma_inter_eff = 2.5, mu_coef_eff = 0.42, sigma_coef_eff = 2.5,
-                                      mu_inter_tox = log(.4 / .6), sigma_inter_tox = 2.5, mu_coef_tox = 0.22, sigma_coef_tox = 2.5),
-  "log2_efftox" = CompilModLog_efftox(mu_inter_eff = log(.3 / .7), sigma_inter_eff = 2.5, mu_coef_eff = 0.42, sigma_coef_eff = 2.5,
-                                      mu_inter_tox = log(.4 / .6), sigma_inter_tox = 2.5, mu_coef_tox = 0.22, sigma_coef_tox = 2.5,
-                                      PentePos_eff = TRUE, PentePos_tox = TRUE),
+  # "hBOP_efftox" = CompilBHM_efftox(moy_mu_eff = log(.3 / .7), sigma_mu_eff = 2.5, moy_sig_eff = 0, sigma_sig_eff = 1,
+  #                                  moy_mu_tox = log(.4 / .6), sigma_mu_tox = 2.5, moy_sig_tox = 0, sigma_sig_tox = 1),
+  # "cbhmBOP_efftox" = CompilCBHM_efftox(moy_mu_eff = log(.3 / .7), sigma_mu_eff = 2.5, 
+  #                                      moy_mu_tox = log(.4 / .6), sigma_mu_tox = 2.5),
+  # "log1_efftox" = CompilModLog_efftox(mu_inter_eff = log(.3 / .7), sigma_inter_eff = 2.5, mu_coef_eff = 0.42, sigma_coef_eff = 2.5,
+  #                                     mu_inter_tox = log(.4 / .6), sigma_inter_tox = 2.5, mu_coef_tox = 0.22, sigma_coef_tox = 2.5),
+  # "log2_efftox" = CompilModLog_efftox(mu_inter_eff = log(.3 / .7), sigma_inter_eff = 2.5, mu_coef_eff = 0.42, sigma_coef_eff = 2.5,
+  #                                     mu_inter_tox = log(.4 / .6), sigma_inter_tox = 2.5, mu_coef_tox = 0.22, sigma_coef_tox = 2.5,
+  #                                     PentePos_eff = TRUE, PentePos_tox = TRUE),
   "normpowBOP_efftox" = CompilNPower_efftox(phi_eff = .3, phi_tox = .4)
 )
 cat("----\nCompiling toxicity STAN\n----\n\n", file = "~/simu_priors/log.txt", append = TRUE)
 CompiledModelsTox <- list(
-  "hBOP_tox" = CompilBHM_tox(moy_mu = log(.4 / .6), sigma_mu = 2.5, moy_sig = 0, sigma_sig = 1),
-  "cbhmBOP_tox" = CompilCBHM_tox(moy_mu = log(.4 / .6), sigma_mu = 2.5),
-  "log1_tox" = CompilModLog_tox(mu_inter = log(.4 / .6), sigma_inter = 2.5, mu_coef = 0.22, sigma_coef = 2.5),
-  "log2_tox" = CompilModLog_tox(mu_inter = log(.4 / .6), sigma_inter = 2.5, mu_coef = 0.22, sigma_coef = 2.5, PentePos = TRUE),
+  # "hBOP_tox" = CompilBHM_tox(moy_mu = log(.4 / .6), sigma_mu = 2.5, moy_sig = 0, sigma_sig = 1),
+  # "cbhmBOP_tox" = CompilCBHM_tox(moy_mu = log(.4 / .6), sigma_mu = 2.5),
+  # "log1_tox" = CompilModLog_tox(mu_inter = log(.4 / .6), sigma_inter = 2.5, mu_coef = 0.22, sigma_coef = 2.5),
+  # "log2_tox" = CompilModLog_tox(mu_inter = log(.4 / .6), sigma_inter = 2.5, mu_coef = 0.22, sigma_coef = 2.5, PentePos = TRUE),
   "normpowBOP_tox" = CompilNPower_tox(phi_tox = .4, a = 1, b = 1)
 )
 
@@ -158,8 +158,8 @@ if (TRUE) {
                                                                   methode = Params$methode,
                                                                   A0_tox = Params$A0, SeuilP_tox = Params$SeuilP,
                                                                   A0_eff = Params$A0, SeuilP_eff = Params$SeuilP,
-                                                                  a_tox = CBHM_tox$a, b_tox = CBHM_tox$b,
-                                                                  a_eff = CBHM_eff$a, b_eff = CBHM_eff$b,
+                                                                  a_tox = NA, b_tox = NA,
+                                                                  a_eff = NA, b_eff = NA,
                                                                   p_mix_tox = rep(.5, NBras), p_mix_eff = rep(.5, NBras),
                                                                   tableau_essais = tableau_essais),
                                                          error = function(e) list(paste0(e)))

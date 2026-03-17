@@ -3177,7 +3177,7 @@ opcharac <- function(ana_inter,
                      mat_beta_xi = matrix(c(1, 1, 0, 0, 0, 1, 0, 1), nrow = 2, byrow = TRUE),
                      CPar = .6,
                      PPar = .8,
-                     methode = c("bop", "bop_borrow", "bop_seq_tox", "bop_seq_efftox", "bop_power_tox", "bop_power_efftox", "bop_normpower_tox",
+                     methode = c("bop", "bop_borrow", "bop_seq_tox", "bop_seq_efftox", "bop_power_tox", "bop_power_efftox", "bop_normpower_efftox", "bop_normpower_tox",
                                  "bop_power_test_tox", "bop_power_test_efftox", "bop_borrow_test_tox", "bop_borrow_test_efftox",
                                  "hier_tox", "hier_efftox", "cbhm_tox", "cbhm_efftox", "exnex_tox", "exnex_efftox",
                                  "bop_log1_tox", "bop_log2_tox", "bop_log3_tox", "bop_log4_tox", "bop_log5_tox", "bop_log6_tox",
@@ -3262,6 +3262,8 @@ opcharac <- function(ana_inter,
         real_essai_bop_power_tox(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, A0_tox, phi_eff, phi_tox, prior_eff, prior_tox)
       } else if (methode == "bop_normpower_tox") {
         real_essai_bop_normpower_tox(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, phi_eff, phi_tox, prior_eff)
+      } else if (methode == "bop_normpower_efftox") {
+        real_essai_bop_normpower_efftox(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, phi_eff, phi_tox)
       } else if (methode == "bop_power_efftox") {
         real_essai_bop_power_efftox(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, A0_eff, A0_tox, phi_eff, phi_tox, prior_eff, prior_tox)
       } else if (methode == "bop_power_test_tox") {
