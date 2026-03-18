@@ -1,7 +1,7 @@
 # -------------------------------------------------------------------- #
 # Simulations to answer reviewers' questions                           #
 # Author : G. Mulier                                                   #
-# Created the 16/03/2026, modified the 13/03/2026                      #
+# Created the 16/03/2026, modified the 18/03/2026                      #
 # -------------------------------------------------------------------- #
 
 # Packages  and helpers ----
@@ -25,23 +25,23 @@ source("~/R/GetOC.R")
 # Precompile stan models 
 cat("----\nCompiling efficacy/toxicity STAN\n----\n\n", file = "~/simu_priors/log.txt", append = TRUE)
 CompiledModelsEffTox <- list(
-  # "hBOP_efftox" = CompilBHM_efftox(moy_mu_eff = log(.3 / .7), sigma_mu_eff = 2.5, moy_sig_eff = 0, sigma_sig_eff = 1,
-  #                                  moy_mu_tox = log(.4 / .6), sigma_mu_tox = 2.5, moy_sig_tox = 0, sigma_sig_tox = 1),
-  # "cbhmBOP_efftox" = CompilCBHM_efftox(moy_mu_eff = log(.3 / .7), sigma_mu_eff = 2.5, 
-  #                                      moy_mu_tox = log(.4 / .6), sigma_mu_tox = 2.5),
-  # "log1_efftox" = CompilModLog_efftox(mu_inter_eff = log(.3 / .7), sigma_inter_eff = 2.5, mu_coef_eff = 0.42, sigma_coef_eff = 2.5,
-  #                                     mu_inter_tox = log(.4 / .6), sigma_inter_tox = 2.5, mu_coef_tox = 0.22, sigma_coef_tox = 2.5),
-  # "log2_efftox" = CompilModLog_efftox(mu_inter_eff = log(.3 / .7), sigma_inter_eff = 2.5, mu_coef_eff = 0.42, sigma_coef_eff = 2.5,
-  #                                     mu_inter_tox = log(.4 / .6), sigma_inter_tox = 2.5, mu_coef_tox = 0.22, sigma_coef_tox = 2.5,
-  #                                     PentePos_eff = TRUE, PentePos_tox = TRUE),
+  "hBOP_efftox" = CompilBHM_efftox(moy_mu_eff = log(.3 / .7), sigma_mu_eff = 2.5, moy_sig_eff = 0, sigma_sig_eff = 1,
+                                   moy_mu_tox = log(.4 / .6), sigma_mu_tox = 2.5, moy_sig_tox = 0, sigma_sig_tox = 1),
+  "cbhmBOP_efftox" = CompilCBHM_efftox(moy_mu_eff = log(.3 / .7), sigma_mu_eff = 2.5, 
+                                       moy_mu_tox = log(.4 / .6), sigma_mu_tox = 2.5),
+  "log1_efftox" = CompilModLog_efftox(mu_inter_eff = log(.3 / .7), sigma_inter_eff = 2.5, mu_coef_eff = 0.42, sigma_coef_eff = 2.5,
+                                      mu_inter_tox = log(.4 / .6), sigma_inter_tox = 2.5, mu_coef_tox = 0.22, sigma_coef_tox = 2.5),
+  "log2_efftox" = CompilModLog_efftox(mu_inter_eff = log(.3 / .7), sigma_inter_eff = 2.5, mu_coef_eff = 0.42, sigma_coef_eff = 2.5,
+                                      mu_inter_tox = log(.4 / .6), sigma_inter_tox = 2.5, mu_coef_tox = 0.22, sigma_coef_tox = 2.5,
+                                      PentePos_eff = TRUE, PentePos_tox = TRUE),
   "normpowBOP_efftox" = CompilNPower_efftox(phi_eff = .3, phi_tox = .4)
 )
 cat("----\nCompiling toxicity STAN\n----\n\n", file = "~/simu_priors/log.txt", append = TRUE)
 CompiledModelsTox <- list(
-  # "hBOP_tox" = CompilBHM_tox(moy_mu = log(.4 / .6), sigma_mu = 2.5, moy_sig = 0, sigma_sig = 1),
-  # "cbhmBOP_tox" = CompilCBHM_tox(moy_mu = log(.4 / .6), sigma_mu = 2.5),
-  # "log1_tox" = CompilModLog_tox(mu_inter = log(.4 / .6), sigma_inter = 2.5, mu_coef = 0.22, sigma_coef = 2.5),
-  # "log2_tox" = CompilModLog_tox(mu_inter = log(.4 / .6), sigma_inter = 2.5, mu_coef = 0.22, sigma_coef = 2.5, PentePos = TRUE),
+  "hBOP_tox" = CompilBHM_tox(moy_mu = log(.4 / .6), sigma_mu = 2.5, moy_sig = 0, sigma_sig = 1),
+  "cbhmBOP_tox" = CompilCBHM_tox(moy_mu = log(.4 / .6), sigma_mu = 2.5),
+  "log1_tox" = CompilModLog_tox(mu_inter = log(.4 / .6), sigma_inter = 2.5, mu_coef = 0.22, sigma_coef = 2.5),
+  "log2_tox" = CompilModLog_tox(mu_inter = log(.4 / .6), sigma_inter = 2.5, mu_coef = 0.22, sigma_coef = 2.5, PentePos = TRUE),
   "normpowBOP_tox" = CompilNPower_tox(phi_tox = .4, a = 1, b = 1)
 )
 
@@ -101,7 +101,7 @@ NomMethodes <- names(Methodes)
 cl <- makeCluster(20)
 registerDoParallel(cl)
 
-if (TRUE) {
+if (FALSE) {
   cat("----\nMain simulation: 3 arms (normalized power prior)\n----\n\n", file = "~/simu_priors/log.txt", append = TRUE)
   
   for (m in seq_len(ceiling(length(Methodes) / 2))) {
@@ -204,7 +204,7 @@ Scenarios <- list(
   "Sc2"  = list(ttt1 = c(0.12, 0.12, 0.28, 0.48), ttt2 = c(0.13, 0.13, 0.29, 0.45), ttt3 = c(0.15, 0.13, 0.29, 0.43), ttt4 = c(0.17, 0.13, 0.33, 0.37)),
   "Sc4"  = list(ttt1 = c(0.15, 0.35, 0.09, 0.41), ttt2 = c(0.16, 0.36, 0.10, 0.38), ttt3 = c(0.18, 0.36, 0.10, 0.36), ttt4 = c(0.20, 0.36, 0.10, 0.34)),
   "ScI1" = list(ttt1 = c(0.07, 0.18, 0.13, 0.62), ttt2 = c(0.10, 0.20, 0.15, 0.55), ttt3 = c(0.18, 0.32, 0.12, 0.38), ttt4 = c(0.19, 0.36, 0.11, 0.34)),
-  "ScI2" = list(ttt1 = c(0.12, 0.38, 0.08, 0.42), ttt2 = c(0.16, 0.36, 0.09, 0.39), ttt3 = c(0.19, 0.35, 0.11, 0.35), ttt4 = c(0.25, 0.31, 0.15, 0.29))
+  "ScI3" = list(ttt1 = c(0.12, 0.38, 0.08, 0.42), ttt2 = c(0.16, 0.36, 0.09, 0.39), ttt3 = c(0.19, 0.35, 0.11, 0.35), ttt4 = c(0.25, 0.31, 0.15, 0.29))
 )
 NomScenars <- names(Scenarios)
 
@@ -224,7 +224,7 @@ if (FALSE) {
 
 ### Simulations ----
 
-if (TRUE) {
+if (FALSE) {
   cat("----\nSensitivity analysis (normalized power prior) : 4 arms\n----\n\n", file = "~/simu_priors/log.txt", append = TRUE)
   
   for (m in seq_len(ceiling(length(Methodes) / 2))) {
@@ -321,7 +321,7 @@ Scenarios <- list(
   "Sc2"  = list(ttt1 = c(0.11, 0.11, 0.29, 0.49), ttt2 = c(0.13, 0.11, 0.29, 0.47), ttt3 = c(0.14, 0.12, 0.30, 0.44), ttt4 = c(0.15, 0.13, 0.31, 0.41), ttt5 = c(0.17, 0.13, 0.31, 0.39)),
   "Sc4"  = list(ttt1 = c(0.13, 0.37, 0.09, 0.41), ttt2 = c(0.15, 0.36, 0.09, 0.40), ttt3 = c(0.16, 0.36, 0.10, 0.38), ttt4 = c(0.18, 0.35, 0.10, 0.37), ttt5 = c(0.19, 0.35, 0.11, 0.35)),
   "ScI1" = list(ttt1 = c(0.08, 0.17, 0.16, 0.59), ttt2 = c(0.10, 0.20, 0.16, 0.54), ttt3 = c(0.17, 0.33, 0.11, 0.39), ttt4 = c(0.19, 0.34, 0.11, 0.36), ttt5 = c(0.19, 0.36, 0.11, 0.34)),
-  "ScI2" = list(ttt1 = c(0.12, 0.38, 0.08, 0.42), ttt2 = c(0.14, 0.37, 0.08, 0.41), ttt3 = c(0.16, 0.36, 0.09, 0.39), ttt4 = c(0.19, 0.34, 0.11, 0.36), ttt5 = c(0.25, 0.29, 0.15, 0.31))
+  "ScI3" = list(ttt1 = c(0.12, 0.38, 0.08, 0.42), ttt2 = c(0.14, 0.37, 0.08, 0.41), ttt3 = c(0.16, 0.36, 0.09, 0.39), ttt4 = c(0.19, 0.34, 0.11, 0.36), ttt5 = c(0.25, 0.29, 0.15, 0.31))
 )
 NomScenars <- names(Scenarios)
 
@@ -340,7 +340,7 @@ if (FALSE) {
 
 ### Simulations ----
 
-if (TRUE) {
+if (FALSE) {
   cat("----\nSensitivity analysis : 5 arms (normalized power prior)\n----\n\n", file = "~/simu_priors/log.txt", append = TRUE)
   
   for (m in seq_len(ceiling(length(Methodes) / 2))) {
@@ -443,6 +443,87 @@ Scenarios <- list(
 )
 NomScenars <- names(Scenarios)
 
+# Parameters for CBHM
+CBHM_eff <- CalibrateCBHM(NPts = rep(sum(AnaEff), NBras), Q0 = sum(PN[c(1, 2)]), Q1 = sum(PA[c(1, 2)]))
+CBHM_tox <- CalibrateCBHM(NPts = rep(sum(AnaTox), NBras), Q0 = sum(PN[c(1, 3)]), Q1 = sum(PA[c(1, 3)]))
+
+## Compute threshold for Simon 2 stage design
+# Bonferroni like correction of Alpha so aim for Alpha / 3 type I error rate, and assume independance between Simon and Ivanova's monitoring of toxicity
+if (FALSE) {
+  DonneesTest <- expand.grid(
+    n1 = AnaEff[1],
+    r1 = 0:AnaEff[1],
+    n = sum(AnaEff),
+    r = 0:sum(AnaEff),
+    pu = PN[1] + PN[2],
+    pa = PA[1] + PA[2]
+  ) %>% 
+    filter(r >= r1)
+  ResultSimonLike <- map_dfr(seq_len(nrow(DonneesTest)), ~ alpha_puiss_simon(DonneesTest$r1[.x], DonneesTest$n1[.x], DonneesTest$r[.x], DonneesTest$n[.x], DonneesTest$pu[.x], DonneesTest$pa[.x]))
+  ResultSimonLike %>% filter(alpha <= Alpha, puissance >= .8) %>% arrange(EN_p0)
+} else {
+  SeuilSimon <- c("r1" = 11, "n1" = 29, "r" = 20, "n" = 58, "alpha" = .083, "puissance" = .866, "EN_p0" = 32.8)
+}
+## Compute threshold for Ivanova's design
+if (FALSE) {
+  set.seed(121221)
+  AnaTox <- rep(29, 2)
+  NSimu <- 1e+4
+  # Generate the data under H0 and H1
+  DonneesH0 <- data.frame(
+    id = rep(seq_len(NSimu), each = length(AnaTox)),
+    n = rep(cumsum(AnaTox), NSimu),
+    n_tox = rbinom(NSimu * length(AnaTox), size = rep(AnaTox, NSimu), prob = PN[1] + PN[3])
+  )
+  DonneesH0$n_tox[seq(2, NSimu * length(AnaTox), 2)] <- DonneesH0$n_tox[seq(2, NSimu * length(AnaTox), 2)] + DonneesH0$n_tox[seq(1, NSimu * length(AnaTox), 2)]
+  DonneesH1 <- data.frame(
+    id = rep(seq_len(NSimu), each = length(AnaTox)),
+    n = rep(cumsum(AnaTox), NSimu),
+    n_tox = rbinom(NSimu * length(AnaTox), size = rep(AnaTox, NSimu), prob = PA[1] + PA[3])
+  )
+  DonneesH1$n_tox[seq(2, NSimu * length(AnaTox), 2)] <- DonneesH1$n_tox[seq(2, NSimu * length(AnaTox), 2)] + DonneesH1$n_tox[seq(1, NSimu * length(AnaTox), 2)]
+  # Simulate the decisions
+  TableChoix <- expand.grid(
+    pi = seq(.3, .4, .01),
+    tau = seq(.5, .99, .01),
+    alpha = NA_real_,
+    puissance = NA_real_
+  ) 
+  for (i in seq_len(nrow(TableChoix))) {
+    cat(i, "/", nrow(TableChoix), ".\n")
+    TableRegles <- regle_arret(c(1, 1), cumsum(AnaTox), TableChoix$pi[i], TableChoix$tau[i])
+    TableChoix$alpha[i] <- left_join(DonneesH0, TableRegles, by = "n") %>% 
+      mutate(decision = case_when(n_tox > tox_max ~ "Stopping",
+                                  n_tox <= tox_max ~ "Accept treatment",
+                                  TRUE ~ NA_character_),
+             bool = decision == "Stopping") %>% 
+      mutate(sum_bool = sum(bool),
+             keep = ifelse(sum_bool == 0, sum(AnaTox), first(n[bool])),
+             .by = id) %>% 
+      filter(n == keep) %>%  
+      pull(decision) %>% 
+      '=='("Accept treatment") %>% 
+      sum() %>% 
+      '/'(10000)
+    TableChoix$puissance[i] <- left_join(DonneesH1, TableRegles, by = "n") %>% 
+      mutate(decision = case_when(n_tox > tox_max ~ "Stopping",
+                                  n_tox <= tox_max ~ "Accept treatment",
+                                  TRUE ~ NA_character_),
+             bool = decision == "Stopping") %>% 
+      mutate(sum_bool = sum(bool),
+             keep = ifelse(sum_bool == 0, sum(AnaTox), first(n[bool])),
+             .by = id) %>% 
+      filter(n == keep) %>%  
+      pull(decision) %>% 
+      '=='("Accept treatment") %>% 
+      sum() %>% 
+      '/'(10000)
+  }
+  TableChoix %>% arrange(abs(alpha - .35), desc(puissance)) %>% head(50)
+  regle_arret(c(1, 1), cumsum(AnaTox), .4, .5)
+} else {
+  SeuilIva <- c("t1" = 11, "n1" = 29, "t" = 23, "n" = 58, "alpha" = .3769, "puissance" = .8594, "a" = 1, "b" = 1, "Seuil" = .4, "Critere" = .5)
+}
 # Seuil
 if (FALSE) {
   SeuilBOP <- deter_cutoff(alpha = Alpha, 
@@ -475,7 +556,7 @@ NomMethodes <- names(Methodes)
 
 ###  Simulations ----
 
-cl <- makeCluster(20)
+cl <- makeCluster(6)
 registerDoParallel(cl)
 
 if (TRUE) {
