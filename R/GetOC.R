@@ -916,7 +916,7 @@ real_essai_bop_normpower_tox <- function(data, analyses, CPar, PPar, ana_eff_cum
                              warmup = 2000,          
                              iter = 4000,
                              thin = 1,
-                             cores = 3,
+                             cores = 1,
                              control = list(stepsize = .3, adapt_delta = .95, max_treedepth = 15),
                              seed = 121221)
       PPred <- extract(SampledTox, pars = "theta")$theta
@@ -1044,7 +1044,7 @@ real_essai_bop_normpower_efftox <- function(data, analyses, CPar, PPar, ana_eff_
                                 warmup = 2000,          
                                 iter = 6000,
                                 thin = 2,
-                                cores = 3,
+                                cores = 1, # 3 cores got buggy on 1 iteration. An issue of rstan didn't bring light on how to remove the problem
                                 control = list(stepsize = .3, adapt_delta = .95, max_treedepth = 15),
                                 seed = 121221)
       PPredTox <- extract(SampledEffTox, pars = "theta_tox")$theta_tox
@@ -3277,7 +3277,7 @@ opcharac <- function(ana_inter,
       } else if (methode == "hier_tox") {
         real_essai_modhier_tox(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, phi_eff, phi_tox, prior_eff)
       } else if (methode == "hier_efftox") {
-        real_essai_modhier_efftox(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, phi_eff, phi_tox, prior_eff)
+        real_essai_modhier_efftox(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, phi_eff, phi_tox)
       } else if (methode == "cbhm_tox") {
         real_essai_modcbhm_tox(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, phi_eff, phi_tox, prior_eff, a_tox, b_tox)
       } else if (methode == "cbhm_efftox") {
@@ -3292,7 +3292,7 @@ opcharac <- function(ana_inter,
                  error = function(e) NULL)
       } else if (methode %in% c("bop_log1_efftox", "bop_log2_efftox", "bop_log3_efftox", "bop_log4_efftox", "bop_log5_efftox", "bop_log6_efftox")) {
         ModeleAPrendre <- gsub("^bop_log(\\d)_efftox$", "\\1", methode)
-        tryCatch(real_essai_bayeslog_efftox(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, phi_eff, phi_tox, prior_eff, ModeleAPrendre, log_dose),
+        tryCatch(real_essai_bayeslog_efftox(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, phi_eff, phi_tox, ModeleAPrendre, log_dose),
                  error = function(e) NULL)
       } else if (methode == "crm_tox") {
         real_essai_bayeslogcrm_tox(data, analyses, CPar, PPar, ana_eff_cum, ana_tox_cum, phi_eff, phi_tox, prior_eff, SeuilP_tox, !is.na(A0_tox), A0_tox)

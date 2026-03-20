@@ -2,7 +2,7 @@
 # Create illustrative figures #
 # Author: G. Mulier           #
 # Created 2024/07/05          #
-# Modified 2025/11/06         #
+# Modified 2026/03/20         #
 # --------------------------- #
 
 # Packages and helpers ----
@@ -49,27 +49,48 @@ CaracEssais$larg_ic_tox <- CaracEssais$icsup_tox - CaracEssais$icinf_tox
 CaracGlobales$n_bras <- "3 arms"
 CaracBras$n_bras <- "3 arms"
 CaracEssais$n_bras <- "3 arms"
-ChgtScenar <- setNames(c(paste0("Sc", 7:9), "ScI3"), c(paste0("Sc", 6:8), "ScI2")) # To add the reviewers' suggestion. Useless if you simulated all in one go
-CaracGlobales$scenar <- str_replace_all(CaracGlobales$scenar, rev(ChgtScenar))
-CaracBras$scenar <- str_replace_all(CaracBras$scenar, rev(ChgtScenar))
-CaracEssais$scenar <- str_replace_all(CaracEssais$scenar, rev(ChgtScenar))
+ChgtScenar <- setNames("ScI3", "ScI2") # To add the reviewers' suggestion. Useless if you simulated all in one go
+CaracGlobales$scenar <- str_replace_all(CaracGlobales$scenar, ChgtScenar)
+CaracBras$scenar <- str_replace_all(CaracBras$scenar, ChgtScenar)
+CaracEssais$scenar <- str_replace_all(CaracEssais$scenar, ChgtScenar)
 
 # Normalized power prior results (not needed if all simulation in one go)
 load("Data/SimuReview/resultats_priorsppalnorm_20260316_1.RData")
 CaracGlobales <- rbind(CaracGlobales,
                        do.call("rbind", lapply(ResT, \(x) cbind(x[[3]], x[[1]]))) %>% 
                          separate(methode, c("methode", "cible"), "_") %>% 
-                         mutate(n_bras = "3 arms"))
+                         filter(scenar != "Sc6") %>% # Updating of non monotonic scenarios (sorry for clumsy code, it is to avoid recomputing all scenarios :/)
+                         mutate(n_bras = "3 arms",
+                                scenar = case_when(scenar == "Sc7" ~ "Sc6",
+                                                   scenar == "Sc8" ~ "Sc7",
+                                                   scenar == "Sc9" ~ "Sc8",
+                                                   TRUE ~ scenar)))
 CaracBras <- rbind(CaracBras,
                    do.call("rbind", lapply(ResT, \(x) cbind(x[[3]], x[[2]]))) %>% 
                      separate(methode, c("methode", "cible"), "_") %>% 
-                     mutate(n_bras = "3 arms"))
+                         filter(scenar != "Sc6") %>% # Updating of non monotonic scenarios (sorry for clumsy code, it is to avoid recomputing all scenarios :/)
+                         mutate(n_bras = "3 arms",
+                                scenar = case_when(scenar == "Sc7" ~ "Sc6",
+                                                   scenar == "Sc8" ~ "Sc7",
+                                                   scenar == "Sc9" ~ "Sc8",
+                                                   TRUE ~ scenar)))
 CaracEssais <- rbind(CaracEssais,
                      do.call("rbind", lapply(ResT, \(x) cbind(x[[3]], x[[4]]))) %>% 
                         separate(methode, c("methode", "cible"), "_") %>% 
-                        mutate(n_bras = "3 arms",
-                               larg_ic_eff = icsup_eff - icinf_eff,
-                               larg_ic_tox = icsup_tox - icinf_tox))
+                         filter(scenar != "Sc6") %>% # Updating of non monotonic scenarios (sorry for clumsy code, it is to avoid recomputing all scenarios :/)
+                         mutate(n_bras = "3 arms",
+                                scenar = case_when(scenar == "Sc7" ~ "Sc6",
+                                                   scenar == "Sc8" ~ "Sc7",
+                                                   scenar == "Sc9" ~ "Sc8",
+                                                   TRUE ~ scenar),
+                                larg_ic_eff = icsup_eff - icinf_eff,
+                                larg_ic_tox = icsup_tox - icinf_tox))
+
+# Adding supplementary scenarios (non monotonic scenarios)
+load("Data/SimuReview/resultats_priorsppalmonoton_20260316.RData")
+do.call("rbind", lapply(ResT, \(x) cbind(x[[3]], x[[1]]))) %>% 
+                         separate(methode, c("methode", "cible"), "_") %>% 
+                         mutate(n_bras = "3 arms")
 
 CaracGlobales4Bras <- list()
 CaracBras4Bras <- list()
@@ -99,9 +120,9 @@ CaracEssais4Bras$larg_ic_tox <- CaracEssais4Bras$icsup_tox - CaracEssais4Bras$ic
 CaracGlobales4Bras$n_bras <- "4 arms"
 CaracBras4Bras$n_bras <- "4 arms"
 CaracEssais4Bras$n_bras <- "4 arms"
-CaracGlobales4Bras$scenar <- str_replace_all(CaracGlobales4Bras$scenar, rev(ChgtScenar))
-CaracBras4Bras$scenar <- str_replace_all(CaracBras4Bras$scenar, rev(ChgtScenar))
-CaracEssais4Bras$scenar <- str_replace_all(CaracEssais4Bras$scenar, rev(ChgtScenar))
+CaracGlobales4Bras$scenar <- str_replace_all(CaracGlobales4Bras$scenar, ChgtScenar)
+CaracBras4Bras$scenar <- str_replace_all(CaracBras4Bras$scenar, ChgtScenar)
+CaracEssais4Bras$scenar <- str_replace_all(CaracEssais4Bras$scenar, ChgtScenar)
 
 # Normalized power prior results (not needed if all simulation in one go)
 load("Data/SimuReview/resultats_priorssens4norm_20260316_1.RData")
@@ -109,19 +130,19 @@ CaracGlobales4Bras <- rbind(CaracGlobales4Bras,
                             do.call("rbind", lapply(ResT, \(x) cbind(x[[3]], x[[1]]))) %>% 
                               separate(methode, c("methode", "cible"), "_") %>% 
                               mutate(n_bras = "4 arms",
-                                     scenar = str_replace_all(scenar, rev(ChgtScenar))))
+                                     scenar = str_replace_all(scenar, ChgtScenar)))
 CaracBras4Bras <- rbind(CaracBras4Bras,
                         do.call("rbind", lapply(ResT, \(x) cbind(x[[3]], x[[2]]))) %>% 
                           separate(methode, c("methode", "cible"), "_") %>% 
                           mutate(n_bras = "4 arms",
-                                     scenar = str_replace_all(scenar, rev(ChgtScenar))))
+                                     scenar = str_replace_all(scenar, ChgtScenar)))
 CaracEssais4Bras <- rbind(CaracEssais4Bras,
                           do.call("rbind", lapply(ResT, \(x) cbind(x[[3]], x[[4]]))) %>% 
                               separate(methode, c("methode", "cible"), "_") %>% 
                               mutate(n_bras = "3 arms",
                                     larg_ic_eff = icsup_eff - icinf_eff,
                                     larg_ic_tox = icsup_tox - icinf_tox,
-                                    scenar = str_replace_all(scenar, rev(ChgtScenar))))
+                                    scenar = str_replace_all(scenar, ChgtScenar)))
 
 CaracGlobales5Bras <- list()
 CaracBras5Bras <- list()
@@ -151,9 +172,9 @@ CaracEssais5Bras$larg_ic_tox <- CaracEssais5Bras$icsup_tox - CaracEssais5Bras$ic
 CaracGlobales5Bras$n_bras <- "5 arms"
 CaracBras5Bras$n_bras <- "5 arms"
 CaracEssais5Bras$n_bras <- "5 arms"
-CaracGlobales5Bras$scenar <- str_replace_all(CaracGlobales5Bras$scenar, rev(ChgtScenar))
-CaracBras5Bras$scenar <- str_replace_all(CaracBras5Bras$scenar, rev(ChgtScenar))
-CaracEssais5Bras$scenar <- str_replace_all(CaracEssais5Bras$scenar, rev(ChgtScenar))
+CaracGlobales5Bras$scenar <- str_replace_all(CaracGlobales5Bras$scenar, ChgtScenar)
+CaracBras5Bras$scenar <- str_replace_all(CaracBras5Bras$scenar, ChgtScenar)
+CaracEssais5Bras$scenar <- str_replace_all(CaracEssais5Bras$scenar, ChgtScenar)
 
 # Normalized power prior results (not needed if all simulation in one go)
 load("Data/SimuReview/resultats_priorssens5norm_2026032026_1.RData")
@@ -161,19 +182,19 @@ CaracGlobales5Bras <- rbind(CaracGlobales5Bras,
                             do.call("rbind", lapply(ResT, \(x) cbind(x[[3]], x[[1]]))) %>% 
                               separate(methode, c("methode", "cible"), "_") %>% 
                               mutate(n_bras = "5 arms",
-                                     scenar = str_replace_all(scenar, rev(ChgtScenar))))
+                                     scenar = str_replace_all(scenar, ChgtScenar)))
 CaracBras5Bras <- rbind(CaracBras5Bras,
                         do.call("rbind", lapply(ResT, \(x) cbind(x[[3]], x[[2]]))) %>% 
                           separate(methode, c("methode", "cible"), "_") %>% 
                           mutate(n_bras = "5 arms",
-                                     scenar = str_replace_all(scenar, rev(ChgtScenar))))
+                                     scenar = str_replace_all(scenar, ChgtScenar)))
 CaracEssais5Bras <- rbind(CaracEssais5Bras,
                           do.call("rbind", lapply(ResT, \(x) cbind(x[[3]], x[[4]]))) %>% 
                               separate(methode, c("methode", "cible"), "_") %>% 
                               mutate(n_bras = "5 arms",
                                     larg_ic_eff = icsup_eff - icinf_eff,
                                     larg_ic_tox = icsup_tox - icinf_tox,
-                                    scenar = str_replace_all(scenar, rev(ChgtScenar))))
+                                    scenar = str_replace_all(scenar, ChgtScenar)))
 
 CaracGlobalesPriors <- list()
 CaracBrasPriors <- list()
@@ -191,9 +212,9 @@ CaracBrasPriors <- do.call("rbind", CaracBrasPriors)
 CaracEssaisPriors <- do.call("rbind", CaracEssaisPriors)
 CaracEssaisPriors$larg_ic_eff <- CaracEssaisPriors$icsup_eff - CaracEssaisPriors$icinf_eff
 CaracEssaisPriors$larg_ic_tox <- CaracEssaisPriors$icsup_tox - CaracEssaisPriors$icinf_tox
-CaracGlobalesPriors$scenar <- str_replace_all(CaracGlobalesPriors$scenar, rev(ChgtScenar))
-CaracBrasPriors$scenar <- str_replace_all(CaracBrasPriors$scenar, rev(ChgtScenar))
-CaracEssaisPriors$scenar <- str_replace_all(CaracEssaisPriors$scenar, rev(ChgtScenar))
+CaracGlobalesPriors$scenar <- str_replace_all(CaracGlobalesPriors$scenar, ChgtScenar)
+CaracBrasPriors$scenar <- str_replace_all(CaracBrasPriors$scenar, ChgtScenar)
+CaracEssaisPriors$scenar <- str_replace_all(CaracEssaisPriors$scenar, ChgtScenar)
 
 CaracGlobalesCrm <- list()
 CaracBrasCrm <- list()
@@ -211,9 +232,9 @@ CaracBrasCrm <- do.call("rbind", CaracBrasCrm)
 CaracEssaisCrm <- do.call("rbind", CaracEssaisCrm)
 CaracEssaisCrm$larg_ic_eff <- CaracEssaisCrm$icsup_eff - CaracEssaisCrm$icinf_eff
 CaracEssaisCrm$larg_ic_tox <- CaracEssaisCrm$icsup_tox - CaracEssaisCrm$icinf_tox
-CaracGlobalesCrm$scenar <- str_replace_all(CaracGlobalesCrm$scenar, rev(ChgtScenar))
-CaracBrasCrm$scenar <- str_replace_all(CaracBrasCrm$scenar, rev(ChgtScenar))
-CaracEssaisCrm$scenar <- str_replace_all(CaracEssaisCrm$scenar, rev(ChgtScenar))
+CaracGlobalesCrm$scenar <- str_replace_all(CaracGlobalesCrm$scenar, ChgtScenar)
+CaracBrasCrm$scenar <- str_replace_all(CaracBrasCrm$scenar, ChgtScenar)
+CaracEssaisCrm$scenar <- str_replace_all(CaracEssaisCrm$scenar, ChgtScenar)
 
 CaracGlobalesLogit <- list()
 CaracBrasLogit <- list()
@@ -246,9 +267,9 @@ CaracEssaisLogit$n_bras <- "3 arms"
 CaracGlobalesLogit$methode <- paste0("ver", CaracGlobalesLogit$methode)
 CaracBrasLogit$methode <- paste0("ver", CaracBrasLogit$methode)
 CaracEssaisLogit$methode <- paste0("ver", CaracEssaisLogit$methode)
-CaracGlobalesLogit$scenar <- str_replace_all(CaracGlobalesLogit$scenar, rev(ChgtScenar))
-CaracBrasLogit$scenar <- str_replace_all(CaracBrasLogit$scenar, rev(ChgtScenar))
-CaracEssaisLogit$scenar <- str_replace_all(CaracEssaisLogit$scenar, rev(ChgtScenar))
+CaracGlobalesLogit$scenar <- str_replace_all(CaracGlobalesLogit$scenar, ChgtScenar)
+CaracBrasLogit$scenar <- str_replace_all(CaracBrasLogit$scenar, ChgtScenar)
+CaracEssaisLogit$scenar <- str_replace_all(CaracEssaisLogit$scenar, ChgtScenar)
 
 
 # Scenarios ----
@@ -259,13 +280,13 @@ ListeScenars <- list(
   "Sc3"  = list(ttt1 = c(0.20, 0.30, 0.10, 0.40), ttt2 = c(0.20, 0.30, 0.10, 0.40), ttt3 = c(0.20, 0.30, 0.10, 0.40)),
   "Sc4"  = list(ttt1 = c(0.15, 0.35, 0.10, 0.40), ttt2 = c(0.17, 0.35, 0.11, 0.37), ttt3 = c(0.19, 0.36, 0.11, 0.34)),
   "ScI1" = list(ttt1 = c(0.10, 0.20, 0.15, 0.55), ttt2 = c(0.20, 0.30, 0.10, 0.40), ttt3 = c(0.19, 0.36, 0.11, 0.34)),
-  "ScI2" = list(ttt1 = c(0.10, 0.20, 0.15, 0.55), ttt2 = c(0.19, 0.36, 0.11, 0.34), ttt3 = c(0.18, 0.34, 0.12, 0.36)),
+  "ScI2" = list(ttt1 = c(0.10, 0.20, 0.15, 0.55), ttt2 = c(0.19, 0.36, 0.11, 0.34), ttt3 = c(0.19, 0.36, 0.11, 0.34)),
   "ScI3" = list(ttt1 = c(0.15, 0.35, 0.10, 0.40), ttt2 = c(0.18, 0.34, 0.12, 0.36), ttt3 = c(0.25, 0.30, 0.15, 0.30)),
   "Sc5"  = list(ttt1 = c(0.11, 0.19, 0.17, 0.53), ttt2 = c(0.20, 0.30, 0.10, 0.40), ttt3 = c(0.25, 0.30, 0.15, 0.30)),
   "Sc6"  = list(ttt1 = c(0.11, 0.19, 0.17, 0.53), ttt2 = c(0.20, 0.30, 0.10, 0.40), ttt3 = c(0.19, 0.21, 0.21, 0.39)),
   "Sc7"  = list(ttt1 = c(0.14, 0.26, 0.14, 0.46), ttt2 = c(0.20, 0.30, 0.10, 0.40), ttt3 = c(0.25, 0.30, 0.15, 0.30)),
   "Sc8"  = list(ttt1 = c(0.18, 0.32, 0.12, 0.38), ttt2 = c(0.22, 0.28, 0.15, 0.35), ttt3 = c(0.23, 0.27, 0.17, 0.33)),
-  "Sc9"  = list(ttt1 = c(0.12, 0.18, 0.18, 0.52), ttt2 = c(0.17, 0.23, 0.18, 0.42), ttt3 = c(0.23, 0.27, 0.17, 0.33))
+  "Sc9"  = list(ttt1 = c(0.12, 0.18, 0.18, 0.52), ttt2 = c(0.23, 0.27, 0.17, 0.33), ttt3 = c(0.17, 0.23, 0.18, 0.42))
 )
 NomsScenars <- c(
   "Sc1"  = "Sc1 : Global Null",
@@ -276,10 +297,10 @@ NomsScenars <- c(
   "ScI2" = "ScI2 : 1st dosis futile, non monotonic",
   "ScI3" = "ScI3 : 3rd dosis toxic",
   "Sc5"  = "Sc5 : 1st dosis futile and 3rd dosis toxic",
-  "Sc6"  = "Sc6 : 1st dosis futile and 3rd dosis toxic, non monotonic",
-  "Sc7"  = "Sc7 : 3rd dosis toxic and 1st dosis intermediate",
-  "Sc8"  = "Sc8 : 2nd dosis intermediate and 3rd dosis toxic",
-  "Sc9"  = "Sc9 : No promising dosis"
+  "Sc6"  = "Sc6 : 3rd dosis toxic and 1st dosis intermediate",
+  "Sc7"  = "Sc7 : 2nd dosis intermediate and 3rd dosis toxic",
+  "Sc8"  = "Sc8 : No promising dosis",
+  "Sc9"  = "Sc8 : No promising dosis, non monotonic"
 )
 calculate_corr <- function(Peff, Ptox, Pinter) {
   (Pinter - Peff * Ptox) / sqrt((Peff - Peff ^ 2) * (Ptox - Ptox ^ 2))
@@ -362,6 +383,7 @@ Graphe <- do.call("rbind", lapply(names(ListeScenars), \(l) {
                              efficacite == "futile" ~ "Stopping",
                              toxicite == "toxique" ~ "Stopping",
                              TRUE ~ "Intermediate"),
+         couleur = factor(couleur, levels = c("Intermediate", "Promising", "Stopping"), labels = c("Intermediate", "Promising", "Unpromising")),
          bras = gsub("ttt", "D", bras)) %>% 
   # mutate(couleur2 = Couleurs[couleur],
   #        bras = paste0("<span style='color:", couleur2, "'>", bras, "</span>"),
@@ -382,7 +404,7 @@ Graphe <- do.call("rbind", lapply(names(ListeScenars), \(l) {
   scale_color_discrete(type = c("darkblue", "darkred")) +
   scale_shape_manual(values = c(17, 15, 19)) +
   guides(color = guide_legend(override.aes = list(shape = NA, linewidth = 2))) +
-  labs(x = "Treatment dose", y = "Probability", color = "Endpoint", shape = "Decision")
+  labs(x = "Treatment dose", y = "Probability", color = "Endpoint", shape = "Status")
 # caption = "Vert=prometteur / rouge=futile et toxique / beige=futile / rouge foncé=toxique / bleu=intermédiaire")
 g <- ggplot_gtable(ggplot_build(Graphe))
 stripes <- which(grepl("strip-t", g$layout$name))
@@ -417,7 +439,7 @@ TabProm <- do.call("rbind", lapply(names(ListeScenars), \(l) {
                              TRUE ~ "Intermediate"),
          bras = gsub("ttt", "D", bras))
 TabPCR <- CaracEssais %>% 
-  filter(cible != "tox", scenar %in% c("Sc1", "Sc2", "Sc3", "Sc4")) %>% 
+  filter(cible != "tox", scenar %in% c("Sc1", "Sc2", "Sc3", "Sc4"), methode %in% c("mBOP", "Simon+TM", "powBOP", "hBOP", "cbhmBOP", "log1BOP", "log2BOP")) %>% 
   group_by(scenar, methode, n_simu) %>% 
   summarise(choix = ifelse(all(decision != "Accept the treatment"), "", paste(ttt[decision == "Accept the treatment"], collapse = "-"))) %>% 
   ungroup() %>% 
@@ -435,7 +457,7 @@ Graphes <- CaracBras %>%
          scenar = factor(scenar, levels = c("Sc1", "Sc2", "Sc3", "Sc4")),
          methode = factor(methode, levels = rev(c("mBOP", "Simon+TM", "powBOP", "hBOP", "cbhmBOP", "log1BOP", "log2BOP")))) %>% 
   left_join(TabProm, by = c("scenar", "ttt" = "bras")) %>%
-  mutate(couleur = factor(couleur, levels = c("Intermediate", "Promising", "Stopping"))) %>% 
+  mutate(couleur = factor(couleur, levels = c("Promising", "Stopping"), labels = c("Promising", "Unpromising"))) %>% 
   split(.$scenar) %>% 
   map(\(Sc) {
     if (Sc$scenar[1] %in% c("Sc1", "Sc2")) {
@@ -450,16 +472,17 @@ Graphes <- CaracBras %>%
       geom_point(position = position_dodge2(width = .6), size = 4) +
       geom_text(data = TabPCR %>% mutate(position_label = ifelse(scenar %in% c("Sc1", "Sc2"), .05, 1.02)) %>% filter(scenar %in% Sc$scenar[1]), 
                 aes(position_label, methode, label = pct), inherit.aes = FALSE, hjust = 0, size = 3.5) +
-      geom_point(data = NULL, aes(x = 0, y = 1, shape = "Intermediate"), size = 4, color = "transparent", inherit.aes = FALSE) +
+      # geom_point(data = NULL, aes(x = 0, y = 1, shape = "Intermediate"), size = 4, color = "transparent", inherit.aes = FALSE) +
       geom_point(data = NULL, aes(x = 0, y = 1, shape = "Promising"), size = 4, color = "transparent", inherit.aes = FALSE) +
-      geom_point(data = NULL, aes(x = 0, y = 1, shape = "Stopping"), size = 4, color = "transparent", inherit.aes = FALSE) +
+      geom_point(data = NULL, aes(x = 0, y = 1, shape = "Unpromising"), size = 4, color = "transparent", inherit.aes = FALSE) +
       facet_wrap(vars(scenar), scales = "free_x") +
       coord_cartesian(xlim = c(0, LimiteSup)) +
       scale_x_continuous(labels = scales::percent_format(), breaks = Breaks) +
       scale_color_discrete(type = c("darkred", "steelblue", "darkorange")) +
-      scale_shape_manual(values = c(17, 15, 19), drop = FALSE) +
+      # scale_shape_manual(values = c(17, 15, 19), drop = FALSE) +
+      scale_shape_manual(values = c(15, 19), drop = FALSE) +
       guides(shape = guide_legend(override.aes = list(color = "black"))) +
-      labs(y = NULL, x = "Proportion of conclusion to promising dose", color = "Dose", shape = "Decision") +
+      labs(y = NULL, x = "Proportion of conclusion to promising dose", color = "Dose", shape = "Status") +
       theme_light(base_size = 18) +
       theme(strip.background = element_rect(fill = "white", color = "black", size = 1.6),
             strip.text = element_text(face = "bold", color = "black"))
@@ -483,7 +506,7 @@ ggsave(((Graphes[[1]] + theme(legend.position = "none")) + (Graphes[[2]] + theme
 # Figure 3 ----
 
 TabPCR <- CaracEssais %>% 
-  filter(cible != "tox", scenar %in% c("Sc5", "Sc6", "Sc7", "Sc8", "Sc9")) %>% 
+  filter(cible != "tox", scenar %in% c("Sc5", "Sc6", "Sc7", "Sc8", "Sc9"), methode %in% c("mBOP", "Simon+TM", "powBOP", "hBOP", "cbhmBOP", "log1BOP", "log2BOP")) %>% 
   group_by(scenar, methode, n_simu) %>% 
   summarise(choix = ifelse(all(decision != "Accept the treatment"), "", paste(ttt[decision == "Accept the treatment"], collapse = "-"))) %>% 
   ungroup() %>% 
@@ -506,7 +529,7 @@ Graphes <- CaracBras %>%
          scenar = factor(scenar, levels = c("Sc5", "Sc7", "Sc8", "Sc9")),
          methode = factor(methode, levels = rev(c("mBOP", "Simon+TM", "powBOP", "hBOP", "cbhmBOP", "log1BOP", "log2BOP")))) %>% 
   left_join(TabProm, by = c("scenar", "ttt" = "bras")) %>%
-  mutate(couleur = factor(couleur, levels = c("Intermediate", "Promising", "Stopping"))) %>% 
+  mutate(couleur = factor(couleur, levels = c("Intermediate", "Promising", "Stopping"), labels = c("Intermediate", "Promising", "Unpromising"))) %>% 
   split(.$scenar) %>% 
   map(\(Sc) {
     ggplot(Sc, aes(rejet_h0, methode, color = ttt, shape = couleur)) +
@@ -516,14 +539,14 @@ Graphes <- CaracBras %>%
                 aes(position_label, methode, label = pct), inherit.aes = FALSE, hjust = 0, size = 3.5) +
       geom_point(data = NULL, aes(x = 0, y = 1, shape = "Intermediate"), size = 4, color = "transparent", inherit.aes = FALSE) +
       geom_point(data = NULL, aes(x = 0, y = 1, shape = "Promising"), size = 4, color = "transparent", inherit.aes = FALSE) +
-      geom_point(data = NULL, aes(x = 0, y = 1, shape = "Stopping"), size = 4, color = "transparent", inherit.aes = FALSE) +
+      geom_point(data = NULL, aes(x = 0, y = 1, shape = "Unpromising"), size = 4, color = "transparent", inherit.aes = FALSE) +
       facet_wrap(vars(scenar), scales = "free_x") +
       coord_cartesian(xlim = c(0, 1.25)) +
       scale_x_continuous(labels = scales::percent_format(), breaks = seq(0, 1, .25)) +
       scale_color_discrete(type = c("darkred", "steelblue", "darkorange")) +
-      scale_shape_manual(values = c(17, 15, 19), drop = FALSE) +
+      scale_shape_manual(values = c(17, 15, 19)) +
       guides(shape = guide_legend(override.aes = list(color = "black"))) +
-      labs(y = NULL, x = "Proportion of conclusion to promising dose", color = "Dose", shape = "Decision") +
+      labs(y = NULL, x = "Proportion of conclusion to promising dose", color = "Dose", shape = "Status") +
       theme_light(base_size = 18) +
       theme(strip.background = element_rect(fill = "white", color = "black", size = 1.6),
             strip.text = element_text(face = "bold", color = "black"))
@@ -547,7 +570,7 @@ ggsave(((Graphes[[1]] + theme(legend.position = "none")) + (Graphes[[2]] + theme
 # Figure 4 and table 2 ----
 
 TabPCR <- CaracEssais %>% 
-  filter(cible != "tox", scenar %in% c("ScI1", "ScI2", "ScI3")) %>% 
+  filter(cible != "tox", scenar %in% c("ScI1", "ScI2", "ScI3"), methode %in% c("mBOP", "Simon+TM", "powBOP", "hBOP", "cbhmBOP", "log1BOP", "log2BOP")) %>% 
   group_by(scenar, methode, n_simu) %>% 
   summarise(choix = ifelse(all(decision != "Accept the treatment"), "", paste(ttt[decision == "Accept the treatment"], collapse = "-"))) %>% 
   ungroup() %>% 
@@ -568,7 +591,7 @@ Graphes <- CaracBras %>%
          scenar = factor(scenar, levels = c("ScI1", "ScI3")),
          methode = factor(methode, levels = rev(c("mBOP", "Simon+TM", "powBOP", "hBOP", "cbhmBOP", "log1BOP", "log2BOP")))) %>% 
   left_join(TabProm, by = c("scenar", "ttt" = "bras")) %>%
-  mutate(couleur = factor(couleur, levels = c("Intermediate", "Promising", "Stopping"))) %>% 
+  mutate(couleur = factor(couleur, levels = c("Promising", "Stopping"), labels = c("Promising", "Unpromising"))) %>% 
   split(.$scenar) %>% 
   map(\(Sc) {
     ggplot(Sc, aes(rejet_h0, methode, color = ttt, shape = couleur)) +
@@ -576,16 +599,17 @@ Graphes <- CaracBras %>%
       geom_point(position = position_dodge2(width = .6), size = 4) +
       geom_text(data = TabPCR %>% mutate(position_label = 1.02) %>% filter(scenar %in% Sc$scenar[1]), 
                 aes(position_label, methode, label = pct), inherit.aes = FALSE, hjust = 0, size = 3.5) +
-      geom_point(data = NULL, aes(x = 0, y = 1, shape = "Intermediate"), size = 4, color = "transparent", inherit.aes = FALSE) +
+      # geom_point(data = NULL, aes(x = 0, y = 1, shape = "Intermediate"), size = 4, color = "transparent", inherit.aes = FALSE) +
       geom_point(data = NULL, aes(x = 0, y = 1, shape = "Promising"), size = 4, color = "transparent", inherit.aes = FALSE) +
-      geom_point(data = NULL, aes(x = 0, y = 1, shape = "Stopping"), size = 4, color = "transparent", inherit.aes = FALSE) +
+      geom_point(data = NULL, aes(x = 0, y = 1, shape = "Unpromising"), size = 4, color = "transparent", inherit.aes = FALSE) +
       facet_wrap(vars(scenar), scales = "free_x") +
       coord_cartesian(xlim = c(0, 1.25)) +
       scale_x_continuous(labels = scales::percent_format(), breaks = seq(0, 1, .25)) +
       scale_color_discrete(type = c("darkred", "steelblue", "darkorange")) +
-      scale_shape_manual(values = c(17, 15, 19), drop = FALSE) +
+      # scale_shape_manual(values = c(17, 15, 19), drop = FALSE) +
+      scale_shape_manual(values = c(15, 19), drop = FALSE) +
       guides(shape = guide_legend(override.aes = list(color = "black"))) +
-      labs(y = NULL, x = "Proportion of conclusion to promising dose", color = "Dose", shape = "Decision") +
+      labs(y = NULL, x = "Proportion of conclusion to promising dose", color = "Dose", shape = "Status") +
       theme_light(base_size = 18) +
       theme(strip.background = element_rect(fill = "white", color = "black", size = 1.6),
             strip.text = element_text(face = "bold", color = "black"))
@@ -640,7 +664,7 @@ CaracEssais %>%
   apply(1, \(x) paste(x, collapse = " & ")) %>% 
   paste(collapse = " \\\\ \n") %>% cat()
 CaracBras %>% 
-  filter(cible != "tox", scenar %in% c("ScI1", "ScI2")) %>%
+  filter(cible != "tox", scenar %in% c("ScI1", "ScI2", "ScI3")) %>%
   mutate(rejet_h0 = sprintf("%.1f", 100 * rejet_h0)) %>% 
   group_by(methode, scenar) %>% 
   summarise(rejet = paste0(rejet_h0[ttt == "ttt1"], " & ", rejet_h0[ttt == "ttt2"], " & ", rejet_h0[ttt == "ttt3"])) %>% 
@@ -653,7 +677,7 @@ CaracBras %>%
          arret_precoce = sprintf("%.1f%%", 100 * arret_precoce)) %>% 
   select(methode, Scenario, Dose, arret_precoce) %>% 
   pivot_wider(names_from = "methode", values_from = "arret_precoce") %>% 
-  filter(Scenario %in% c("ScI1", "ScI2")) %>% 
+  filter(Scenario %in% c("ScI1", "ScI2", "ScI3")) %>% 
   print(n = Inf)
 
 # Table S2 ----
@@ -935,7 +959,7 @@ Graphe <- CaracBras %>%
   mutate(ttt = gsub("ttt", "D", ttt),
          scenar = factor(scenar, levels = c("ScI3", "ScI2", "ScI1", paste0("Sc", 9:1)))) %>% 
   left_join(TabProm, by = c("scenar", "ttt" = "bras")) %>%
-  mutate(couleur = factor(couleur, levels = c("Intermediate", "Promising", "Stopping"))) %>% 
+  mutate(couleur = factor(couleur, levels = c("Intermediate", "Promising", "Stopping"), labels = c("Intermediate", "Promising", "Unpromising"))) %>% 
   ggplot(aes(rejet_h0, scenar, color = ttt, shape = couleur)) +
     geom_linerange(aes(xmin = 0, xmax = rejet_h0, y = scenar, color = ttt), size = 1.1, position = position_dodge2(width = .6), inherit.aes = FALSE) +
     geom_point(position = position_dodge2(width = .6), size = 4) +
@@ -943,13 +967,13 @@ Graphe <- CaracBras %>%
               aes(position_label, scenar, label = pct), inherit.aes = FALSE, hjust = 1, size = 3.5) +
     geom_point(data = NULL, aes(x = 0, y = 1, shape = "Intermediate"), size = 4, color = "transparent", inherit.aes = FALSE) +
     geom_point(data = NULL, aes(x = 0, y = 1, shape = "Promising"), size = 4, color = "transparent", inherit.aes = FALSE) +
-    geom_point(data = NULL, aes(x = 0, y = 1, shape = "Stopping"), size = 4, color = "transparent", inherit.aes = FALSE) +
+    geom_point(data = NULL, aes(x = 0, y = 1, shape = "Unpromising"), size = 4, color = "transparent", inherit.aes = FALSE) +
     coord_cartesian(xlim = c(0, 1.25)) +
     scale_x_continuous(labels = scales::percent_format(), breaks = seq(0, 1, .25)) +
     scale_color_discrete(type = c("darkred", "steelblue", "darkorange")) +
     scale_shape_manual(values = c(17, 15, 19), drop = FALSE) +
     guides(shape = guide_legend(override.aes = list(color = "black"))) +
-    labs(y = NULL, x = "Proportion of conclusion to promising dose", color = "Dose", shape = "Decision") +
+    labs(y = NULL, x = "Proportion of conclusion to promising dose", color = "Dose", shape = "Status") +
     theme_light(base_size = 18) +
     theme(strip.background = element_rect(fill = "white", color = "black", size = 1.6),
           strip.text = element_text(face = "bold", color = "black"))
@@ -1008,6 +1032,7 @@ TabDecision <- TabScenarRegroup %>%
                              efficacite == "futile" ~ "Stopping",
                              toxicite == "toxique" ~ "Stopping",
                              TRUE ~ "Intermediate"),
+         couleur = factor(couleur, levels = c("Intermediate", "Promising", "Stopping"), labels = c("Intermediate", "Promising", "Unpromising")),
          bras = gsub("ttt", "D", ttt))
 Graphe <- TabDecision %>% 
   ggplot(aes(bras, group = nb_bras)) +
@@ -1018,8 +1043,8 @@ Graphe <- TabDecision %>%
   facet_grid(nb_bras ~ scenar, scales = "free_x") +
   expand_limits(y = 0) +
   scale_color_discrete(type = c("darkblue", "darkred")) +
-  scale_shape_manual(values = c(17, 15, 19)) +
-  labs(x = "Treatment dose", y = "Probability", color = "Endpoint", shape = "Decision")
+  scale_shape_manual(values = c(15, 19)) +
+  labs(x = "Treatment dose", y = "Probability", color = "Endpoint", shape = "Status")
 ggsave(Graphe, filename = "Figures/scenar_sensi_arms.png", device = "png", height = 7, width = 14)
 
 CaracBrasSensiBras <- rbind(CaracBras %>% filter(scenar %in% c("Sc2", "Sc4", "ScI1", "ScI3")), CaracBras4Bras, CaracBras5Bras)
@@ -1028,17 +1053,18 @@ Graphe <- CaracBrasSensiBras %>%
   left_join(TabDecision, by = c("scenar", "n_bras" = "nb_bras", "ttt")) %>% 
   mutate(ttt = gsub("^ttt", "D", ttt),
          methode = factor(methode, levels = c("mBOP", "Simon+TM", "powBOP", "normpowBOP", "hBOP", "cbhmBOP", "log1BOP", "log2BOP")),
-         couleur = factor(couleur, levels = c("Intermediate", "Promising", "Stopping"))) %>% 
+         couleur = factor(couleur, levels = c("Intermediate", "Promising", "Unpromising"))) %>% 
   ggplot(aes(ttt, rejet_h0, group = n_bras, color = n_bras, shape = couleur)) +
   geom_point(size = 3) +
   geom_line() +
-  geom_point(data = NULL, aes(x = 0, y = 0, shape = "Intermediate"), size = 4, color = "transparent", inherit.aes = FALSE) +
-  geom_point(data = NULL, aes(x = 0, y = 0, shape = "Promising"), size = 4, color = "transparent", inherit.aes = FALSE) +
-  geom_point(data = NULL, aes(x = 0, y = 0, shape = "Stopping"), size = 4, color = "transparent", inherit.aes = FALSE) +
-  scale_shape_manual(values = c(17, 15, 19), drop = FALSE) +
+  # geom_point(data = NULL, aes(x = 0, y = 0, shape = "Intermediate"), size = 4, color = "transparent", inherit.aes = FALSE) +
+  # geom_point(data = NULL, aes(x = 0, y = 0, shape = "Promising"), size = 4, color = "transparent", inherit.aes = FALSE) +
+  geom_point(data = NULL, aes(x = 0, y = 0, shape = "Unpromising"), size = 4, color = "transparent", inherit.aes = FALSE) +
+  # scale_shape_manual(values = c(17, 15, 19), drop = FALSE) +
+  scale_shape_manual(values = c(19), drop = TRUE) +
   guides(shape = guide_legend(override.aes = list(color = "black"))) +
   facet_wrap(vars(methode)) +
-  labs(x = "Dose", y = "Proportion of conclusion to promising dose", color = "# arms", shape = "Decision") +
+  labs(x = "Dose", y = "Proportion of conclusion to promising dose", color = "# arms", shape = "Status") +
   scale_color_discrete(type = c("black", "darkblue", "darkred")) +
   expand_limits(x = 0) +
   scale_y_continuous(labels = scales::percent_format())
@@ -1048,17 +1074,18 @@ Graphe <- CaracBrasSensiBras %>%
   left_join(TabDecision, by = c("scenar", "n_bras" = "nb_bras", "ttt")) %>% 
   mutate(ttt = gsub("^ttt", "D", ttt),
          methode = factor(methode, levels = c("mBOP", "Simon+TM", "powBOP", "normpowBOP", "hBOP", "cbhmBOP", "log1BOP", "log2BOP")),
-         couleur = factor(couleur, levels = c("Intermediate", "Promising", "Stopping"))) %>% 
+         couleur = factor(couleur, levels = c("Intermediate", "Promising", "Unpromising"))) %>% 
   ggplot(aes(ttt, rejet_h0, group = n_bras, color = n_bras, shape = couleur)) +
   geom_point(size = 3) +
   geom_line() +
-  geom_point(data = NULL, aes(x = 0, y = 0, shape = "Intermediate"), size = 4, color = "transparent", inherit.aes = FALSE) +
+  # geom_point(data = NULL, aes(x = 0, y = 0, shape = "Intermediate"), size = 4, color = "transparent", inherit.aes = FALSE) +
   geom_point(data = NULL, aes(x = 0, y = 0, shape = "Promising"), size = 4, color = "transparent", inherit.aes = FALSE) +
-  geom_point(data = NULL, aes(x = 0, y = 0, shape = "Stopping"), size = 4, color = "transparent", inherit.aes = FALSE) +
-  scale_shape_manual(values = c(17, 15, 19), drop = FALSE) +
+  # geom_point(data = NULL, aes(x = 0, y = 0, shape = "Unpromising"), size = 4, color = "transparent", inherit.aes = FALSE) +
+  # scale_shape_manual(values = c(17, 15, 19), drop = FALSE) +
+  scale_shape_manual(values = c(15), drop = TRUE) +
   guides(shape = guide_legend(override.aes = list(color = "black"))) +
   facet_wrap(vars(methode)) +
-  labs(x = "Dose", y = "Proportion of conclusion to promising dose", color = "# arms", shape = "Decision") +
+  labs(x = "Dose", y = "Proportion of conclusion to promising dose", color = "# arms", shape = "Status") +
   scale_color_discrete(type = c("black", "darkblue", "darkred")) +
   expand_limits(x = 0) +
   scale_y_continuous(labels = scales::percent_format())
@@ -1068,17 +1095,17 @@ Graphe <- CaracBrasSensiBras %>%
   left_join(TabDecision, by = c("scenar", "n_bras" = "nb_bras", "ttt")) %>% 
   mutate(ttt = gsub("^ttt", "D", ttt),
          methode = factor(methode, levels = c("mBOP", "Simon+TM", "powBOP", "normpowBOP", "hBOP", "cbhmBOP", "log1BOP", "log2BOP")),
-         couleur = factor(couleur, levels = c("Intermediate", "Promising", "Stopping"))) %>% 
+         couleur = factor(couleur, levels = c("Promising", "Unpromising"))) %>% 
   ggplot(aes(ttt, rejet_h0, group = n_bras, color = n_bras, shape = couleur)) +
   geom_point(size = 3) +
   geom_line() +
-  geom_point(data = NULL, aes(x = 0, y = 0, shape = "Intermediate"), size = 4, color = "transparent", inherit.aes = FALSE) +
+  # geom_point(data = NULL, aes(x = 0, y = 0, shape = "Intermediate"), size = 4, color = "transparent", inherit.aes = FALSE) +
   geom_point(data = NULL, aes(x = 0, y = 0, shape = "Promising"), size = 4, color = "transparent", inherit.aes = FALSE) +
-  geom_point(data = NULL, aes(x = 0, y = 0, shape = "Stopping"), size = 4, color = "transparent", inherit.aes = FALSE) +
-  scale_shape_manual(values = c(17, 15, 19), drop = FALSE) +
+  geom_point(data = NULL, aes(x = 0, y = 0, shape = "Unpromising"), size = 4, color = "transparent", inherit.aes = FALSE) +
+  scale_shape_manual(values = c(15, 19), drop = FALSE) +
   guides(shape = guide_legend(override.aes = list(color = "black"))) +
   facet_wrap(vars(methode)) +
-  labs(x = "Dose", y = "Proportion of conclusion to promising dose", color = "# arms", shape = "Decision") +
+  labs(x = "Dose", y = "Proportion of conclusion to promising dose", color = "# arms", shape = "Status") +
   scale_color_discrete(type = c("black", "darkblue", "darkred")) +
   expand_limits(x = 0) +
   scale_y_continuous(labels = scales::percent_format())
@@ -1088,17 +1115,18 @@ Graphe <- CaracBrasSensiBras %>%
   left_join(TabDecision, by = c("scenar", "n_bras" = "nb_bras", "ttt")) %>% 
   mutate(ttt = gsub("^ttt", "D", ttt),
          methode = factor(methode, levels = c("mBOP", "Simon+TM", "powBOP", "normpowBOP", "hBOP", "cbhmBOP", "log1BOP", "log2BOP")),
-         couleur = factor(couleur, levels = c("Intermediate", "Promising", "Stopping"))) %>% 
+         couleur = factor(couleur, levels = c("Promising", "Unpromising"))) %>% 
   ggplot(aes(ttt, rejet_h0, group = n_bras, color = n_bras, shape = couleur)) +
   geom_point(size = 3) +
   geom_line() +
-  geom_point(data = NULL, aes(x = 0, y = 0, shape = "Intermediate"), size = 4, color = "transparent", inherit.aes = FALSE) +
+  # geom_point(data = NULL, aes(x = 0, y = 0, shape = "Intermediate"), size = 4, color = "transparent", inherit.aes = FALSE) +
   geom_point(data = NULL, aes(x = 0, y = 0, shape = "Promising"), size = 4, color = "transparent", inherit.aes = FALSE) +
-  geom_point(data = NULL, aes(x = 0, y = 0, shape = "Stopping"), size = 4, color = "transparent", inherit.aes = FALSE) +
-  scale_shape_manual(values = c(17, 15, 19), drop = FALSE) +
+  geom_point(data = NULL, aes(x = 0, y = 0, shape = "Unpromising"), size = 4, color = "transparent", inherit.aes = FALSE) +
+  # scale_shape_manual(values = c(17, 15, 19), drop = FALSE) +
+  scale_shape_manual(values = c(15, 19), drop = TRUE) +
   guides(shape = guide_legend(override.aes = list(color = "black"))) +
   facet_wrap(vars(methode)) +
-  labs(x = "Dose", y = "Proportion of conclusion to promising dose", color = "# arms", shape = "Decision") +
+  labs(x = "Dose", y = "Proportion of conclusion to promising dose", color = "# arms", shape = "Status") +
   scale_color_discrete(type = c("black", "darkblue", "darkred")) +
   expand_limits(x = 0) +
   scale_y_continuous(labels = scales::percent_format())
@@ -1131,15 +1159,15 @@ Graphe <- CaracBrasPriors %>%
          methode = factor(methode, levels = c("H3_2", "H3_1", "H2_2", "H2_1", "H1_2", "H1_1", "hBOP")),
          ttt = gsub("^ttt", "D", ttt)) %>% 
   left_join(TabDecision %>% filter(nb_bras == "3 arms") %>% select(scenar, bras, couleur), by = c("scenar", "ttt" = "bras")) %>% 
-  mutate(couleur = factor(couleur, levels = c("Intermediate", "Promising", "Stopping"))) %>% 
+  mutate(couleur = factor(couleur, levels = c("Promising", "Unpromising"))) %>% 
   ggplot(aes(x = rejet_h0, y = methode, color = ttt, shape = couleur)) +
   geom_linerange(aes(xmin = 0, xmax = rejet_h0, y = methode, color = ttt), size = 1.1, position = position_dodge2(width = .6), inherit.aes = FALSE) +
   geom_point(position = position_dodge2(width = .6), size = 4) +
   geom_text(data = TabPCR %>% mutate(position_label = ifelse(scenar == "Sc2", .02, 1.25)) %>% filter(grepl("^h|^H", methode)), 
             aes(position_label, methode, label = pct), inherit.aes = FALSE, hjust = 1, size = 3.5) +
-  geom_point(data = NULL, aes(x = 0, y = 1, shape = "Intermediate"), size = 4, color = "transparent", inherit.aes = FALSE) +
+  # geom_point(data = NULL, aes(x = 0, y = 1, shape = "Intermediate"), size = 4, color = "transparent", inherit.aes = FALSE) +
   geom_point(data = NULL, aes(x = 0, y = 1, shape = "Promising"), size = 4, color = "transparent", inherit.aes = FALSE) +
-  geom_point(data = NULL, aes(x = 0, y = 1, shape = "Stopping"), size = 4, color = "transparent", inherit.aes = FALSE) +
+  geom_point(data = NULL, aes(x = 0, y = 1, shape = "Unpromising"), size = 4, color = "transparent", inherit.aes = FALSE) +
   facet_wrap(vars(scenar), scales = "free_x") +
   scale_x_continuous(labels = scales::percent_format()) +
   facetted_pos_scales(x = list(scale_x_continuous(labels = scales::percent_format(), breaks = seq(0, .015, .005)),
@@ -1147,9 +1175,10 @@ Graphe <- CaracBrasPriors %>%
                                scale_x_continuous(labels = scales::percent_format(), breaks = seq(0, 1, .25)),
                                scale_x_continuous(labels = scales::percent_format(), breaks = seq(0, 1, .25)))) +
   scale_color_discrete(type = c("darkred", "steelblue", "darkorange")) +
-  scale_shape_manual(values = c(17, 15, 19), drop = FALSE) +
+  # scale_shape_manual(values = c(17, 15, 19), drop = FALSE) +
+  scale_shape_manual(values = c(15, 19), drop = FALSE) +
   guides(shape = guide_legend(override.aes = list(color = "black"))) +
-  labs(y = NULL, x = "Proportion of conclusion to promising dose", color = "Dose", shape = "Decision") +
+  labs(y = NULL, x = "Proportion of conclusion to promising dose", color = "Dose", shape = "Status") +
   theme_light(base_size = 18) +
   theme(strip.background = element_rect(fill = "white", color = "black", size = 1.6),
         strip.text = element_text(face = "bold", color = "black"))
@@ -1161,15 +1190,15 @@ Graphe <- CaracBrasPriors %>%
          methode = factor(methode, levels = c("C2_2", "C2_1", "C1_2", "C1_1", "cbhmBOP")),
          ttt = gsub("^ttt", "D", ttt)) %>% 
   left_join(TabDecision %>% filter(nb_bras == "3 arms") %>% select(scenar, bras, couleur), by = c("scenar", "ttt" = "bras")) %>% 
-  mutate(couleur = factor(couleur, levels = c("Intermediate", "Promising", "Stopping"))) %>% 
+  mutate(couleur = factor(couleur, levels = c("Promising", "Unpromising"))) %>% 
   ggplot(aes(x = rejet_h0, y = methode, color = ttt, shape = couleur)) +
   geom_linerange(aes(xmin = 0, xmax = rejet_h0, y = methode, color = ttt), size = 1.1, position = position_dodge2(width = .6), inherit.aes = FALSE) +
   geom_point(position = position_dodge2(width = .6), size = 4) +
   geom_text(data = TabPCR %>% mutate(position_label = ifelse(scenar == "Sc2", .02, 1.25)) %>% filter(grepl("^c|^C", methode)), 
             aes(position_label, methode, label = pct), inherit.aes = FALSE, hjust = 1, size = 3.5) +
-  geom_point(data = NULL, aes(x = 0, y = 1, shape = "Intermediate"), size = 4, color = "transparent", inherit.aes = FALSE) +
+  # geom_point(data = NULL, aes(x = 0, y = 1, shape = "Intermediate"), size = 4, color = "transparent", inherit.aes = FALSE) +
   geom_point(data = NULL, aes(x = 0, y = 1, shape = "Promising"), size = 4, color = "transparent", inherit.aes = FALSE) +
-  geom_point(data = NULL, aes(x = 0, y = 1, shape = "Stopping"), size = 4, color = "transparent", inherit.aes = FALSE) +
+  geom_point(data = NULL, aes(x = 0, y = 1, shape = "Unpromising"), size = 4, color = "transparent", inherit.aes = FALSE) +
   facet_wrap(vars(scenar), scales = "free_x") +
   scale_x_continuous(labels = scales::percent_format()) +
   facetted_pos_scales(x = list(scale_x_continuous(labels = scales::percent_format(), breaks = seq(0, .015, .005)),
@@ -1177,9 +1206,10 @@ Graphe <- CaracBrasPriors %>%
                                scale_x_continuous(labels = scales::percent_format(), breaks = seq(0, 1, .25)),
                                scale_x_continuous(labels = scales::percent_format(), breaks = seq(0, 1, .25)))) +
   scale_color_discrete(type = c("darkred", "steelblue", "darkorange")) +
-  scale_shape_manual(values = c(17, 15, 19), drop = FALSE) +
+  # scale_shape_manual(values = c(17, 15, 19), drop = FALSE) +
+  scale_shape_manual(values = c(15, 19), drop = FALSE) +
   guides(shape = guide_legend(override.aes = list(color = "black"))) +
-  labs(y = NULL, x = "Proportion of conclusion to promising dose", color = "Dose", shape = "Decision") +
+  labs(y = NULL, x = "Proportion of conclusion to promising dose", color = "Dose", shape = "Status") +
   theme_light(base_size = 18) +
   theme(strip.background = element_rect(fill = "white", color = "black", size = 1.6),
         strip.text = element_text(face = "bold", color = "black"))
@@ -1191,15 +1221,15 @@ Graphe <- CaracBrasPriors %>%
          methode = factor(methode, levels = c("L5_2", "L5_1", "L4_2", "L4_1", "L3_2", "L3_1", "L2_2", "L2_1", "L1_2", "L1_1", "log1BOP")),
          ttt = gsub("^ttt", "D", ttt)) %>% 
   left_join(TabDecision %>% filter(nb_bras == "3 arms") %>% select(scenar, bras, couleur), by = c("scenar", "ttt" = "bras")) %>% 
-  mutate(couleur = factor(couleur, levels = c("Intermediate", "Promising", "Stopping"))) %>% 
+  mutate(couleur = factor(couleur, levels = c("Promising", "Unpromising"))) %>% 
   ggplot(aes(x = rejet_h0, y = methode, color = ttt, shape = couleur)) +
   geom_linerange(aes(xmin = 0, xmax = rejet_h0, y = methode, color = ttt), size = 1.1, position = position_dodge2(width = .6), inherit.aes = FALSE) +
   geom_point(position = position_dodge2(width = .6), size = 4) +
   geom_text(data = TabPCR %>% mutate(position_label = ifelse(scenar == "Sc2", .02, 1.25)) %>% filter(grepl("^l|^L", methode)), 
             aes(position_label, methode, label = pct), inherit.aes = FALSE, hjust = 1, size = 3.5) +
-  geom_point(data = NULL, aes(x = 0, y = 1, shape = "Intermediate"), size = 4, color = "transparent", inherit.aes = FALSE) +
+  # geom_point(data = NULL, aes(x = 0, y = 1, shape = "Intermediate"), size = 4, color = "transparent", inherit.aes = FALSE) +
   geom_point(data = NULL, aes(x = 0, y = 1, shape = "Promising"), size = 4, color = "transparent", inherit.aes = FALSE) +
-  geom_point(data = NULL, aes(x = 0, y = 1, shape = "Stopping"), size = 4, color = "transparent", inherit.aes = FALSE) +
+  geom_point(data = NULL, aes(x = 0, y = 1, shape = "Unpromising"), size = 4, color = "transparent", inherit.aes = FALSE) +
   facet_wrap(vars(scenar), scales = "free_x") +
   scale_x_continuous(labels = scales::percent_format()) +
   facetted_pos_scales(x = list(scale_x_continuous(labels = scales::percent_format(), breaks = seq(0, .015, .005)),
@@ -1207,9 +1237,10 @@ Graphe <- CaracBrasPriors %>%
                                scale_x_continuous(labels = scales::percent_format(), breaks = seq(0, 1, .25)),
                                scale_x_continuous(labels = scales::percent_format(), breaks = seq(0, 1, .25)))) +
   scale_color_discrete(type = c("darkred", "steelblue", "darkorange")) +
-  scale_shape_manual(values = c(17, 15, 19), drop = FALSE) +
+  # scale_shape_manual(values = c(17, 15, 19), drop = FALSE) +
+  scale_shape_manual(values = c(15, 19), drop = FALSE) +
   guides(shape = guide_legend(override.aes = list(color = "black"))) +
-  labs(y = NULL, x = "Proportion of conclusion to promising dose", color = "Dose", shape = "Decision") +
+  labs(y = NULL, x = "Proportion of conclusion to promising dose", color = "Dose", shape = "Status") +
   theme_light(base_size = 18) +
   theme(strip.background = element_rect(fill = "white", color = "black", size = 1.6),
         strip.text = element_text(face = "bold", color = "black"))
@@ -1284,23 +1315,25 @@ LabelsVec <- TabBrasCrm %>%
 Graphe <- TabBrasCrm %>% 
   mutate(lablab = factor(lablab, levels = LabelsVec)) %>% 
   left_join(TabDecision %>% filter(nb_bras == "3 arms") %>% select(scenar, bras, couleur), by = c("scenar", "ttt" = "bras")) %>% 
+  mutate(couleur = factor(couleur, levels = c("Promising", "Unpromising"))) %>% 
   ggplot(aes(x = rejet_h0, y = lablab, color = ttt, shape = couleur)) +
   geom_linerange(aes(xmin = 0, xmax = rejet_h0, y = lablab, color = ttt), size = 1.1, position = position_dodge2(width = .6), inherit.aes = FALSE) +
   geom_point(position = position_dodge2(width = .6), size = 4) +
   geom_text(data = TabPCR %>% mutate(position_label = ifelse(scenar == "Sc2", .015, 1.25)), 
             aes(position_label, lablab, label = pct), inherit.aes = FALSE, hjust = 1, size = 3.5) +
-  geom_point(data = NULL, aes(x = 0, y = 1, shape = "Intermediate"), size = 4, color = "transparent", inherit.aes = FALSE) +
+  # geom_point(data = NULL, aes(x = 0, y = 1, shape = "Intermediate"), size = 4, color = "transparent", inherit.aes = FALSE) +
   geom_point(data = NULL, aes(x = 0, y = 1, shape = "Promising"), size = 4, color = "transparent", inherit.aes = FALSE) +
-  geom_point(data = NULL, aes(x = 0, y = 1, shape = "Stopping"), size = 4, color = "transparent", inherit.aes = FALSE) +
+  geom_point(data = NULL, aes(x = 0, y = 1, shape = "Unpromising"), size = 4, color = "transparent", inherit.aes = FALSE) +
   facet_wrap(vars(scenar), scales = "free_x") +
   facetted_pos_scales(x = list(scale_x_continuous(labels = scales::percent_format(), breaks = seq(0, .01, .0025)),
                                scale_x_continuous(labels = scales::percent_format(), breaks = seq(0, 1, .25)),
                                scale_x_continuous(labels = scales::percent_format(), breaks = seq(0, 1, .25)),
                                scale_x_continuous(labels = scales::percent_format(), breaks = seq(0, 1, .25)))) +
   scale_color_discrete(type = c("darkred", "steelblue", "darkorange")) +
-  scale_shape_manual(values = c(17, 15, 19), drop = FALSE) +
+  # scale_shape_manual(values = c(17, 15, 19), drop = FALSE) +
+  scale_shape_manual(values = c(15, 19), drop = FALSE) +
   guides(shape = guide_legend(override.aes = list(color = "black"))) +
-  labs(y = NULL, x = "Proportion of conclusion to promising dose", color = "Dose", shape = "Decision") +
+  labs(y = NULL, x = "Proportion of conclusion to promising dose", color = "Dose", shape = "Status") +
   theme_light(base_size = 18) +
   theme(strip.background = element_rect(fill = "white", color = "black", size = 1.6),
         strip.text = element_text(face = "bold", color = "black"),

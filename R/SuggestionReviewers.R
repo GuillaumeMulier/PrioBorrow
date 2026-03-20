@@ -438,8 +438,8 @@ NBras <- 3
 
 # Scénarios
 Scenarios <- list(
-  "ScI2" = list(ttt1 = c(0.10, 0.20, 0.15, 0.55), ttt2 = c(0.19, 0.36, 0.11, 0.34), ttt3 = c(0.18, 0.34, 0.12, 0.36)),
-  "Sc6"  = list(ttt1 = c(0.11, 0.19, 0.17, 0.53), ttt2 = c(0.20, 0.30, 0.10, 0.40), ttt3 = c(0.19, 0.21, 0.21, 0.39))
+  "Sc9"  = list(ttt1 = c(0.12, 0.18, 0.18, 0.52), ttt2 = c(0.23, 0.27, 0.17, 0.33), ttt3 = c(0.17, 0.23, 0.18, 0.42)),
+  "ScI2" = list(ttt1 = c(0.10, 0.20, 0.15, 0.55), ttt2 = c(0.19, 0.36, 0.11, 0.34), ttt3 = c(0.19, 0.36, 0.11, 0.34))
 )
 NomScenars <- names(Scenarios)
 
@@ -540,6 +540,8 @@ if (FALSE) {
 Methodes <- list(
   "powBOP_efftox" = list(methode = "bop_power_efftox", A0 = .5, SeuilP = NA),
   "powBOP_tox" = list(methode = "bop_power_tox", A0 = .5, SeuilP = NA),
+  "normpowBOP_efftox" = list(methode = "bop_normpower_efftox", A0 = NA, SeuilP = NA),
+  "normpowBOP_tox" = list(methode = "bop_normpower_tox", A0 = NA, SeuilP = NA),
   "hBOP_efftox" = list(methode = "hier_efftox", A0 = NA, SeuilP = NA),
   "hBOP_tox" = list(methode = "hier_tox", A0 = NA, SeuilP = NA),
   "cbhmBOP_efftox" = list(methode = "cbhm_efftox", A0 = NA, SeuilP = NA),
@@ -553,94 +555,77 @@ Methodes <- list(
 )
 NomMethodes <- names(Methodes)
 
+TabSimu <- expand.grid(scenario = NomScenars, methode = NomMethodes)
+
 
 ###  Simulations ----
 
-cl <- makeCluster(6)
+cl <- makeCluster(20)
 registerDoParallel(cl)
 
 if (TRUE) {
-  cat("----\nMain simulation: 3 arms (non-monotonic scenarios)\n----\n\n", file = "~/simu_priors/log.txt", append = TRUE)
-  
-  for (m in seq_len(ceiling(length(Methodes) / 2))) {
-    
-    # Load 
-    if (2 * m <= length(Methodes)) {
-      cat(paste0("----\n", NomMethodes[2 * m - 1], " and ", NomMethodes[2 * m], "\n----\n\n"), file = "~/simu_priors/log.txt", append = TRUE)
-    } else {
-      cat(paste0("----\n", NomMethodes[2 * m - 1], "\n----\n\n"), file = "~/simu_priors/log.txt", append = TRUE)
-    }
-    
-    # Parameters of the method
-    Params1 <- Methodes[[2 * m - 1]]
-    if (2 * m <= length(Methodes)) Params2 <- Methodes[[2 * m]]
-    
-    # Simulate the scenarios 
-    VecScenarios <- if (2 * m <= length(Methodes)) seq_len(2 * length(Scenarios)) else seq_along(Scenarios)
-    ResT <- foreach(i = VecScenarios,
-                    .packages = c("dplyr", "purrr", "rlang", "stringr", "rstan"),
-                    .export = c("%nin%", "Alpha", "AnaEff", "AnaTox", "CBHM_eff",
-                                "CBHM_tox", "gen_patients_multinom",
-                                "m", "Methodes", "NBras", "NomMethodes", "NomScenars", "NSimu",
-                                "opcharac", "PA", "Params1", "PN", "real_essai_bayeslog_efftox",
-                                "real_essai_bayeslog_tox", "real_essai_bop", "real_essai_bop_borrow",
-                                "real_essai_bop_borrow_test_efftox", "real_essai_bop_borrow_test_tox",
-                                "real_essai_bop_power_efftox", "real_essai_bop_power_test_efftox",
-                                "real_essai_bop_power_test_tox", "real_essai_bop_power_tox",
-                                "real_essai_bop_seq_efftox", "real_essai_bop_seq_tox", "real_essai_modcbhm_efftox",
-                                "real_essai_modcbhm_tox", "real_essai_modexnex_efftox", "real_essai_modexnex_tox",
-                                "real_essai_modhier_efftox", "real_essai_modhier_tox", "simu_simon",
-                                "Scenarios", "SeuilBOP", "SeuilSimon", "SeuilIva", "summarise_decision", "summarise_detect",
-                                "summarise_ttt")) %dopar% {
-                                  
-                                  NScenar <- i %% length(Scenarios)
-                                  if (NScenar == 0) NScenar <- length(Scenarios)
-                                  NumMethode <- if (i <= length(Scenarios)) 2 * m - 1 else 2 * m
-                                  Params <- if (i <= length(Scenarios)) Params1 else Params2
-                                  cat(paste0("Scenario n°", NScenar, "/", length(Scenarios), " : ", NomScenars[NScenar], " with ", NomMethodes[NumMethode], "\n"), file = "~/simu_priors/log.txt", append = TRUE)
-                                  
-                                  # Generate trials
-                                  tableau_essais <- gen_patients_multinom(NSimu, AnaEff, AnaTox,
-                                                                          multinom_ttt = Scenarios[[NScenar]],
-                                                                          rand_ratio = rep(1, NBras), seed = 121221)
-                                  
-                                  # Simulate the result with the different methods
-                                  if (Params$methode == "simoniva") {
-                                    Resultat <- simu_simon(p_n = PN, p_a = PA,
-                                                           tableau_essais = tableau_essais,
-                                                           CaracSeuilSimon = SeuilSimon,
-                                                           CaracSeuilIva = SeuilIva)
-                                  } else {
-                                    Resultat <- tryCatch(opcharac(ana_inter = AnaEff, ana_inter_tox = AnaTox,
-                                                                  p_n = PN, p_a = PA,
-                                                                  CPar = SeuilBOP[[1]][["C_"]], PPar = SeuilBOP[[1]][["gamma"]],
-                                                                  methode = Params$methode,
-                                                                  A0_tox = Params$A0, SeuilP_tox = Params$SeuilP,
-                                                                  A0_eff = Params$A0, SeuilP_eff = Params$SeuilP,
-                                                                  a_tox = CBHM_tox$a, b_tox = CBHM_tox$b,
-                                                                  a_eff = CBHM_eff$a, b_eff = CBHM_eff$b,
-                                                                  p_mix_tox = rep(.5, NBras), p_mix_eff = rep(.5, NBras),
-                                                                  tableau_essais = tableau_essais),
-                                                         error = function(e) list(paste0(e)))
-                                  }
-                                  
-                                  Resultat <- append(Resultat,
-                                                     values = list(data.frame(methode = NomMethodes[NumMethode], scenar = NomScenars[NScenar])),
-                                                     after = 2)
-                                  return(Resultat)
-                                  
+  ResT <- foreach(i = seq_len(nrow(TabSimu)),
+                  .packages = c("dplyr", "purrr", "rlang", "stringr", "rstan"),
+                  .export = c("%nin%", "Alpha", "AnaEff", "AnaTox", "CBHM_eff",
+                              "CBHM_tox", "gen_patients_multinom",
+                              "Methodes", "NBras", "NomMethodes", "NomScenars", "NSimu",
+                              "opcharac", "PA", "PN", "real_essai_bayeslog_efftox",
+                              "real_essai_bayeslog_tox", "real_essai_bop", "real_essai_bop_borrow",
+                              "real_essai_bop_borrow_test_efftox", "real_essai_bop_borrow_test_tox",
+                              "real_essai_bop_power_efftox", "real_essai_bop_power_test_efftox",
+                              "real_essai_bop_power_test_tox", "real_essai_bop_power_tox",
+                              "real_essai_bop_seq_efftox", "real_essai_bop_seq_tox", "real_essai_modcbhm_efftox",
+                              "real_essai_modcbhm_tox", "real_essai_modexnex_efftox", "real_essai_modexnex_tox",
+                              "real_essai_modhier_efftox", "real_essai_modhier_tox", "simu_simon",
+                              "Scenarios", "SeuilBOP", "SeuilSimon", "SeuilIva", "summarise_decision", "summarise_detect",
+                              "summarise_ttt")) %dopar% {
+                                
+                                NScenar <- TabSimu$scenario[i]
+                                NumMethode <- TabSimu$methode[i]
+                                Params <- Methodes[[NumMethode]]
+                                cat(paste0("Scenario n°", NScenar, "/", length(Scenarios), " : ", NomScenars[NScenar], " with ", NomMethodes[NumMethode], "\n"), file = "~/simu_priors/log.txt", append = TRUE)
+                                
+                                # Generate trials
+                                tableau_essais <- gen_patients_multinom(NSimu, AnaEff, AnaTox,
+                                                                        multinom_ttt = Scenarios[[NScenar]],
+                                                                        rand_ratio = rep(1, NBras), seed = 121221)
+                                
+                                # Simulate the result with the different methods
+                                if (Params$methode == "simoniva") {
+                                  Resultat <- simu_simon(p_n = PN, p_a = PA,
+                                                         tableau_essais = tableau_essais,
+                                                         CaracSeuilSimon = SeuilSimon,
+                                                         CaracSeuilIva = SeuilIva)
+                                } else {
+                                  Resultat <- tryCatch(opcharac(ana_inter = AnaEff, ana_inter_tox = AnaTox,
+                                                                p_n = PN, p_a = PA,
+                                                                CPar = SeuilBOP[[1]][["C_"]], PPar = SeuilBOP[[1]][["gamma"]],
+                                                                methode = Params$methode,
+                                                                A0_tox = Params$A0, SeuilP_tox = Params$SeuilP,
+                                                                A0_eff = Params$A0, SeuilP_eff = Params$SeuilP,
+                                                                a_tox = CBHM_tox$a, b_tox = CBHM_tox$b,
+                                                                a_eff = CBHM_eff$a, b_eff = CBHM_eff$b,
+                                                                p_mix_tox = rep(.5, NBras), p_mix_eff = rep(.5, NBras),
+                                                                tableau_essais = tableau_essais),
+                                                        error = function(e) list(paste0(e)))
                                 }
-    
-    # Save results
-    save(ResT, file = paste0("~/simu_priors/resultats_priorsppalmonoton_20260316_", m, ".RData"))
-    
-  }
+                                
+                                Resultat <- append(Resultat,
+                                                    values = list(data.frame(methode = NomMethodes[NumMethode], scenar = NomScenars[NScenar])),
+                                                    after = 2)
+                                return(Resultat)
+                                
+                              }
   
+  # Save results
+  save(ResT, file = paste0("~/simu_priors/resultats_priorsppalmonoton_20260316.RData"))
+    
 } else {
   cat("Decided not to do it (main analysis for non-monotonic scenarios). Continuing with next simulation scenarios...\n\n", file = "~/simu_priors/log.txt", append = TRUE)
 }
 
 stopCluster(cl)
+
 
 cat("\nFini !\n", file = "~/simu_priors/log.txt", append = TRUE)
 
