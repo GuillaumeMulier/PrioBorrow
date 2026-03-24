@@ -8,6 +8,7 @@ Folders:
 - R: R code
     - GetOC.R ==> all function to simulate data and analyse them with the different explored models
     - TestPriorBOP_vXX.R ==> simulate the scenarios with different modification of the manner to compute posterior probability
+    - SuggestionReviewers.R ==> additional analyses to answer reviewers comments
     - TestPriorServeur.R ==> experimentation to replicate different prior borrowing techniques (power priors, hierarchical model + power prior, MAP prior)
     - GenFigures.R ==> generate figures for article
     - ExplorSeedCBHM.R ==> explore the influence of the seed on the results for FWER of CBHM
