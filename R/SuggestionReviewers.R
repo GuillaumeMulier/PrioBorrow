@@ -69,9 +69,9 @@ Scenarios <- list(
   "ScI2" = list(ttt1 = c(0.10, 0.20, 0.15, 0.55), ttt2 = c(0.19, 0.36, 0.11, 0.34), ttt3 = c(0.18, 0.34, 0.12, 0.36)),
   "ScI3" = list(ttt1 = c(0.15, 0.35, 0.10, 0.40), ttt2 = c(0.18, 0.34, 0.12, 0.36), ttt3 = c(0.25, 0.30, 0.15, 0.30)),
   "Sc5"  = list(ttt1 = c(0.11, 0.19, 0.17, 0.53), ttt2 = c(0.20, 0.30, 0.10, 0.40), ttt3 = c(0.25, 0.30, 0.15, 0.30)),
-  "Sc6"  = list(ttt1 = c(0.11, 0.19, 0.17, 0.53), ttt2 = c(0.20, 0.30, 0.10, 0.40), ttt3 = c(0.19, 0.21, 0.21, 0.39)),
-  "Sc7"  = list(ttt1 = c(0.14, 0.26, 0.14, 0.46), ttt2 = c(0.20, 0.30, 0.10, 0.40), ttt3 = c(0.25, 0.30, 0.15, 0.30)),
-  "Sc8"  = list(ttt1 = c(0.18, 0.32, 0.12, 0.38), ttt2 = c(0.22, 0.28, 0.15, 0.35), ttt3 = c(0.23, 0.27, 0.17, 0.33)),
+  "Sc6"  = list(ttt1 = c(0.14, 0.26, 0.14, 0.46), ttt2 = c(0.20, 0.30, 0.10, 0.40), ttt3 = c(0.25, 0.30, 0.15, 0.30)),
+  "Sc7"  = list(ttt1 = c(0.18, 0.32, 0.12, 0.38), ttt2 = c(0.22, 0.28, 0.15, 0.35), ttt3 = c(0.23, 0.27, 0.17, 0.33)),
+  "Sc8"  = list(ttt1 = c(0.12, 0.18, 0.18, 0.52), ttt2 = c(0.17, 0.23, 0.18, 0.42), ttt3 = c(0.23, 0.27, 0.17, 0.33)),
   "Sc9"  = list(ttt1 = c(0.12, 0.18, 0.18, 0.52), ttt2 = c(0.17, 0.23, 0.18, 0.42), ttt3 = c(0.23, 0.27, 0.17, 0.33))
 )
 NomScenars <- names(Scenarios)
@@ -101,7 +101,7 @@ NomMethodes <- names(Methodes)
 cl <- makeCluster(20)
 registerDoParallel(cl)
 
-if (FALSE) {
+if (TRUE) {
   cat("----\nMain simulation: 3 arms (normalized power prior)\n----\n\n", file = "~/simu_priors/log.txt", append = TRUE)
   
   for (m in seq_len(ceiling(length(Methodes) / 2))) {
@@ -563,7 +563,7 @@ TabSimu <- expand.grid(scenario = NomScenars, methode = NomMethodes)
 cl <- makeCluster(20)
 registerDoParallel(cl)
 
-if (TRUE) {
+if (FALSE) {
   ResT <- foreach(i = seq_len(nrow(TabSimu)),
                   .packages = c("dplyr", "purrr", "rlang", "stringr", "rstan"),
                   .export = c("%nin%", "Alpha", "AnaEff", "AnaTox", "CBHM_eff",

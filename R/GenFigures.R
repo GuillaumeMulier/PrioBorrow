@@ -59,7 +59,7 @@ load("Data/SimuReview/resultats_priorsppalnorm_20260316_1.RData")
 CaracGlobales <- rbind(CaracGlobales,
                        do.call("rbind", lapply(ResT, \(x) cbind(x[[3]], x[[1]]))) %>% 
                          separate(methode, c("methode", "cible"), "_") %>% 
-                         filter(scenar != "Sc6") %>% # Updating of non monotonic scenarios (sorry for clumsy code, it is to avoid recomputing all scenarios :/)
+                         filter(!scenar %in% c("Sc6", "ScI2")) %>% # Updating of non monotonic scenarios (sorry for clumsy code, it is to avoid recomputing all scenarios :/)
                          mutate(n_bras = "3 arms",
                                 scenar = case_when(scenar == "Sc7" ~ "Sc6",
                                                    scenar == "Sc8" ~ "Sc7",
@@ -68,7 +68,7 @@ CaracGlobales <- rbind(CaracGlobales,
 CaracBras <- rbind(CaracBras,
                    do.call("rbind", lapply(ResT, \(x) cbind(x[[3]], x[[2]]))) %>% 
                      separate(methode, c("methode", "cible"), "_") %>% 
-                         filter(scenar != "Sc6") %>% # Updating of non monotonic scenarios (sorry for clumsy code, it is to avoid recomputing all scenarios :/)
+                         filter(!scenar %in% c("Sc6", "ScI2")) %>% # Updating of non monotonic scenarios (sorry for clumsy code, it is to avoid recomputing all scenarios :/)
                          mutate(n_bras = "3 arms",
                                 scenar = case_when(scenar == "Sc7" ~ "Sc6",
                                                    scenar == "Sc8" ~ "Sc7",
@@ -77,7 +77,7 @@ CaracBras <- rbind(CaracBras,
 CaracEssais <- rbind(CaracEssais,
                      do.call("rbind", lapply(ResT, \(x) cbind(x[[3]], x[[4]]))) %>% 
                         separate(methode, c("methode", "cible"), "_") %>% 
-                         filter(scenar != "Sc6") %>% # Updating of non monotonic scenarios (sorry for clumsy code, it is to avoid recomputing all scenarios :/)
+                         filter(!scenar %in% c("Sc6", "ScI2")) %>% # Updating of non monotonic scenarios (sorry for clumsy code, it is to avoid recomputing all scenarios :/)
                          mutate(n_bras = "3 arms",
                                 scenar = case_when(scenar == "Sc7" ~ "Sc6",
                                                    scenar == "Sc8" ~ "Sc7",
@@ -88,9 +88,26 @@ CaracEssais <- rbind(CaracEssais,
 
 # Adding supplementary scenarios (non monotonic scenarios)
 load("Data/SimuReview/resultats_priorsppalmonoton_20260316.RData")
-do.call("rbind", lapply(ResT, \(x) cbind(x[[3]], x[[1]]))) %>% 
+CaracGlobales <- rbind(CaracGlobales,
+                       do.call("rbind", lapply(ResT, \(x) cbind(x[[3]], x[[1]]))) %>% 
+                         mutate(methode = ifelse(methode == "mBOP", "mBOP_both", methode),
+                                methode = ifelse(methode == "Simon+Iva", "Simon+TM_both", methode)) %>% 
                          separate(methode, c("methode", "cible"), "_") %>% 
-                         mutate(n_bras = "3 arms")
+                         mutate(n_bras = "3 arms"))
+CaracBras <- rbind(CaracBras,
+                   do.call("rbind", lapply(ResT, \(x) cbind(x[[3]], x[[2]]))) %>% 
+                     mutate(methode = ifelse(methode == "mBOP", "mBOP_both", methode),
+                            methode = ifelse(methode == "Simon+Iva", "Simon+TM_both", methode)) %>% 
+                     separate(methode, c("methode", "cible"), "_") %>% 
+                     mutate(n_bras = "3 arms"))
+CaracEssais <- rbind(CaracEssais,
+                     do.call("rbind", lapply(ResT, \(x) cbind(x[[3]], x[[4]]))) %>% 
+                        mutate(methode = ifelse(methode == "mBOP", "mBOP_both", methode),
+                               methode = ifelse(methode == "Simon+Iva", "Simon+TM_both", methode)) %>% 
+                        separate(methode, c("methode", "cible"), "_") %>% 
+                        mutate(n_bras = "3 arms",
+                               larg_ic_eff = icsup_eff - icinf_eff,
+                               larg_ic_tox = icsup_tox - icinf_tox))
 
 CaracGlobales4Bras <- list()
 CaracBras4Bras <- list()
@@ -283,9 +300,9 @@ ListeScenars <- list(
   "ScI2" = list(ttt1 = c(0.10, 0.20, 0.15, 0.55), ttt2 = c(0.19, 0.36, 0.11, 0.34), ttt3 = c(0.19, 0.36, 0.11, 0.34)),
   "ScI3" = list(ttt1 = c(0.15, 0.35, 0.10, 0.40), ttt2 = c(0.18, 0.34, 0.12, 0.36), ttt3 = c(0.25, 0.30, 0.15, 0.30)),
   "Sc5"  = list(ttt1 = c(0.11, 0.19, 0.17, 0.53), ttt2 = c(0.20, 0.30, 0.10, 0.40), ttt3 = c(0.25, 0.30, 0.15, 0.30)),
-  "Sc6"  = list(ttt1 = c(0.11, 0.19, 0.17, 0.53), ttt2 = c(0.20, 0.30, 0.10, 0.40), ttt3 = c(0.19, 0.21, 0.21, 0.39)),
-  "Sc7"  = list(ttt1 = c(0.14, 0.26, 0.14, 0.46), ttt2 = c(0.20, 0.30, 0.10, 0.40), ttt3 = c(0.25, 0.30, 0.15, 0.30)),
-  "Sc8"  = list(ttt1 = c(0.18, 0.32, 0.12, 0.38), ttt2 = c(0.22, 0.28, 0.15, 0.35), ttt3 = c(0.23, 0.27, 0.17, 0.33)),
+  "Sc6"  = list(ttt1 = c(0.14, 0.26, 0.14, 0.46), ttt2 = c(0.20, 0.30, 0.10, 0.40), ttt3 = c(0.25, 0.30, 0.15, 0.30)),
+  "Sc7"  = list(ttt1 = c(0.18, 0.32, 0.12, 0.38), ttt2 = c(0.22, 0.28, 0.15, 0.35), ttt3 = c(0.23, 0.27, 0.17, 0.33)),
+  "Sc8"  = list(ttt1 = c(0.12, 0.18, 0.18, 0.52), ttt2 = c(0.17, 0.23, 0.18, 0.42), ttt3 = c(0.23, 0.27, 0.17, 0.33)),
   "Sc9"  = list(ttt1 = c(0.12, 0.18, 0.18, 0.52), ttt2 = c(0.23, 0.27, 0.17, 0.33), ttt3 = c(0.17, 0.23, 0.18, 0.42))
 )
 NomsScenars <- c(
@@ -512,8 +529,8 @@ TabPCR <- CaracEssais %>%
   ungroup() %>% 
   mutate(verite = case_when(scenar == "Sc5" ~ "ttt2", 
                             scenar == "Sc6" ~ "ttt2",
-                            scenar == "Sc7" ~ "ttt2",
-                            scenar == "Sc8" ~ "ttt1",
+                            scenar == "Sc7" ~ "ttt1",
+                            scenar == "Sc8" ~ "",
                             scenar == "Sc9" ~ "",
                             TRUE ~ NA_character_),
          final = as.numeric(verite == choix)) %>% 
@@ -526,7 +543,7 @@ TabPCR <- CaracEssais %>%
 Graphes <- CaracBras %>% 
   filter(cible %in% c("efftox", "both"), scenar %in% c("Sc5", "Sc6", "Sc7", "Sc8", "Sc9"), methode %in% c("mBOP", "Simon+TM", "powBOP", "hBOP", "cbhmBOP", "log1BOP", "log2BOP")) %>% 
   mutate(ttt = gsub("ttt", "D", ttt),
-         scenar = factor(scenar, levels = c("Sc5", "Sc7", "Sc8", "Sc9")),
+         scenar = factor(scenar, levels = c("Sc5", "Sc6", "Sc7", "Sc8", "Sc9")),
          methode = factor(methode, levels = rev(c("mBOP", "Simon+TM", "powBOP", "hBOP", "cbhmBOP", "log1BOP", "log2BOP")))) %>% 
   left_join(TabProm, by = c("scenar", "ttt" = "bras")) %>%
   mutate(couleur = factor(couleur, levels = c("Intermediate", "Promising", "Stopping"), labels = c("Intermediate", "Promising", "Unpromising"))) %>% 
@@ -544,7 +561,7 @@ Graphes <- CaracBras %>%
       coord_cartesian(xlim = c(0, 1.25)) +
       scale_x_continuous(labels = scales::percent_format(), breaks = seq(0, 1, .25)) +
       scale_color_discrete(type = c("darkred", "steelblue", "darkorange")) +
-      scale_shape_manual(values = c(17, 15, 19)) +
+      scale_shape_manual(values = c(17, 15, 19), drop = FALSE) +
       guides(shape = guide_legend(override.aes = list(color = "black"))) +
       labs(y = NULL, x = "Proportion of conclusion to promising dose", color = "Dose", shape = "Status") +
       theme_light(base_size = 18) +
@@ -554,17 +571,18 @@ Graphes <- CaracBras %>%
 Layout <- "
 AABB
 CCDD
-EEEE
+#EE#
+FFFF
 "
 Legend <- cowplot::get_legend(Graphes[[1]] + theme(legend.position = "bottom"))
-((Graphes[[1]] + theme(legend.position = "none")) + (Graphes[[2]] + theme(legend.position = "none")) +
-  (Graphes[[3]] + theme(legend.position = "none")) + (Graphes[[4]] + theme(legend.position = "none")) + Legend) +
-  plot_layout(design = Layout, heights = c(4, 4, 1), guides = "collect", axes = "collect_y", axis_titles = "collect")
-ggsave(((Graphes[[1]] + theme(legend.position = "none")) + (Graphes[[2]] + theme(legend.position = "none")) +
-          (Graphes[[3]] + theme(legend.position = "none")) + (Graphes[[4]] + theme(legend.position = "none")) + Legend) +
-          plot_layout(design = Layout, heights = c(4, 4, 1), guides = "collect", axes = "collect_y", axis_titles = "collect"), 
+((Graphes[[1]] + theme(legend.position = "none")) + (Graphes[[2]] + theme(legend.position = "none", axis.text.y = element_blank(), axis.ticks.y = element_blank())) +
+  (Graphes[[3]] + theme(legend.position = "none")) + (Graphes[[4]] + theme(legend.position = "none", axis.text.y = element_blank(), axis.ticks.y = element_blank())) + (Graphes[[5]] + theme(legend.position = "none")) + Legend) +
+  plot_layout(design = Layout, heights = c(4, 4, 4, 1), widths = c(1, 2, 2, 2), guides = "collect", axes = "collect", axis_titles = "collect")
+ggsave(((Graphes[[1]] + theme(legend.position = "none")) + (Graphes[[2]] + theme(legend.position = "none", axis.text.y = element_blank(), axis.ticks.y = element_blank())) +
+  (Graphes[[3]] + theme(legend.position = "none")) + (Graphes[[4]] + theme(legend.position = "none", axis.text.y = element_blank(), axis.ticks.y = element_blank())) + (Graphes[[5]] + theme(legend.position = "none")) + Legend) +
+  plot_layout(design = Layout, heights = c(4, 4, 4, 1), widths = c(1, 2, 2, 2), guides = "collect", axes = "collect", axis_titles = "collect"), 
        filename = "Figures/rejet_bras_sc5678.png", device = "png", 
-       height = 35 / 2, width = 52 / 2, units = "cm", dpi = 300)
+       height = 45 / 2, width = 52 / 2, units = "cm", dpi = 300)
 
 
 # Figure 4 and table 2 ----
@@ -588,7 +606,7 @@ TabPCR <- CaracEssais %>%
 Graphes <- CaracBras %>% 
   filter(cible %in% c("efftox", "both"), scenar %in% c("ScI1", "ScI2", "ScI3"), methode %in% c("mBOP", "Simon+TM", "powBOP", "hBOP", "cbhmBOP", "log1BOP", "log2BOP")) %>% 
   mutate(ttt = gsub("ttt", "D", ttt),
-         scenar = factor(scenar, levels = c("ScI1", "ScI3")),
+         scenar = factor(scenar, levels = c("ScI1", "ScI2", "ScI3")),
          methode = factor(methode, levels = rev(c("mBOP", "Simon+TM", "powBOP", "hBOP", "cbhmBOP", "log1BOP", "log2BOP")))) %>% 
   left_join(TabProm, by = c("scenar", "ttt" = "bras")) %>%
   mutate(couleur = factor(couleur, levels = c("Promising", "Stopping"), labels = c("Promising", "Unpromising"))) %>% 
@@ -616,15 +634,16 @@ Graphes <- CaracBras %>%
   })
 Layout <- "
 AABB
-CCCC
+#CC#
+DDDD
 "
 Legend <- cowplot::get_legend(Graphes[[1]] + theme(legend.position = "bottom"))
-((Graphes[[1]] + theme(legend.position = "none")) + (Graphes[[2]] + theme(legend.position = "none")) +
+((Graphes[[1]] + theme(legend.position = "none")) + (Graphes[[2]] + theme(legend.position = "none", axis.text.y = element_blank(), axis.ticks.y = element_blank())) + (Graphes[[3]] + theme(legend.position = "none")) +
   Legend) +
-  plot_layout(design = Layout, heights = c(4, 1), guides = "collect", axes = "collect_y", axis_titles = "collect")
-ggsave(((Graphes[[1]] + theme(legend.position = "none")) + (Graphes[[2]] + theme(legend.position = "none")) +
-          Legend) +
-          plot_layout(design = Layout, heights = c(4, 1), guides = "collect", axes = "collect_y", axis_titles = "collect"), 
+  plot_layout(design = Layout, heights = c(4, 4, 1), widths = c(1, 2, 2, 2), guides = "collect", axes = "collect", axis_titles = "collect")
+ggsave(((Graphes[[1]] + theme(legend.position = "none")) + (Graphes[[2]] + theme(legend.position = "none", axis.text.y = element_blank(), axis.ticks.y = element_blank())) + (Graphes[[3]] + theme(legend.position = "none")) +
+  Legend) +
+  plot_layout(design = Layout, heights = c(4, 4, 1), widths = c(1, 2, 2, 2), guides = "collect", axes = "collect", axis_titles = "collect"), 
        filename = "Figures/rejet_bras_scibru.png", device = "png", 
        height = 35 / 2, width = 52 / 2, units = "cm", dpi = 300)
 
@@ -692,6 +711,7 @@ CaracBras %>%
   pivot_wider(names_from = "methode", values_from = c("AP", "MPts"), names_glue = "{methode}_{.value}") %>% 
   select(Scenario, Dose, mBOP_AP, mBOP_MPts, `Simon+TM_AP`, `Simon+TM_MPts`, powBOP_AP, powBOP_MPts, 
          hBOP_AP, hBOP_MPts, cbhmBOP_AP, cbhmBOP_MPts, log1BOP_AP, log1BOP_MPts, log2BOP_AP, log2BOP_MPts) %>% 
+  arrange(Scenario) %>% 
   xtable::xtable()
 
 # Efficacy and toxicity estimations ----
@@ -940,8 +960,8 @@ TabPCR <- CaracEssais %>%
                             scenar %in% c("Sc3", "Sc4") ~ "ttt1-ttt2-ttt3",
                             scenar == "Sc5" ~ "ttt2", 
                             scenar == "Sc6" ~ "ttt2",
-                            scenar == "Sc7" ~ "ttt2",
-                            scenar == "Sc8" ~ "ttt1",
+                            scenar == "Sc7" ~ "ttt1",
+                            scenar == "Sc8" ~ "",
                             scenar == "Sc9" ~ "",
                             scenar == "ScI1" ~ "ttt2-ttt3", 
                             scenar == "ScI2" ~ "ttt2-ttt3",
@@ -1338,7 +1358,7 @@ Graphe <- TabBrasCrm %>%
   theme(strip.background = element_rect(fill = "white", color = "black", size = 1.6),
         strip.text = element_text(face = "bold", color = "black"),
         axis.text.y = element_markdown())
-ggsave(Graphe, filename = "Figures/resultbras_sensi_crm_v2.png", device = "png", height = 10, width = 14)
+ggsave(Graphe, filename = "Figures/resultbras_sensi_crm.png", device = "png", height = 10, width = 14)
 
 
 # Sensitivity analysis : Logistic regression with log(d/d*) instead of just d/d* ----
@@ -1375,9 +1395,9 @@ ggsave(wrap_plots(Graphes, guides = "collect", axes = "collect_y", axis_titles =
        height = 27.33 / 2, width = 40.99 / 2, units = "cm", dpi = 300)
 
 Graphes <- CaracBrasLogit %>% 
-  filter(cible %in% c("efftox", "both"), scenar %in% c("Sc5", "Sc6", "Sc7", "Sc8")) %>% 
+  filter(cible %in% c("efftox", "both"), scenar %in% c("Sc5", "Sc6", "Sc7", "Sc8", "Sc9")) %>% 
   mutate(ttt = gsub("ttt", "D", ttt),
-         scenar = factor(scenar, levels = c("Sc5", "Sc6", "Sc7", "Sc8")),
+         scenar = factor(scenar, levels = c("Sc5", "Sc6", "Sc7", "Sc8", "Sc9")),
          methode = factor(methode, levels = rev(c("log1BOP", "verlog1BOP", "log2BOP", "verlog2BOP")))) %>% 
   split(.$scenar) %>% 
   map(\(Sc) {
@@ -1402,9 +1422,9 @@ ggsave(wrap_plots(Graphes, guides = "collect", axes = "collect_y", axis_titles =
        height = 27.33 / 2, width = 40.99 / 2, units = "cm", dpi = 300)
 
 Graphes <- CaracBrasLogit %>% 
-  filter(cible %in% c("efftox", "both"), scenar %in% c("ScI1", "ScI2")) %>% 
+  filter(cible %in% c("efftox", "both"), scenar %in% c("ScI1", "ScI2", "ScI3")) %>% 
   mutate(ttt = gsub("ttt", "D", ttt),
-         scenar = factor(scenar, levels = c("ScI1", "ScI2")),
+         scenar = factor(scenar, levels = c("ScI1", "ScI2", "ScI3")),
          methode = factor(methode, levels = rev(c("log1BOP", "verlog1BOP", "log2BOP", "verlog2BOP")))) %>% 
   split(.$scenar) %>% 
   map(\(Sc) {
